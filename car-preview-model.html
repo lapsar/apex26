@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>APEX '26 — концепт болида</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;700&family=Saira:wght@400;600&family=Space+Mono&display=swap" rel="stylesheet">
+<style>
+  :root{ --accent:#FF7A00; --bg:#0b0d10; --ink:#e8ebf0; --dim:#7d8590; --line:#1e2228; }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{ background:var(--bg); color:var(--ink); font-family:'Saira',system-ui,sans-serif; overflow:hidden; -webkit-user-select:none; user-select:none;}
+  #scene{ position:fixed; inset:0; } canvas{ display:block; }
+  .brand{ position:fixed; top:20px; left:22px; z-index:5; pointer-events:none;}
+  .brand .kick{ font-family:'Space Mono',monospace; font-size:11px; letter-spacing:.32em; color:var(--dim); text-transform:uppercase;}
+  .brand h1{ font-family:'Saira Condensed',sans-serif; font-weight:700; font-size:34px; letter-spacing:.01em; line-height:.95; text-transform:uppercase;}
+  .brand h1 b{ color:var(--accent); }
+  .brand .sub{ font-size:12.5px; color:var(--dim); margin-top:2px;}
+  .spec{ position:fixed; left:22px; bottom:20px; z-index:5; display:grid; grid-template-columns:auto auto; gap:2px 26px; pointer-events:none;}
+  .spec dt{ font-family:'Space Mono',monospace; font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim); align-self:center;}
+  .spec dd{ font-family:'Saira Condensed',sans-serif; font-weight:700; font-size:16px; text-align:right;}
+  .spec dd .u{ color:var(--dim); font-weight:500; font-size:12px; margin-left:2px;}
+  .liveries{ position:fixed; right:22px; bottom:20px; z-index:6; display:flex; flex-direction:column; align-items:flex-end; gap:10px; max-width:46vw;}
+  .liveries .lab{ font-family:'Space Mono',monospace; font-size:10px; letter-spacing:.2em; text-transform:uppercase; color:var(--dim);}
+  .swatches{ display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;}
+  .sw{ width:24px; height:24px; border-radius:50%; border:2px solid rgba(255,255,255,.14); cursor:pointer; transition:transform .15s, border-color .15s;}
+  .sw:hover{ transform:translateY(-2px);} .sw.on{ border-color:#fff; transform:translateY(-2px);}
+  .ctrl{ position:fixed; right:22px; top:20px; z-index:6; display:flex; gap:8px;}
+  .btn{ font-family:'Saira Condensed',sans-serif; font-weight:700; text-transform:uppercase; letter-spacing:.06em; font-size:13px; color:var(--ink); background:rgba(255,255,255,.04); border:1px solid var(--line); border-radius:9px; padding:8px 12px; cursor:pointer;}
+  .btn:hover{ background:rgba(255,255,255,.09);} .btn.on{ border-color:var(--accent); color:#fff;}
+  .hint{ position:fixed; left:50%; bottom:16px; transform:translateX(-50%); z-index:4; font-family:'Space Mono',monospace; font-size:11px; letter-spacing:.14em; color:#586170; text-transform:uppercase; pointer-events:none;}
+  @media (max-width:640px){ .brand h1{font-size:26px;} .spec dd{font-size:14px;} .hint{display:none;} }
+</style>
+</head>
+<body>
+<div id="scene"></div>
+<div class="brand"><div class="kick">Apex '26 · Concept</div><h1>Болид <b>APEX</b></h1><div class="sub">Стилизованная low-poly модель · граунд-эффект</div></div>
+<div class="ctrl"><button class="btn on" id="spinBtn">Вращение</button><button class="btn" id="viewBtn">Ракурс</button><button class="btn" id="lodBtn">LOD: игрок</button></div>
+<dl class="spec"><div><dt>Команда</dt></div><dd id="sName">—</dd><dt>Колёса</dt><dd>18<span class="u">″ крышки с центром</span></dd><dt>Заднее крыло</dt><dd>2 боковые стойки</dd><dt>Высота</dt><dd id="sH">—</dd><dt>Полигонов</dt><dd id="sTris">—</dd></dl>
+<div class="liveries"><span class="lab">Ливрея команды</span><div class="swatches" id="sw"></div></div>
+<div class="hint">Тяни — повернуть · Колесо — приблизить</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const LIVERIES=[
+  {name:'McLaren',primary:'#FF7A00',accent:'#141414'},
+  {name:'Ferrari',primary:'#E8002D',accent:'#141414'},
+  {name:'Mercedes',primary:'#00D7B6',accent:'#0e1417'},
+  {name:'Red Bull',primary:'#1B45D7',accent:'#0e1220'},
+  {name:'Aston Martin',primary:'#00A57A',accent:'#0e1613'},
+  {name:'Alpine',primary:'#1E9BE0',accent:'#0e1620'},
+  {name:'Williams',primary:'#7EC8FF',accent:'#12202b'},
+  {name:'Racing Bulls',primary:'#6C7BFF',accent:'#12142a'},
+  {name:'Haas',primary:'#E6E9EC',accent:'#1a1d22'},
+  {name:'Audi',primary:'#A6192E',accent:'#160a0d'},
+  {name:'Cadillac',primary:'#C6A15B',accent:'#1a140a'},
+];
+// второй и третий цвета ливреи по реальным расцветкам сезона-2026; ключ — цвет команды из игры
+const PAL={
+  '#FF7A00':['#2E3439','#141414'],  // McLaren      антрацит / чёрный
+  '#E8002D':['#F2F3F5','#141414'],  // Ferrari      белый / чёрный
+  '#00D7B6':['#16181C','#C8CDD3'],  // Mercedes     чёрный / серебро
+  '#1B45D7':['#F5C400','#E4002B'],  // Red Bull     жёлтый / красный
+  '#00A57A':['#C6F24E','#0B5F45'],  // Aston Martin лайм / тёмно-зелёный
+  '#1E9BE0':['#FF3E8A','#F2F3F5'],  // Alpine       розовый / белый
+  '#7EC8FF':['#10265E','#F2F3F5'],  // Williams     тёмно-синий / белый
+  '#6C7BFF':['#E4002B','#1B2B6B'],  // Racing Bulls красный / тёмно-синий
+  '#E6E9EC':['#D4001F','#17191C'],  // Haas         красный / чёрный
+  '#A6192E':['#C9CDD2','#141414'],  // Audi         серебро / чёрный
+  '#C6A15B':['#12203E','#E8EBEF'],  // Cadillac     тёмно-синий / белый
+};
+function palette(hex){
+  const p=PAL[String(hex).toUpperCase()];
+  return {body:hex, c2:p?p[0]:shade(hex,0.26), c3:p?p[1]:shade(hex,-0.18)};
+}
+let liv=0, LOD=false;   // LOD=true — версия для болидов ИИ
+const host=document.getElementById('scene');
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2)); renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap; renderer.outputEncoding=THREE.sRGBEncoding;
+host.appendChild(renderer.domElement);
+const scene=new THREE.Scene(); scene.background=new THREE.Color('#0b0d10'); scene.fog=new THREE.Fog('#0b0d10',22,46);
+const camera=new THREE.PerspectiveCamera(38, innerWidth/innerHeight, 0.1, 100);
+scene.add(new THREE.HemisphereLight('#9fb2c9','#0a0c10',0.55));
+const key=new THREE.DirectionalLight('#ffffff',1.15); key.position.set(6,11,7); key.castShadow=true;
+key.shadow.mapSize.set(1024,1024); key.shadow.camera.near=1; key.shadow.camera.far=40;
+key.shadow.camera.left=-9;key.shadow.camera.right=9;key.shadow.camera.top=9;key.shadow.camera.bottom=-9; key.shadow.bias=-0.0004; scene.add(key);
+const rim=new THREE.DirectionalLight('#7fa8ff',0.5); rim.position.set(-8,4,-7); scene.add(rim);
+const fill=new THREE.DirectionalLight('#ffffff',0.32); fill.position.set(-4,3,8); scene.add(fill);
+const floor=new THREE.Mesh(new THREE.CircleGeometry(30,48), new THREE.MeshStandardMaterial({color:'#0e1116',metalness:0.1,roughness:0.85}));
+floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; scene.add(floor);
+const grid=new THREE.GridHelper(48,48,'#1b222c','#141a20'); grid.material.opacity=0.4; grid.material.transparent=true; grid.position.y=0.002; scene.add(grid);
+const ring=new THREE.Mesh(new THREE.RingGeometry(3.4,3.6,64), new THREE.MeshBasicMaterial({color:'#2a2f38',side:THREE.DoubleSide})); ring.rotation.x=-Math.PI/2; ring.position.y=0.01; scene.add(ring);
+
+let carGroup=null;
+function M(color,metal,rough,side){const m=new THREE.MeshStandardMaterial({color:new THREE.Color(color),metalness:metal,roughness:rough});if(side)m.side=THREE.DoubleSide;return m;}
+function shade(hex,f){const c=new THREE.Color(hex);c.offsetHSL(0,0,f);return '#'+c.getHexString();}
+function add(group,geo,mat,x,y,z,rx,ry,rz){const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);if(rx)m.rotation.x=rx;if(ry)m.rotation.y=ry;if(rz)m.rotation.z=rz;m.castShadow=true;group.add(m);return m;}
+function box(w,h,d){return new THREE.BoxGeometry(w,h,d);}
+
+// Профиль сечения кузова: прямоугольник со срезанными углами (u,v в пределах ±1).
+// Низ и верх остаются ПЛОСКИМИ — низ кузова по-прежнему точно ложится на днище.
+const SEC=[[1,-0.6],[0.6,-1],[-0.6,-1],[-1,-0.6],[-1,0.6],[-0.6,1],[0.6,1],[1,0.6]];
+// Цепочка призм по станциям [{z,x,y,w,h},...], упорядоченным по возрастанию z.
+// Это ОДНА геометрия: внутренних стыков нет вообще, торцы — отдельными вершинами,
+// чтобы computeVertexNormals не сглаживал их с боковыми гранями.
+function chain(st, prof){
+  const SECp=prof||SEC;
+  const n=SECp.length, N=st.length, pos=[], idx=[];
+  const put=k=>{ const s=st[k]; for(const uv of SECp) pos.push(s.x+uv[0]*s.w/2, s.y+uv[1]*s.h/2, s.z); };
+  for(let k=0;k<N;k++) put(k);
+  for(let k=0;k<N-1;k++) for(let i=0;i<n;i++){
+    const j=(i+1)%n, a0=k*n+i, b0=k*n+j, c0=(k+1)*n+i, d0=(k+1)*n+j;
+    idx.push(a0,c0,b0,  b0,c0,d0);
+  }
+  const base=N*n; put(0); put(N-1);
+  for(let i=1;i<n-1;i++){ idx.push(base, base+i, base+i+1);                 // задний торец
+                          idx.push(base+n, base+n+i+1, base+n+i); }         // передний торец
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos,3));
+  geo.setIndex(idx); geo.computeVertexNormals(); return geo;
+}
+
+// makeCar-совместимая сборка болида.
+//   colorHex — цвет команды из игры (единственный цвет, который игра передаёт)
+//   num      — не используется; параметр сохранён ради совместимости с makeCar
+//   simple   — true для 21 болида ИИ: упрощённый LOD
+function buildCar(colorHex, num, simple){
+  const g=new THREE.Group();
+  const S = simple===true;
+  const pick=(a,k)=>a.filter((_,i)=>k.indexOf(i)>=0);
+  const P=palette(colorHex);
+  const body=M(P.body,0.42,0.34);
+  const c2=M(P.c2,0.38,0.34), c3=M(P.c3,0.38,0.34);      // второй и третий цвета ливреи
+  const carbon=M('#13161c',0.45,0.5), carbon2=M('#0b0d11',0.35,0.62);
+  const tyre=M('#0c0c0e',0.0,0.9), cover=M('#1b1e25',0.6,0.35,true), nut=M('#d9a020',0.85,0.28);
+  const halo=M('#0a0b0e',0.35,0.55), helm=M('#eef1f5',0.25,0.42), visor=M('#0a0a0e',0.7,0.18), soft=M('#7d848d',0.2,0.55,true);
+
+  // ---- ДНИЩЕ ----
+  add(g, box(1.5,0.08,3.85), carbon2, 0,0.16,-0.425);                                            // днище: -2.35 .. +1.50
+  if(!S) for(const s of[-1,1]){ add(g, box(0.5,0.05,1.15), carbon, s*0.7,0.20,0.88, 0,0,s*0.03); // пол перед кокпитом
+    add(g, box(0.14,0.16,1.05), carbon, s*0.80,0.24,0.88, 0,0,s*0.16); }                         // заборчик кромки
+
+  // ---- ДИФФУЗОР (полый: изогнутая пластина-потолок + боковины + перегородки) ----
+  add(g, box(1.24,0.035,0.42), carbon,  0,0.195,-1.75, 0.18,0,0);      // потолок, сегмент 1
+  add(g, box(1.21,0.035,0.34), carbon,  0,0.286,-2.10, 0.45,0,0);      // сегмент 2 (изгиб)
+  add(g, box(1.17,0.035,0.26), carbon,  0,0.438,-2.38, 0.75,0,0);      // сегмент 3 (kick-up)
+  if(!S){
+    add(g, box(1.13,0.028,0.10), carbon2, 0,0.532,-2.49, 0.85,0,0);      // отбортовка
+    for(const s of[-1,1]){
+      add(g, box(0.045,0.095,0.47), carbon2, s*0.55,0.1825,-1.815);      // боковина тоннеля, перед
+      add(g, box(0.045,0.285,0.46), carbon2, s*0.55,0.2775,-2.28);       // боковина тоннеля, зад
+    }
+    for(const x of[-0.34,0,0.34]) add(g, box(0.03,0.145,0.62), carbon, x,0.2075,-2.15);  // перегородки
+  }
+
+  // ---- ШАССИ + НОС: одна непрерывная цепочка призм (коробка передач -> кончик носа).
+  //      Низ каждой станции до z=1.10 равен 0.20 — уровню верха днища.
+  const CH=[
+    {z:-2.14,x:0,w:0.24,h:0.34,y:0.37}, {z:-1.92,x:0,w:0.32,h:0.42,y:0.41},
+    {z:-1.58,x:0,w:0.44,h:0.50,y:0.45}, {z:-1.20,x:0,w:0.58,h:0.56,y:0.48},
+    {z:-0.80,x:0,w:0.72,h:0.60,y:0.50}, {z:-0.35,x:0,w:0.84,h:0.62,y:0.51},
+    {z: 0.10,x:0,w:0.88,h:0.60,y:0.50}, {z: 0.60,x:0,w:0.80,h:0.56,y:0.48},
+    {z: 1.10,x:0,w:0.62,h:0.50,y:0.45},
+    {z: 1.30,x:0,w:0.52,h:0.40,y:0.50}, {z: 1.66,x:0,w:0.46,h:0.38,y:0.495},
+    {z: 2.00,x:0,w:0.40,h:0.35,y:0.485},{z: 2.32,x:0,w:0.34,h:0.32,y:0.465},
+    {z: 2.60,x:0,w:0.29,h:0.28,y:0.435},{z: 2.84,x:0,w:0.23,h:0.24,y:0.385},
+    {z: 3.04,x:0,w:0.17,h:0.20,y:0.305},
+  ];
+  add(g, chain(S? pick(CH,[0,2,4,6,8,9,11,13,15]) : CH), body, 0,0,0);
+  if(!S) for(let i=10;i<=13;i++){ const a0=CH[i], b0=CH[i+1];                // полоса ливреи по верху носа
+    const ta=a0.y+a0.h/2, tb=b0.y+b0.h/2, dz=b0.z-a0.z, dy=tb-ta, L=Math.hypot(dz,dy);
+    add(g, box((a0.w+b0.w)*0.25, 0.03, L), c2, 0, (ta+tb)/2+0.006, (a0.z+b0.z)/2, Math.asin(-dy/L),0,0); }
+
+  // ---- ВОЗДУХОЗАБОРНИК + МОТОРНАЯ КРЫШКА: одна цепочка, пологий спад (уклон ~0.21) ----
+  const CV=[
+    {z:-2.04,x:0,w:0.13,h:0.328,y:0.694}, {z:-1.80,x:0,w:0.15,h:0.310,y:0.755},
+    {z:-1.58,x:0,w:0.18,h:0.305,y:0.803}, {z:-1.34,x:0,w:0.21,h:0.315,y:0.848},
+    {z:-1.10,x:0,w:0.24,h:0.330,y:0.890}, {z:-0.90,x:0,w:0.27,h:0.360,y:0.920},
+    {z:-0.72,x:0,w:0.29,h:0.395,y:0.948}, {z:-0.56,x:0,w:0.29,h:0.395,y:0.958},
+    {z:-0.44,x:0,w:0.25,h:0.350,y:0.945},
+  ];
+  add(g, chain(S? pick(CV,[0,2,4,6,8]) : CV), body, 0,0,0);
+  add(g, box(0.17,0.20,0.10), carbon, 0,0.99,-0.40);        // зев воздухозаборника
+
+  // ---- КОКПИТ ----
+  add(g, box(0.42,0.02,0.852), carbon2, 0,0.794,0.15, 0.0643,0,0);   // тёмный пол кокпита, по наклону верха
+  if(!S){
+    for(const s of[-1,1]) add(g, box(0.09,0.14,1.08), carbon, s*0.255,0.79,0.25);  // боковины обода
+    add(g, box(0.56,0.08,0.14), carbon,  0,0.80,0.70);        // передняя перемычка обода (впереди руля)
+    for(const s of[-1,1]){ add(g, box(0.16,0.03,0.05), carbon, s*0.42,0.84,0.34, 0,0,s*0.10);   // стойка зеркала
+      add(g, box(0.09,0.07,0.05), carbon, s*0.50,0.855,0.34); }                                  // корпус зеркала
+  }
+
+  // ---- ПЕРЕДНЕЕ КРЫЛО ----
+  // основной профиль — нижний и самый передний, закрылки уходят назад и вверх;
+  // «чайка»: центральная секция ниже, законцовки подняты к бортам
+  const wz=[3.14,2.99,2.89,2.81], wy=[0.185,0.255,0.325,0.385], wd=[0.44,0.34,0.28,0.22], wt=[0.050,0.045,0.040,0.035];
+  const wsw=[0.26,0.19,0.12,0.05];   // стреловидность: законцовка уходит НАЗАД, к колёсам
+  const wcw=[1.02,0.98,0.95,0.92];   // центр шире законцовки: её торец скошен стреловидностью
+  for(let k=0;k<4;k++){ const m=(k===3? c3 : body), back=0.29*Math.sin(wsw[k]);
+    add(g, box(S? 2.00 : wcw[k], wt[k], wd[k]), m, 0,wy[k]+(S?0.026:0),wz[k]-(S?back*0.5:0));    // у ИИ — одна прямая секция
+    if(!S) for(const s of[-1,1]) add(g, box(0.58,wt[k],wd[k]), m, s*0.71,wy[k]+0.052,wz[k]-back, 0,s*wsw[k],s*0.18);
+  }
+  for(const s of[-1,1]){
+    add(g, box(0.05,0.40,0.70), body,   s*1.00,0.44,2.96, 0,-s*0.09,0);     // борт: носок подобран внутрь
+    if(!S){
+      add(g, box(0.05,0.22,0.34), c2,     s*1.03,0.60,2.82, 0,-s*0.10,s*0.20);// отогнутая наружу верхушка борта
+      add(g, box(0.05,0.16,0.30), body,   s*1.01,0.30,3.12, 0,-s*0.12,0);     // передний нижний плавник
+      add(g, box(0.03,0.09,0.14), carbon, s*0.55,0.258,3.02);                 // перегородки на профиле
+      add(g, box(0.03,0.09,0.14), carbon, s*0.80,0.304,2.96);
+    } }
+
+  // ---- ПОНТОНЫ (цепочка призм на борт) ----
+  const PZ=[-1.38,-1.06,-0.72,-0.34, 0.02, 0.38, 0.70, 0.94, 1.12];
+  const PX=[ 0.32, 0.40, 0.48, 0.55, 0.60, 0.62, 0.58, 0.48, 0.42];
+  const PW=[ 0.22, 0.30, 0.38, 0.46, 0.52, 0.54, 0.46, 0.36, 0.24];
+  const PT=[ 0.56, 0.60, 0.64, 0.68, 0.71, 0.72, 0.70, 0.66, 0.62];   // верх
+  const PB=[ 0.30, 0.28, 0.26, 0.24, 0.23, 0.22, 0.22, 0.23, 0.24];   // низ (над днищем 0.20)
+  for(const s of[-1,1]){
+    const st=PZ.map((z,i)=>({z, x:s*PX[i], w:PW[i], h:PT[i]-PB[i], y:(PT[i]+PB[i])/2}));
+    const stU = S? pick(st,[0,2,4,6,8]) : st;
+    add(g, chain(stU), body, 0,0,0);
+    // Боковая ливрея. Считается от ФАКТИЧЕСКИ использованных станций, иначе на прореженном
+    // LOD полоса отойдёт от поверхности — грань между станциями идёт по другой прямой.
+    for(let i=(S?1:3); i<=(S?3:7); i++){ const a0=stU[i], b0=stU[i+1];
+      const oa=Math.abs(a0.x)+a0.w/2, ob=Math.abs(b0.x)+b0.w/2, dz=b0.z-a0.z, dx=ob-oa, L=Math.hypot(dz,dx);
+      const ya=a0.y+a0.h*0.20, yb=b0.y+b0.h*0.20;
+      add(g, box(0.04,0.07,L), c2, s*(oa+ob)/2, (ya+yb)/2, (a0.z+b0.z)/2, 0, s*Math.asin(dx/L), 0); }
+    if(S) continue;
+    add(g, box(0.20,0.16,0.16), carbon, s*0.42,0.44,1.10);                              // зев воздухозаборника
+    add(g, box(0.34,0.05,0.22), body, s*0.52,0.580,1.00, 0,s*0.10,0);                    // дефлектор у входа
+    add(g, box(0.09,0.13,2.04), carbon, s*0.76,0.215,-0.68, 0,0,s*0.10);                // кромка днища вдоль борта
+  }
+
+  // ---- ГАЛО ----
+  add(g, new THREE.TorusGeometry(0.37,0.055,S?4:5,S?8:10,Math.PI), halo, 0,1.0,0.0, Math.PI/2,0,Math.PI);
+  if(!S){
+    add(g, box(0.09,0.37,0.09), halo, 0,0.86,0.54, -0.71,0,0);                                    // передняя стойка над рулём
+    for(const s of[-1,1]) add(g, box(0.06,0.06,0.62), halo, s*0.34,0.99,0.02, 0.12,0,0);          // боковые опоры
+  }
+
+  // ---- ШЛЕМ ----
+  add(g, new THREE.SphereGeometry(0.19,S?8:10,S?6:7), helm, 0,0.92,-0.05);
+  if(!S) add(g, new THREE.SphereGeometry(0.196,8,4,0,Math.PI*2,Math.PI*0.44,Math.PI*0.28), visor, 0,0.92,-0.05);
+
+  // ---- ЗАДНЕЕ КРЫЛО (бим-винга по регламенту-2026 нет; вместо него нейтральная распорка) ----
+  add(g, box(1.42,0.055,0.46), body, 0,1.00,-2.22);                    // основной профиль
+  add(g, box(1.42,0.050,0.32), body, 0,1.10,-2.36, 0.16,0,0);          // верхний закрылок
+  if(!S) add(g, box(1.38,0.028,0.16), c3,   0,1.145,-2.44, 0.16,0,0);  // акцентная кромка
+  for(const s of[-1,1]){
+    add(g, box(0.050,0.40,0.80), c2,     s*0.72,1.02,-2.28, 0,0,s*0.05);   // борт (верх)
+    add(g, box(0.050,0.36,0.34), body,   s*0.735,0.72,-2.03, 0,0,s*0.10);  // нога стойки вниз к кузову
+    if(!S){
+      add(g, box(0.065,0.14,0.30), carbon, s*0.75,0.53,-1.94, 0,0,s*0.12);   // пятка крепления
+      add(g, box(0.060,0.26,0.46), body,   s*0.755,0.86,-2.44, 0,0,s*0.16);  // отогнутый наружу задний угол
+    } }
+  for(const s of[-1,1]) add(g, box(0.055,0.34,0.12), carbon, s*0.16,0.84,-2.08, 0.30,0,0);         // swan-neck подкосы
+  add(g, box(0.42,0.05,0.20), carbon, 0,0.74,-2.12, 0.10,0,0);                                     // распорка
+  add(g, box(0.17,0.26,0.52), carbon, 0,0.54,-2.02);                                               // задняя силовая структура
+  add(g, new THREE.PlaneGeometry(0.10,0.08),
+    new THREE.MeshBasicMaterial({color:'#e02424'}), 0,0.62,-2.29, 0,Math.PI,0);                     // фонарь (и у ИИ)
+
+  // ---- КОЛЁСА (18", крышка-кольцо с открытым центром) ----
+  function wheel(x,z,rW){
+    const w=new THREE.Group(), sg=x>0?1:-1, hw=rW/2;
+    add(w, new THREE.CylinderGeometry(0.5,0.5,rW,S?12:16), tyre, 0,0,0, 0,0,Math.PI/2);
+    add(w, new THREE.RingGeometry(0.415,0.475,S?12:14), soft, sg*(hw+0.005),0,0, 0, sg*Math.PI/2, 0); // маркировка боковины
+    if(!S){
+      add(w, new THREE.RingGeometry(0.19,0.36,14),   cover, sg*(hw+0.005),0,0, 0, sg*Math.PI/2, 0);  // крышка, центр открыт
+      add(w, new THREE.CylinderGeometry(0.17,0.17,0.06,10), carbon, sg*(hw-0.07),0,0, 0,0,Math.PI/2);  // ступица — утоплена
+      add(w, new THREE.CylinderGeometry(0.055,0.055,0.05,8), nut, sg*(hw-0.05),0,0, 0,0,Math.PI/2);  // гайка — утоплена
+    }
+    w.position.set(x,0.5,z); g.add(w); return w;
+  }
+  const wheels=[ wheel(-1.05,2.0,0.42), wheel(1.05,2.0,0.42), wheel(-1.05,-1.70,0.46), wheel(1.05,-1.70,0.46) ];
+  const frontWheels=[wheels[0], wheels[1]];
+
+  // ---- ПОДВЕСКА (у обоих LOD) ----
+  for(const s of[-1,1]) for(const z of[2.0,-1.70]){
+    add(g, new THREE.CylinderGeometry(0.028,0.028,0.92,6), carbon, s*0.5,0.42,z+0.14, 0,s*0.22,Math.PI/2);
+    add(g, new THREE.CylinderGeometry(0.028,0.028,0.92,6), carbon, s*0.5,0.42,z-0.14, 0,-s*0.22,Math.PI/2);
+  }
+
+  // ---- РУЛЕВОЕ КОЛЕСО (отдельная группа: игра крутит sw.rotation.z) ----
+  let sw=null;
+  if(!S){
+    sw=new THREE.Group();
+    add(sw, box(0.26,0.045,0.035), carbon,  0, 0.100, 0);        // верхняя перекладина
+    add(sw, box(0.17,0.045,0.035), carbon,  0,-0.100, 0);        // нижняя перекладина
+    for(const s of[-1,1]) add(sw, box(0.045,0.155,0.055), carbon, s*0.108, 0, 0);   // рукоятки
+    add(sw, box(0.15,0.09,0.02), carbon2,   0, 0.005, 0.028);    // дисплей
+    sw.position.set(0,0.80,0.50); sw.rotation.x=-0.62; g.add(sw);
+  }
+
+  // ---- ТЕНЬ: создаётся, только если игра предоставила общую текстуру ENVSHADOW ----
+  if(typeof ENVSHADOW!=='undefined' && ENVSHADOW){
+    const sh=new THREE.Mesh(new THREE.PlaneGeometry(3.6,4.9),
+      new THREE.MeshBasicMaterial({map:ENVSHADOW, transparent:true, depthWrite:false}));
+    sh.rotation.x=-Math.PI/2; sh.position.y=0.06; sh.renderOrder=2; g.add(sh);
+  }
+
+  g.userData={ frontWheels, wheels, sw };
+  return g;
+}
+
+function setLivery(i){
+  liv=i; const L=LIVERIES[i];
+  if(carGroup) scene.remove(carGroup);
+  carGroup=buildCar(L.primary, 44, LOD); scene.add(carGroup);
+  document.documentElement.style.setProperty('--accent',L.primary);
+  document.getElementById('sName').textContent=L.name;
+  let tris=0; carGroup.traverse(o=>{ if(o.isMesh&&o.geometry){const idx=o.geometry.index,pos=o.geometry.attributes.position; tris+= idx? idx.count/3 : (pos?pos.count/3:0);}});
+  document.getElementById('sTris').textContent=Math.round(tris).toLocaleString('ru-RU');
+  const bb=new THREE.Box3().setFromObject(carGroup);
+  document.getElementById('sH').textContent=bb.max.y.toFixed(2);
+  document.querySelectorAll('.sw').forEach((el,k)=>el.classList.toggle('on',k===i));
+}
+const swWrap=document.getElementById('sw');
+LIVERIES.forEach((L,i)=>{ const b=document.createElement('div'); b.className='sw'; b.style.background=L.primary; b.title=L.name; b.onclick=()=>setLivery(i); swWrap.appendChild(b);});
+setLivery(0);
+
+let spin=true, yaw=0.7, pitch=0.30, dist=9.4, dragging=false, lx=0, ly=0;
+const VIEWS=[{yaw:0.7,pitch:0.30,dist:9.4},{yaw:Math.PI/2,pitch:0.10,dist:8.6},{yaw:0,pitch:0.12,dist:8.8},{yaw:Math.PI,pitch:0.12,dist:8.8},{yaw:Math.PI,pitch:0.35,dist:6.4},{yaw:0.9,pitch:0.9,dist:9.0}];
+let viewI=0;
+function applyCam(){ const cx=Math.sin(yaw)*Math.cos(pitch)*dist, cy=Math.sin(pitch)*dist+0.6, cz=Math.cos(yaw)*Math.cos(pitch)*dist; camera.position.set(cx,cy,cz); camera.lookAt(0,0.6,0); }
+renderer.domElement.addEventListener('pointerdown',e=>{dragging=true;spin=false;document.getElementById('spinBtn').classList.remove('on');lx=e.clientX;ly=e.clientY;});
+addEventListener('pointerup',()=>dragging=false);
+addEventListener('pointermove',e=>{ if(!dragging)return; yaw-=(e.clientX-lx)*0.008; pitch=Math.max(0.03,Math.min(1.45,pitch+(e.clientY-ly)*0.006)); lx=e.clientX;ly=e.clientY;});
+renderer.domElement.addEventListener('wheel',e=>{e.preventDefault();dist=Math.max(5.5,Math.min(16,dist+e.deltaY*0.01));},{passive:false});
+document.getElementById('spinBtn').onclick=function(){spin=!spin;this.classList.toggle('on',spin);};
+document.getElementById('viewBtn').onclick=function(){viewI=(viewI+1)%VIEWS.length;const v=VIEWS[viewI];yaw=v.yaw;pitch=v.pitch;dist=v.dist;spin=false;document.getElementById('spinBtn').classList.remove('on');};
+document.getElementById('lodBtn').onclick=function(){LOD=!LOD;this.classList.toggle('on',LOD);this.textContent='LOD: '+(LOD?'ИИ (simple)':'игрок');setLivery(liv);};
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+function loop(){ requestAnimationFrame(loop); if(spin) yaw+=0.0045; applyCam(); renderer.render(scene,camera); }
+loop();
+</script>
+</body>
+</html>
