@@ -1,0 +1,12 @@
+{
+  "name": "apex26-tools",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Регрессионные пробники APEX '26 (index.html не меняется, только читается)",
+  "scripts": {
+    "test": "node run-all.js"
+  },
+  "dependencies": {
+    "three": "0.128.0"
+  }
+}
