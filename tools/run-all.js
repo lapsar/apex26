@@ -14,6 +14,7 @@ const R = require('./report');
 
 const PROBES = [
   { key: 'pole',      mod: './probe-pole-times.js' },
+  { key: 'quali',     mod: './probe-quali-spread.js' },
   { key: 'race',      mod: './probe-race-finish.js' },
   { key: 'outro',     mod: './probe-outro-autopilot.js' },
   { key: 'overtake',  mod: './probe-start-overtake.js' },
