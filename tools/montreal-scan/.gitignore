@@ -1,0 +1,9 @@
+centerline.json
+tilecache/
+*.png
+!rail_map.png
+near.json
+traced*.json
+rail_*.json
+rail_snippet.js
+unrolled_*
