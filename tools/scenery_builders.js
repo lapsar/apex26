@@ -262,6 +262,12 @@ function buildSceneryObject(THREE,o,mats,helpers){
   const up=new THREE.Vector3(0,1,0);
   let out=new THREE.Vector3(x-P[anchor].x,0,z-P[anchor].z).normalize();
   out.sub(dir.clone().multiplyScalar(out.dot(dir))).normalize();
-  g.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(dir,up,out));
+  // makeBasis требует ПРАВУЮ тройку. (dir,up,out) правая только для объектов
+  // с одной стороны трассы; с другой это отражение, и setFromRotationMatrix
+  // возвращает мусор — объект разворачивает поперёк полотна. Разворачиваем dir,
+  // чтобы третья ось по-прежнему смотрела наружу: коробка симметрична, вид тот же.
+  const zA=new THREE.Vector3().crossVectors(dir,up);
+  if(zA.dot(out)<0){ dir.negate(); zA.negate(); }
+  g.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(dir,up,zA));
   return g;
 }
