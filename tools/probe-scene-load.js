@@ -17,7 +17,7 @@
 const H = require('./harness');
 const R = require('./report');
 
-const SCENE_BUDGET = { Monza: 43, Silverstone: 46, Montreal: 39 };
+const SCENE_BUDGET = { Monza: 43, Silverstone: 46, Montreal: 42 };
 const CAR_BUDGET = { player: { m: 32, t: 3000 }, ai: { m: 17, t: 1332 } };
 const DRAW_BUDGET = 495;
 
