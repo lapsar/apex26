@@ -197,10 +197,16 @@ function makeDistanceBoards(THREE,mk,mats,helpers){
     const i=helpers.nearestIndex(x,z), j=(i+1)%NP;
     const fw=new THREE.Vector3(T.P[j].x-T.P[i].x,0,T.P[j].z-T.P[i].z).normalize();
     const lat=new THREE.Vector3(-fw.z,0,fw.x);            // поперёк трассы
-    const a=[x-lat.x*W/2, Y0,      z-lat.z*W/2];
-    const b=[x+lat.x*W/2, Y0,      z+lat.z*W/2];
-    const c=[x+lat.x*W/2, Y0+H,    z+lat.z*W/2];
-    const e=[x-lat.x*W/2, Y0+H,    z-lat.z*W/2];
+    // postSide:'outer' — latLon задаёт СТОЙКУ (её ставят за отбойником), а полотно
+    // свешивается от неё В СТОРОНУ ТРАССЫ. Без этого ключа поведение прежнее:
+    // latLon — середина полотна. Монца и Сильверстоун ключа не задают.
+    let ax=x-lat.x*W/2, az=z-lat.z*W/2;
+    if(mk.postSide==='outer'){const dir=(m.side==='L')?1:-1;
+      ax=x+(dir<0?-lat.x*W:0); az=z+(dir<0?-lat.z*W:0);}
+    const a=[ax,          Y0,      az          ];
+    const b=[ax+lat.x*W,  Y0,      az+lat.z*W  ];
+    const c=[ax+lat.x*W,  Y0+H,    az+lat.z*W  ];
+    const e=[ax,          Y0+H,    az          ];
     pv.push(...a,...b,...c, ...a,...c,...e);              // щит, лицом против хода
     // ВАЖНО: у CanvasTexture flipY=true, картинка переворачивается по вертикали.
     // Строка r канваса (сверху вниз) занимает v = [1-(r+1)/4 .. 1-r/4].
