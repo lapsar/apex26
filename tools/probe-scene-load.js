@@ -17,7 +17,10 @@
 const H = require('./harness');
 const R = require('./report');
 
-const SCENE_BUDGET = { Monza: 43, Silverstone: 46, Montreal: 42 };
+// Montreal 42 -> 43 (v1.15.23): у щитов торможения появились стойки, а стойка
+// рисуется своим материалом и потому даёт отдельный меш. Плата — один вызов
+// отрисовки: в гонке 491 -> 492 при потолке 495 (§3 CLAUDE.md).
+const SCENE_BUDGET = { Monza: 43, Silverstone: 46, Montreal: 43 };
 const CAR_BUDGET = { player: { m: 32, t: 3000 }, ai: { m: 17, t: 1332 } };
 const DRAW_BUDGET = 495;
 
