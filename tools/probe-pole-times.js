@@ -20,6 +20,7 @@ const TABLE = {
   Silverstone: { easy: '1:52.198', normal: '1:46.062', hard: '1:41.666' },
   Suzuka:      { easy: '1:51.428', normal: '1:45.286', hard: '1:40.773' },
   Monaco:      { easy: '1:15.033', normal: '1:12.716', hard: '1:11.184' },
+  Montreal:    { easy: '1:23.678', normal: '1:18.627', hard: '1:14.999' },
 };
 const DIFFS = ['easy', 'normal', 'hard'];
 const RU = { easy: 'Новичок', normal: 'Норма', hard: 'Профи' };
@@ -29,6 +30,7 @@ function run() {
   const env = H.loadGame();
   const names = env.evalIn('TRACKS.map(function(t){return t.name;})');
 
+  let checked = 0;
   r.line('Трасса        ' + DIFFS.map(d => RU[d].padEnd(18)).join(''));
   for (let i = 0; i < names.length; i++) {
     env.evalIn(`track=makeTrack(TRACKS[${i}]);`);
@@ -45,13 +47,14 @@ function run() {
       const got = R.lap(t);
       const want = (TABLE[names[i]] || {})[d];
       const ok = want !== undefined && got === want;
+      if (want !== undefined) checked++;
       if (want === undefined) r.note(`${names[i]} / ${RU[d]}: эталона в таблице нет, измерено ${got}`);
       else if (!ok) r.fail(`${names[i]} / ${RU[d]}: ожидалось ${want}, получено ${got} (${t.toFixed(6)} с)`);
       cells.push((want === undefined ? got + ' ?' : ok ? got : got + ' ≠ ' + want).padEnd(18));
     }
     r.line(names[i].padEnd(14) + cells.join(''));
   }
-  if (r.ok) r.line('все 12 клеток совпали до тысячной');
+  if (r.ok) r.line(`все ${checked} клеток совпали до тысячной`);
   return r;
 }
 

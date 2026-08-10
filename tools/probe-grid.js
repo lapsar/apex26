@@ -94,7 +94,7 @@ function run(opt) {
     if (!res.alt) r.fail(`${name}: стороны не чередуются — ${res.sides}`);
     for (const b of res.bad) r.fail(`${name}: ${b}`);
   }
-  if (r.ok) r.line('решётка сходится на всех четырёх трассах');
+  if (r.ok) r.line(`решётка сходится на всех ${H.tracks().length} трассах`);
   return r;
 }
 
