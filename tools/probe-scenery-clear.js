@@ -115,16 +115,20 @@ const MARKERS = `(function(){
     for(var k=0;k<track.M;k++){var dx=x-track.P[k].x,dz=z-track.P[k].z,d=dx*dx+dz*dz;if(d<bd){bd=d;bi=k;}}
     var R=track.R[bi], off=(x-track.P[bi].x)*R.x+(z-track.P[bi].z)*R.z;
     var wall=off<0?track.WL[bi]:track.WR[bi];
-    out.push({name:(m.corner||'?')+' '+(m.dist||'?')+' м', off:+Math.abs(off).toFixed(2),
+    var W=sc.markers.panelW||1.6, a=Math.abs(off), outer=(sc.markers.postSide==='outer');
+    var near=outer?(a-W):(a-W/2), far=outer?a:(a+W/2);   // края полотна по отступу от осевой
+    out.push({name:(m.corner||'?')+' '+(m.dist||'?')+' м', off:+a.toFixed(2),
+              near:+near.toFixed(2), far:+far.toFixed(2),
               wall:+wall.toFixed(2), S:Math.round(track.S[bi]),
+              bottom:+(sc.markers.baseY||0).toFixed(2),
               top:+(((sc.markers.baseY||0)+(sc.markers.panelH||0.9))).toFixed(2),
               wallH:(track.style==='street'?1.1:1.0)});
   }
   return {list:out, baseY:(sc.markers.baseY||0), postW:(sc.markers.postW||0),
           panelH:(sc.markers.panelH||0.9)};
 })()`;
-const MARKER_GAP = 0.15;     // щит должен стоять хотя бы настолько ПЕРЕД стеной
-const MARKER_FREE = 1.5;     // либо стоять настолько свободно, чтобы стена ему не фон
+const MARKER_GAP = 0.15;     // насколько щит обязан выступать перед стеной, если он низкий
+const MARKER_FREE = 2.0;     // ближе этого к стене считаем, что стена стоит прямо за щитом
 
 function run(opt) {
   opt = opt || {};
@@ -154,20 +158,23 @@ function run(opt) {
       say(`${T.name}: щиты подняты на ${s.baseY} м, а стойки нет (postW=0) — `
         + `табличка висит в воздухе. Либо ставить на землю, либо задать postW`);
     }
-    const bad = s.list.filter(m => m.wall - m.off < MARKER_GAP);
-    const dim = s.list.filter(m => m.wall - m.off >= MARKER_GAP
-                               && m.wall - m.off < MARKER_FREE && m.top <= m.wallH);
+    // Стена «стоит за щитом» только если она рядом; у Монцы отбойник в 24 м,
+    // и щит на 11 м с ней вообще не пересекается — там проверять нечего.
+    const behind = m => m.far > m.wall - MARKER_FREE;
+    const bad = s.list.filter(m => behind(m) && m.near > m.wall - MARKER_GAP && m.bottom < m.wallH);
+    const dim = s.list.filter(m => behind(m) && m.top <= m.wallH);
     r.line(`${T.name.padEnd(12)} щитов торможения ${String(s.list.length).padStart(3)} · `
       + `за отбойником ${bad.length} · тонет в отбойнике ${dim.length}`);
     for (const m of dim) {
       const say = T.hidden ? r.note.bind(r) : r.fail.bind(r);
-      say(`${T.name}: щит «${m.name}» стоит в ${m.off} м вплотную к отбойнику (${m.wall} м), `
-        + `а его верх ${m.top} м НИЖЕ верха стены ${m.wallH} м — читается как часть отбойника`);
+      say(`${T.name}: щит «${m.name}» стоит у отбойника (${m.wall} м), а его верх ${m.top} м `
+        + `НИЖЕ верха стены ${m.wallH} м — читается как часть отбойника, а не как щит`);
     }
     for (const m of bad) {
       const say = T.hidden ? r.note.bind(r) : r.fail.bind(r);
-      say(`${T.name}: щит «${m.name}» стоит в ${m.off} м от осевой, а отбойник в ${m.wall} м `
-        + `(${m.S} м от старта) — щит ЗА стеной, из болида его не видно`);
+      say(`${T.name}: полотно щита «${m.name}» лежит в ${m.near}..${m.far} м от осевой, `
+        + `отбойник в ${m.wall} м (${m.S} м от старта), низ щита ${m.bottom} м — `
+        + `щит целиком ЗА стеной и ниже её, из болида его не видно`);
     }
   }
   if (r.ok) r.line('ни один стоящий объект не пересекает полотно, ни один щит не спрятан за отбойником');
