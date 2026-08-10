@@ -39,7 +39,8 @@ function run(opt) {
   const diff = opt.diff || 'normal';
   const r = R.result(`Автопилот после финиша — 0 кадров вне трассы из ${FRAMES}`);
 
-  for (let ti = 0; ti < 4; ti++) {
+  for (const T of H.tracks()) {                        // все трассы, сколько бы их ни было
+    const ti = T.idx;
     const env = H.loadGame({ seed });
     H.setupWeekend(env, { trackIdx: ti, diff, laps: 1 });
     H.startRaceAt(env, 11);

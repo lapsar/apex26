@@ -21,7 +21,8 @@ function run(opt) {
   const seeds = opt.seed ? [opt.seed] : [77, 314];
   const r = R.result('Синхронность старта — никто не трогается раньше погасания');
 
-  for (const ti of [0, 1]) {
+  for (const T of H.tracks(true)) {                    // видимые в меню: гоночные пробники долгие
+    const ti = T.idx;
     for (const seed of seeds) {
       const env = H.loadGame({ seed });
       H.setupWeekend(env, { trackIdx: ti, diff, laps: 3 });

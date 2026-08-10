@@ -305,7 +305,26 @@ function __drive(n, dt, mode, watch){
 
 function installAutopilot(env) { env.evalIn(AUTOPILOT_SRC, 'harness(autopilot)'); }
 
-/* ---------- 7. типовые сценарии ---------- */
+/* ---------- 7. список трасс ---------- */
+/**
+ * Все трассы из index.html: [{idx, name, key, hidden}].
+ *
+ * Пробники обязаны перебирать трассы ЧЕРЕЗ ЭТУ ФУНКЦИЮ, а не жёстким «с 0 по 3»:
+ * иначе новая трасса молча не попадёт ни в один автотест. tracks(true) — только
+ * видимые в меню, для долгих гоночных пробников.
+ *
+ * Список не меняется в течение прогона, поэтому читается один раз.
+ */
+let _tracks = null;
+function tracks(visibleOnly) {
+  if (!_tracks) {
+    _tracks = loadGame().evalIn(
+      'TRACKS.map(function(t,i){return {idx:i,name:t.name,key:t.key,hidden:!!t.hidden};})');
+  }
+  return visibleOnly ? _tracks.filter(t => !t.hidden) : _tracks;
+}
+
+/* ---------- 8. типовые сценарии ---------- */
 
 /**
  * Довести игру до состояния «мир построен, квалификация начата».
@@ -373,6 +392,6 @@ function noRetirements(env) {
 }
 
 module.exports = {
-  loadGame, extractGameScript, setupWeekend, setupWorld, startRaceAt, lightsOut, noRetirements,
+  loadGame, extractGameScript, tracks, setupWeekend, setupWorld, startRaceAt, lightsOut, noRetirements,
   seededRandom, INDEX_HTML,
 };

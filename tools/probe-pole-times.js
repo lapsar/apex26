@@ -47,7 +47,7 @@ function run() {
       const ok = want !== undefined && got === want;
       if (want === undefined) r.note(`${names[i]} / ${RU[d]}: эталона в таблице нет, измерено ${got}`);
       else if (!ok) r.fail(`${names[i]} / ${RU[d]}: ожидалось ${want}, получено ${got} (${t.toFixed(6)} с)`);
-      cells.push((ok ? got : got + ' ≠ ' + want).padEnd(18));
+      cells.push((want === undefined ? got + ' ?' : ok ? got : got + ' ≠ ' + want).padEnd(18));
     }
     r.line(names[i].padEnd(14) + cells.join(''));
   }

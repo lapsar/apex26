@@ -33,20 +33,26 @@ function run(opt) {
   const r = R.result('Нагрузка сцены — число мешей не выросло');
 
   // 1. мир трассы, без болидов
-  for (let ti = 0; ti < 4; ti++) {
+  for (const T of H.tracks()) {                        // все трассы, сколько бы их ни было
+    const ti = T.idx;
     const env = H.loadGame({ seed: opt.seed || 3 });
     H.setupWorld(env, { trackIdx: ti });
     const s = env.evalIn(`(${COUNT})(scene)`);
     const name = env.evalIn('track.name');
     const want = SCENE_BUDGET[name];
-    if (want === undefined) { r.note(`${name}: ${s.m} мешей сцены, ${s.t} тр. — ориентира нет (скрытая трасса)`); continue; }
+    if (want === undefined) {
+      r.note(`${name}: ${s.m} мешей сцены, ${s.t} тр. — ориентира нет`
+        + (T.hidden ? ' (трасса скрыта)' : '; трасса открыта в меню — запиши бюджет сюда и в CLAUDE.md §3'));
+      continue;
+    }
     r.line(`${name.padEnd(12)} сцена ${s.m} мешей (ориентир ${want}) · ${s.t} тр.`);
     if (s.m > want) r.fail(`${name}: ${s.m} мешей сцены вместо ${want}`);
     else if (s.m < want) r.note(`${name}: мешей стало меньше — ${s.m} вместо ${want}; если это правка, обнови CLAUDE.md §3`);
   }
 
   // 2. болиды и вызовы отрисовки в гонке
-  for (const ti of [0, 1]) {
+  for (const T of H.tracks(true)) {                    // видимые в меню: бюджет вызовов меряется там, где играют
+    const ti = T.idx;
     const env = H.loadGame({ seed: opt.seed || 3 });
     H.setupWeekend(env, { trackIdx: ti, diff: 'normal', laps: 1 });
     H.startRaceAt(env, 11);

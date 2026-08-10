@@ -21,7 +21,8 @@ function run(opt) {
   const seeds = opt.seed ? [opt.seed] : [1, 2, 3];
   const r = R.result(`Объезд стоящего на старте — 11 из 11 за ${SECONDS} с`);
 
-  for (const ti of [0, 1]) {
+  for (const T of H.tracks(true)) {                    // видимые в меню: гоночные пробники долгие
+    const ti = T.idx;
     for (const seed of seeds) {
       const env = H.loadGame({ seed });
       H.setupWeekend(env, { trackIdx: ti, diff, laps: 3 });

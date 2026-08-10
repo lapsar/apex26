@@ -20,7 +20,8 @@ function run(opt) {
   const r = R.result(`Гонка добегает до конца (${laps} кр., ${diff})`);
   let done = 0;
 
-  for (let ti = 0; ti < 4; ti++) {
+  for (const T of H.tracks()) {                        // все трассы, сколько бы их ни было
+    const ti = T.idx;
     const env = H.loadGame({ seed });
     H.setupWeekend(env, { trackIdx: ti, diff, laps });
     H.startRaceAt(env, 11);
@@ -45,7 +46,7 @@ function run(opt) {
     else done++;
     if (!isFinite(res.best)) r.fail(`${name}: ни одного полного круга не замерено`);
   }
-  if (r.ok) r.line(`${done} из 4 трасс добежали`);
+  if (r.ok) r.line(`${done} из ${H.tracks().length} трасс добежали`);
   return r;
 }
 
