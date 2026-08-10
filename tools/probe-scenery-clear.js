@@ -96,6 +96,35 @@ const MEASURE = `(function(){
   return {hits:hits, checked:checked};
 })()`;
 
+
+// Вторая проверка: ЩИТ ТОРМОЖЕНИЯ НЕ ДОЛЖЕН ОКАЗАТЬСЯ ЗА ОТБОЙНИКОМ.
+// Появилась после того, как барьер Монреаля встал по настоящей линии (9 м вместо
+// обобщённых 10) и проглотил щиты 150 и 100 в Senna S и у шпильки: они стояли
+// в 8.7-9.4 м, то есть СНАРУЖИ новой стены. Владелец увидел это на устройстве.
+// Щит задаётся координатами, стена — своей линией, и ничто их не связывало.
+const MARKERS = `(function(){
+  var key=track.spec.key, sc=(typeof SCENERY_BY_KEY!=='undefined')?SCENERY_BY_KEY[key]:null;
+  if(!sc||!sc.markers||!sc.markers.markers)return {list:[]};
+  var o=(typeof SCEN_ORIGIN!=='undefined')?SCEN_ORIGIN[key]:null; if(!o)return {list:[]};
+  var out=[];
+  var mk=sc.markers.markers;
+  for(var n=0;n<mk.length;n++){
+    var m=mk[n]; if(!m.latLon)continue;
+    var x=-(m.latLon[1]-o.lon0)*o.mlon, z=(m.latLon[0]-o.lat0)*110540;
+    var bi=0,bd=1e18;
+    for(var k=0;k<track.M;k++){var dx=x-track.P[k].x,dz=z-track.P[k].z,d=dx*dx+dz*dz;if(d<bd){bd=d;bi=k;}}
+    var R=track.R[bi], off=(x-track.P[bi].x)*R.x+(z-track.P[bi].z)*R.z;
+    var wall=off<0?track.WL[bi]:track.WR[bi];
+    out.push({name:(m.corner||'?')+' '+(m.dist||'?')+' м', off:+Math.abs(off).toFixed(2),
+              wall:+wall.toFixed(2), S:Math.round(track.S[bi]),
+              top:+(((sc.markers.baseY||0)+(sc.markers.panelH||0.9))).toFixed(2),
+              wallH:(track.style==='street'?1.1:1.0)});
+  }
+  return {list:out};
+})()`;
+const MARKER_GAP = 0.15;     // щит должен стоять хотя бы настолько ПЕРЕД стеной
+const MARKER_FREE = 1.5;     // либо стоять настолько свободно, чтобы стена ему не фон
+
 function run(opt) {
   opt = opt || {};
   const r = R.result('Окружение не заходит на полотно');
@@ -114,7 +143,28 @@ function run(opt) {
         + (T.hidden ? ' — скрытая трасса, в зачёт не идёт' : ''));
     }
   }
-  if (r.ok) r.line('ни один стоящий объект не пересекает полотно ни на одной трассе');
+  for (const T of H.tracks()) {
+    const env = H.loadGame({ seed: opt.seed || 3 });
+    H.setupWorld(env, { trackIdx: T.idx });
+    const s = env.evalIn(MARKERS);
+    if (!s.list.length) continue;
+    const bad = s.list.filter(m => m.wall - m.off < MARKER_GAP);
+    const dim = s.list.filter(m => m.wall - m.off >= MARKER_GAP
+                               && m.wall - m.off < MARKER_FREE && m.top <= m.wallH);
+    r.line(`${T.name.padEnd(12)} щитов торможения ${String(s.list.length).padStart(3)} · `
+      + `за отбойником ${bad.length} · тонет в отбойнике ${dim.length}`);
+    for (const m of dim) {
+      const say = T.hidden ? r.note.bind(r) : r.fail.bind(r);
+      say(`${T.name}: щит «${m.name}» стоит в ${m.off} м вплотную к отбойнику (${m.wall} м), `
+        + `а его верх ${m.top} м НИЖЕ верха стены ${m.wallH} м — читается как часть отбойника`);
+    }
+    for (const m of bad) {
+      const say = T.hidden ? r.note.bind(r) : r.fail.bind(r);
+      say(`${T.name}: щит «${m.name}» стоит в ${m.off} м от осевой, а отбойник в ${m.wall} м `
+        + `(${m.S} м от старта) — щит ЗА стеной, из болида его не видно`);
+    }
+  }
+  if (r.ok) r.line('ни один стоящий объект не пересекает полотно, ни один щит не спрятан за отбойником');
   return r;
 }
 

@@ -1,17 +1,23 @@
 const SCENERY_MONTREAL = {
-  // ЩИТЫ ТОРМОЖЕНИЯ 150/100/50 м. Чистая геометрия: отсчёт от входа в зону
-  // торможения по замеру поворотов, вынос 8.5 м вбок — за кромкой (7 м)
-  // и перед рельсом (10 м), иначе щит не виден из-за отбойника.
-  markers: { panelW:1.6, panelH:0.9, baseY:0, postW:0, markers: [
-    {corner:'Senna S', dist:150, atS:86, side:'R', off:8.5, latLon:[45.499310,-73.522693]},
-    {corner:'Senna S', dist:100, atS:136, side:'R', off:8.5, latLon:[45.498870,-73.522729]},
-    {corner:'Senna S', dist:50, atS:186, side:'R', off:8.5, latLon:[45.498421,-73.522803]},
-    {corner:'L Epingle', dist:150, atS:2514, side:'L', off:8.5, latLon:[45.512757,-73.527422]},
-    {corner:'L Epingle', dist:100, atS:2564, side:'L', off:8.5, latLon:[45.513194,-73.527542]},
-    {corner:'L Epingle', dist:50, atS:2614, side:'L', off:8.5, latLon:[45.513637,-73.527670]},
-    {corner:'Final chicane', dist:150, atS:3731, side:'L', off:8.5, latLon:[45.505423,-73.523751]},
-    {corner:'Final chicane', dist:100, atS:3781, side:'L', off:8.5, latLon:[45.504980,-73.523619]},
-    {corner:'Final chicane', dist:50, atS:3831, side:'L', off:8.5, latLon:[45.504538,-73.523487]},
+  // ЩИТЫ ТОРМОЖЕНИЯ 150/100/50 м. Отсчёт от входа в зону торможения по замеру
+  // поворотов. Вынос вбок задан не числом, а ПРАВИЛОМ: щит прижат к стене
+  // (0.25 м перед ней), но не дальше 9.5 м от осевой, чтобы оставался читаемым
+  // там, где стена уходит в вылет. Раньше стояло глухих 8.5 м, и когда барьер
+  // подошёл на 9.0 м, щиты 150 и 100 в Senna S и у шпильки оказались ЗА стеной —
+  // владелец увидел это на устройстве. Двигать щиты придётся вместе с барьером.
+  // baseY=0.35: щит поднят так, чтобы его верх (0.35+0.9=1.25 м) выступал над
+  // стеной (1.0 м) — иначе он читается как часть отбойника, а не как щит.
+  // Так он и висит в жизни: на барьере, верхом выше него.
+  markers: { panelW:1.6, panelH:0.9, baseY:0.35, postW:0, markers: [
+    {corner:'Senna S', dist:150, atS:88, side:'R', off:8.76, latLon:[45.499293,-73.522684]},
+    {corner:'Senna S', dist:100, atS:136, side:'R', off:8.75, latLon:[45.498871,-73.522725]},
+    {corner:'Senna S', dist:50, atS:188, side:'R', off:9.09, latLon:[45.498406,-73.522821]},
+    {corner:'L Epingle', dist:150, atS:2516, side:'L', off:8.75, latLon:[45.512753,-73.527422]},
+    {corner:'L Epingle', dist:100, atS:2568, side:'L', off:9.01, latLon:[45.513209,-73.527548]},
+    {corner:'L Epingle', dist:50, atS:2616, side:'L', off:9.5, latLon:[45.513633,-73.527683]},
+    {corner:'Final chicane', dist:150, atS:3733, side:'L', off:9.5, latLon:[45.50544,-73.523732]},
+    {corner:'Final chicane', dist:100, atS:3785, side:'L', off:9.5, latLon:[45.504979,-73.5236]},
+    {corner:'Final chicane', dist:50, atS:3833, side:'L', off:9.5, latLon:[45.504554,-73.523477]},
   ]},
 
 
