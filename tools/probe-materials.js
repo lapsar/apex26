@@ -47,7 +47,8 @@ function run(opt) {
   opt = opt || {};
   const r = R.result('Целостность материалов — текстура без UV и vertexColors без цвета');
 
-  for (let ti = 0; ti < 4; ti++) {
+  for (const T of H.tracks()) {                        // все трассы, сколько бы их ни было
+    const ti = T.idx;
     const env = H.loadGame({ seed: opt.seed || 31 });
     H.setupWeekend(env, { trackIdx: ti, diff: 'normal', laps: 1 });
     H.startRaceAt(env, 11);              // в сцене теперь и игрок, и 21 соперник с двумя LOD

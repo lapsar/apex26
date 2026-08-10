@@ -23,6 +23,7 @@ const PROBES = [
   { key: 'wall',      mod: './probe-wall-kinks.js' },
   { key: 'materials', mod: './probe-materials.js' },
   { key: 'load',      mod: './probe-scene-load.js' },
+  { key: 'print',     mod: './probe-track-fingerprint.js' },
 ];
 
 function main(argv) {

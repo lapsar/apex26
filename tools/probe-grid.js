@@ -33,7 +33,8 @@ function run(opt) {
   const diff = opt.diff || 'normal';
   const r = R.result('Постановка на решётке — 22 из 22 на своих местах');
 
-  for (let ti = 0; ti < 4; ti++) {
+  for (const T of H.tracks()) {                        // все трассы, сколько бы их ни было
+    const ti = T.idx;
     const env = H.loadGame({ seed: opt.seed || 5 });
     H.setupWeekend(env, { trackIdx: ti, diff, laps: 3 });
     H.startRaceAt(env, 11);

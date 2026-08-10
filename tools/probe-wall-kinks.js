@@ -69,7 +69,8 @@ function run(opt) {
   opt = opt || {};
   const r = R.result(`Изломы отбойника — ни одного больше ${LIMIT}°`);
 
-  for (let ti = 0; ti < 4; ti++) {
+  for (const T of H.tracks()) {                        // все трассы, сколько бы их ни было
+    const ti = T.idx;
     const env = H.loadGame({ seed: opt.seed || 11 });
     H.setupWorld(env, { trackIdx: ti });
     const sides = env.evalIn(MEASURE);
