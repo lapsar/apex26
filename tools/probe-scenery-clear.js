@@ -120,7 +120,8 @@ const MARKERS = `(function(){
               top:+(((sc.markers.baseY||0)+(sc.markers.panelH||0.9))).toFixed(2),
               wallH:(track.style==='street'?1.1:1.0)});
   }
-  return {list:out};
+  return {list:out, baseY:(sc.markers.baseY||0), postW:(sc.markers.postW||0),
+          panelH:(sc.markers.panelH||0.9)};
 })()`;
 const MARKER_GAP = 0.15;     // щит должен стоять хотя бы настолько ПЕРЕД стеной
 const MARKER_FREE = 1.5;     // либо стоять настолько свободно, чтобы стена ему не фон
@@ -147,7 +148,12 @@ function run(opt) {
     const env = H.loadGame({ seed: opt.seed || 3 });
     H.setupWorld(env, { trackIdx: T.idx });
     const s = env.evalIn(MARKERS);
-    if (!s.list.length) continue;
+    if (!s.list || !s.list.length) continue;
+    if (s.baseY > 0.02 && !s.postW) {           // щит без стойки обязан стоять на земле
+      const say = T.hidden ? r.note.bind(r) : r.fail.bind(r);
+      say(`${T.name}: щиты подняты на ${s.baseY} м, а стойки нет (postW=0) — `
+        + `табличка висит в воздухе. Либо ставить на землю, либо задать postW`);
+    }
     const bad = s.list.filter(m => m.wall - m.off < MARKER_GAP);
     const dim = s.list.filter(m => m.wall - m.off >= MARKER_GAP
                                && m.wall - m.off < MARKER_FREE && m.top <= m.wallH);
