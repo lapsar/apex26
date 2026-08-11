@@ -132,6 +132,48 @@ const MARKERS = `(function(){
   return {list:out, baseY:(sc.markers.baseY||0), postW:(sc.markers.postW||0),
           panelH:(sc.markers.panelH||0.9)};
 })()`;
+// Третья проверка: ТРИБУНЫ НЕ ДОЛЖНЫ ЛЕЗТЬ ДРУГ НА ДРУГА.
+// Владелец увидел на устройстве перед шпилькой Монреаля две трибуны, сложенные
+// одна на другую: они стояли по разные стороны узкой полосы между ногами петли,
+// и их дальние края встретились. Мешевые пробники это не ловят — после склейки
+// по материалам обе трибуны становятся одним мешем, и «пересечение с собой»
+// уже не видно. Поэтому считаем по ДАННЫМ разметки, до всякой геометрии.
+const STANDS = `(function(){
+  var key=track.spec.key, sc=(typeof SCENERY_BY_KEY!=='undefined')?SCENERY_BY_KEY[key]:null;
+  if(!sc||!sc.objects)return {list:[]};
+  var h=scenHelpers(), M=track.M, LEN=track.length;
+  function idxAtS(s){ s=((s%LEN)+LEN)%LEN; var bi=0,bd=1e18;
+    for(var k=0;k<M;k++){ var dd=Math.abs(((track.S[k]-s+LEN/2)%LEN)-LEN/2); if(dd<bd){bd=dd;bi=k;} } return bi; }
+  var out=[];
+  for(var n=0;n<sc.objects.length;n++){
+    var o=sc.objects[n]; if(o.kind!=='grandstand')continue;
+    var sgn=(o.side==='R')?1:-1, pts=[];
+    if(o.shape==='arc'){
+      var a=scenIndexAt(h,o.fromLatLon,o.fromS), b=scenIndexAt(h,o.toLatLon,o.toS);
+      var span=(b-a+M)%M; if(span>M/2)continue;
+      for(var t=0;t<=span;t++){ var i=(a+t)%M, P=track.P[i], R=track.R[i];
+        for(var q=0;q<=1;q+=0.25){ var off=o.off+o.d*q;
+          pts.push([P.x+R.x*sgn*off, P.z+R.z*sgn*off]); } }
+    } else {
+      var ai=(o.atS!=null)?idxAtS(o.atS):0, xz=h.toXZ(o.latLon[0],o.latLon[1]);
+      var half=Math.min(o.w/2,55), k=ai, acc=0;
+      while(acc<half){ var m=(k-1+M)%M; acc+=track.P[k].distanceTo(track.P[m]); k=m; if(k===ai)break; }
+      var A=track.P[k]; k=ai; acc=0;
+      while(acc<half){ var m2=(k+1)%M; acc+=track.P[k].distanceTo(track.P[m2]); k=m2; if(k===ai)break; }
+      var B=track.P[k];
+      var dx=B.x-A.x, dz=B.z-A.z, dl=Math.hypot(dx,dz)||1; dx/=dl; dz/=dl;
+      var ox=xz[0]-track.P[ai].x, oz=xz[1]-track.P[ai].z;
+      var pr=ox*dx+oz*dz; ox-=dx*pr; oz-=dz*pr;
+      var ol=Math.hypot(ox,oz)||1; ox/=ol; oz/=ol;
+      for(var u=-1;u<=1;u+=0.25)for(var v=0;v<=1;v+=0.25)
+        pts.push([xz[0]+dx*o.w/2*u+ox*o.d*v, xz[1]+dz*o.w/2*u+oz*o.d*v]);
+    }
+    out.push({name:o.name||('#'+n), pts:pts});
+  }
+  return {list:out};
+})()`;
+const STAND_GAP = 1.5;       // ближе этого две трибуны уже выглядят одной сложенной кучей
+
 const MARKER_GAP = 0.15;     // насколько щит обязан выступать перед стеной, если он низкий
 const MARKER_FREE = 2.0;     // ближе этого к стене считаем, что стена стоит прямо за щитом
 
@@ -181,6 +223,26 @@ function run(opt) {
         + `отбойник в ${m.wall} м (${m.S} м от старта), низ щита ${m.bottom} м — `
         + `щит целиком ЗА стеной и ниже её, из болида его не видно`);
     }
+  }
+  for (const T of H.tracks()) {
+    const env = H.loadGame({ seed: opt.seed || 3 });
+    H.setupWorld(env, { trackIdx: T.idx });
+    const s = env.evalIn(STANDS);
+    if (!s.list || s.list.length < 2) continue;
+    let worst = null;
+    for (let i = 0; i < s.list.length; i++) for (let j = i + 1; j < s.list.length; j++) {
+      let d = 1e9;
+      for (const a of s.list[i].pts) for (const b of s.list[j].pts)
+        d = Math.min(d, Math.hypot(a[0] - b[0], a[1] - b[1]));
+      if (d < STAND_GAP) {
+        const say = T.hidden ? r.note.bind(r) : r.fail.bind(r);
+        say(`${T.name}: трибуны «${s.list[i].name}» и «${s.list[j].name}» сходятся на ${d.toFixed(1)} м — `
+          + `на экране это одна сложенная куча, а не две трибуны`);
+      }
+      if (!worst || d < worst.d) worst = { d, a: s.list[i].name, b: s.list[j].name };
+    }
+    r.line(`${T.name.padEnd(12)} трибун ${String(s.list.length).padStart(3)} · `
+      + `ближайшая пара ${worst.d.toFixed(1)} м`);
   }
   if (r.ok) r.line('ни один стоящий объект не пересекает полотно, ни один щит не спрятан за отбойником');
   return r;
