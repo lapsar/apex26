@@ -1,0 +1,12 @@
+[
+  {"name": "Tribune 1 (ligne de depart)", "fromS": 4060, "toS": 4345, "side": "R", "off": 19.0, "d": 16, "h": 12},
+  {"name": "Platine (virage 1)",          "fromS": 0,    "toS": 230,  "side": "R", "off": 22.5, "d": 18, "h": 12},
+  {"name": "Tribunes 10-11-12 (Senna S)", "fromS": 300,  "toS": 430,  "side": "L", "off": 27.0, "d": 12, "h": 11},
+  {"name": "Tribune 33 (virages 6-7)",    "fromS": 1216, "toS": 1396, "side": "R", "off": 40.0, "d": 16, "h": 11},
+  {"name": "Tribune 31 (virages 8-9)",    "fromS": 1950, "toS": 2110, "side": "L", "off": 35.0, "d": 14, "h": 11},
+  {"name": "Tribune 21 (entree Epingle)", "fromS": 2440, "toS": 2600, "side": "L", "off": 35.0, "d": 16, "h": 12},
+  {"name": "Tribune 15 (bout ouest)",     "fromS": 2620, "toS": 2700, "side": "L", "off": 29.0, "d": 14, "h": 11},
+  {"name": "Tribunes 24-46 (Epingle-Casino)", "fromS": 2740, "toS": 3040, "side": "L", "off": 23.0, "d": 22, "h": 13},
+  {"name": "Tribune 47 (Casino interieur)", "fromS": 2880, "toS": 3060, "side": "R", "off": 23.0, "d": 18, "h": 12},
+  {"name": "Podium Club (Mur des Champions)", "fromS": 3869, "toS": 3917, "side": "R", "off": 17.0, "d": 12, "h": 10}
+]
