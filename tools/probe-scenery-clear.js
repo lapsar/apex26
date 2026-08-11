@@ -62,7 +62,12 @@ const MEASURE = `(function(){
     o.geometry.computeBoundingBox();
     var bb=o.geometry.boundingBox.clone(); bb.applyMatrix4(o.matrixWorld);
     var sz=bb.getSize(new THREE.Vector3());
-    if(Math.max(sz.x,sz.z)>900)return;                      // земля и небо
+    if(o===(typeof skyMesh!=='undefined'?skyMesh:null))return;   // небо
+    var gp=o.geometry.parameters;
+    if(gp&&gp.width===9000)return;                          // травяное основание мира
+    // Раньше здесь стояло «больше 900 м — пропустить», и это была ДЫРА: склейка
+    // по материалам даёт один меш сидений на весь круг, он длиннее 900 м и целиком
+    // выпадал из проверки. Трибуна Монреаля легла поперёк трассы, а пробник молчал.
     if(sz.y<${MIN_H})return;                                // плоское: разметка, ленты, щиты
     if(bb.min.y>${ON_GROUND})return;                        // висит над трассой: арка старта
     o.updateMatrixWorld(true);

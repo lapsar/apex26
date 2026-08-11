@@ -1,0 +1,8 @@
+[
+  {"name": "Tribune 1",      "fromS": 4060, "toS": 4345, "side": "R", "off": 19.0, "d": 16},
+  {"name": "Tribunes 11-12", "fromS": 0,    "toS": 230,  "side": "R", "off": 22.5, "d": 18},
+  {"name": "Tribune 31",     "fromS": 2408, "toS": 2548, "side": "R", "off": 16.0, "d": 10},
+  {"name": "Epingle ext",    "fromS": 2600, "toS": 2968, "side": "L", "off": 23.0, "d": 24},
+  {"name": "Tribune 47",     "fromS": 2856, "toS": 3024, "side": "R", "off": 17.5, "d": 13},
+  {"name": "Mur des Champions", "fromS": 3869, "toS": 3917, "side": "R", "off": 17.0, "d": 12}
+]
