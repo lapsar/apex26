@@ -76,6 +76,16 @@ function makeGrandstand(THREE,o,mats){
   gs.setAttribute('color',new THREE.Float32BufferAttribute(col,3));
   gs.computeVertexNormals();
   const seat=new THREE.Mesh(gs, mats.crowd); g.add(seat);
+  // Пол и торцы. Без них трибуна сбоку — висящая в воздухе плита: у пандуса
+  // нет ни низа, ни боков, и с трассы это читается как «торчит над обочиной».
+  // У дуговой трибуны они есть с самого начала, у прямой не было.
+  const f=[-w/2,0,0], k=[w/2,0,0], m=[w/2,0,d], n=[-w/2,0,d];
+  const side=[].concat(
+    [...f,...k,...m, ...f,...m,...n],                       // пол под трибуной
+    [...f,...n,...e, ...k,...c,...m]);                      // торцевые треугольники
+  const sg=new THREE.BufferGeometry();
+  sg.setAttribute('position',new THREE.Float32BufferAttribute(side,3)); sg.computeVertexNormals();
+  g.add(new THREE.Mesh(sg, mats.struct));
   const back=new THREE.Mesh(new THREE.BoxGeometry(w,h*0.5,0.6), mats.struct); back.position.set(0,h*0.75,d); g.add(back);
   const roof=new THREE.Mesh(new THREE.BoxGeometry(w,0.4,d*0.5), mats.struct); roof.position.set(0,h+0.2,d*0.75); g.add(roof);
   return g;
