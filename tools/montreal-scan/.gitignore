@@ -7,3 +7,7 @@ traced*.json
 rail_*.json
 rail_snippet.js
 unrolled_*
+wall.json
+surface.json
+zones.json
+__pycache__/

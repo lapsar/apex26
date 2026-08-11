@@ -150,7 +150,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond">Monza · Silverstone</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.15.26</div>
+    <div class="verstamp">v1.15.25</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -2683,7 +2683,7 @@ function makeState(name,num,color,skill,isPlayer){
   }
   return {mesh:meshObj,name:name.toUpperCase(),code:code3(name),num,color,skill,isPlayer:!!isPlayer,
     x:0,z:0,hdg:0,speed:0,u:0,lane:0,lap:0,dist:0,lapT:0,best:Infinity,last:0,started:false,prevIdx:0,hint:0,base:0,steerVis:0,steerAmt:0,lapLock:0,
-    retired:false,retireAt:0,lapStart:undefined,arcPrev:0,settle:0,react:0,ovSide:1,ovLock:null,ovDir:1,laneJit:0,gridLane:0};}
+    retired:false,retireAt:0,lapStart:undefined,arcPrev:0,settle:0,react:0,ovSide:1,laneJit:0,gridLane:0};}
 
 // place player from x,z,hdg ; place AI from u,lane
 function placePlayer(c){c.mesh.position.set(c.x,0,c.z);c.mesh.rotation.set(0,c.hdg,0);
@@ -2909,18 +2909,14 @@ function update(dt){
     const hw=halfAt(iu);
     const line=Math.sign(kA)*Math.min(1,Math.abs(kA)/0.06)*hw*0.42;   // hug the inside of corners
     let want=line+c.laneJit;
-    if(c.ovLock){const o=c.ovLock;                                           // committed to passing a stopped car: hold the line until actually past it
-      if(o.retired||o.speed>c.free*0.5||c.dist>o.dist+3.0||o.dist-c.dist>20)c.ovLock=null;   // without this the car drifts back to the racing line the moment it clears the 2.3 m "same lane" window, gets caught again and crawls behind forever
-      else want=o.lane+c.ovDir*3.4;}
     if(c.ahd&&c.gp<20&&c.free>c.ahd.speed+1.0){                              // faster potential -> go around
       let ov=c.ovSide, off=2.6;
       if(c.ahd.speed<c.free*0.5){                                            // ahead much slower/stopped: take the open side (toward centre) and clear fully
-        ov=c.ahd.lane>0.3?-1:(c.ahd.lane<-0.3?1:c.ovSide); off=3.4;
-        c.ovLock=c.ahd;c.ovDir=ov;}
+        ov=c.ahd.lane>0.3?-1:(c.ahd.lane<-0.3?1:c.ovSide); off=3.0;}
       want=c.ahd.lane+ov*off;}
     const lim=hw*0.62;want=Math.max(-lim,Math.min(lim,want));
     let eff=c.settle;
-    if((c.ovLock||(c.ahd&&c.gp<20&&c.free>c.ahd.speed+1.0&&c.ahd.speed<6))&&raceTime>c.react+2.0)eff=Math.max(eff,0.92); // rolling up on a near-stopped car (not the grid launch): pull out now
+    if(c.ahd&&c.gp<20&&c.free>c.ahd.speed+1.0&&c.ahd.speed<6&&raceTime>c.react+2.0)eff=Math.max(eff,0.92); // rolling up on a near-stopped car (not the grid launch): pull out now
     const mix=c.gridLane+(want-c.gridLane)*eff;
     let nl=c.lane+(mix-c.lane)*Math.min(1,dt*(0.5+eff*1.2));
     for(const o of __order){if(o===c||o.isPlayer)continue;           // keep bots off EACH OTHER; the player is handled by the contact oval, so bots never dodge the player
