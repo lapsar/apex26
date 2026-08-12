@@ -462,6 +462,6 @@ const SCENERY_MONTREAL = {
     {kind:'grandstand', shape:'arc', name:'Tribune 46 (droit du Casino)', fromS:2880, toS:3040, side:'L', off:12, h:12, d:20, fromLatLon:[45.512817,-73.526798], toLatLon:[45.511486,-73.525996]},
     {kind:'grandstand', shape:'arc', name:'Tribune 47 (Casino, interieur)', fromS:2910, toS:3008, side:'R', off:14, h:12, d:13, fromLatLon:[45.512592,-73.526634], toLatLon:[45.511756,-73.526144]},
     {kind:'grandstand', shape:'arc', name:'Tribune interieure (entree de l Epingle)', fromS:2428, toS:2484, side:'R', off:11, h:12, d:14, fromLatLon:[45.511968,-73.527313], toLatLon:[45.512475,-73.527288]},
-    {kind:'grandstand', shape:'straight', name:'Tribune 34 (interieur de l Epingle)', atS:2696, side:'R', off:183, w:14, h:9, d:12, latLon:[45.512679,-73.527005]},   // atS = АПЕКС и только ориентация: у прямой трибуны положение берётся из latLon, а atS задаёт направление лица. Апекс оставлен нарочно — от него «наружу от полотна» и есть взгляд вдоль полосы между ногами, то есть на шпильку
+    {kind:'grandstand', shape:'straight', name:'Tribune 34 (interieur de l Epingle)', atS:2696, side:'R', off:183, w:14, h:9, d:12, latLon:[45.512679,-73.527005], faceLatLon:[45.514296,-73.527519]},   // latLon = место (полоса между ногами петли), faceLatLon = апекс шпильки: на него трибуна и смотрит. Через atS это НЕ задаётся — buildScenery пересчитывает atS из latLon, и якорем становится нога подхода
   ],
 };
