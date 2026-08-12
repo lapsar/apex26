@@ -9,8 +9,10 @@
       с настоящей геометрией — по нему выбирается жёлтый флаг или VSC.
       Перебираются ВСЕ точки круга и обе стороны, с обоими знаками угла.
 
-   2. ФЛАГИ. Болид, вставший вне полотна, поднимает жёлтый (40 с) и никому
-      не режет скорость. Болид на полотне поднимает VSC (30 с = 27 + 3 «кончается»).
+   2. ФЛАГИ. Болид, вставший вне полотна, поднимает жёлтый (40 с) — потолок темпа
+      в двух секторах. Болид на полотне поднимает VSC (30 с = 27 + 3 «кончается») —
+      потолок на всём круге. Оба потолка ложатся и на игрока: проверяется, что он
+      не едет быстрее своего потолка и не отыгрывает у соперника впереди.
 
    3. ПОД VSC НИКТО НИКОГО НЕ ОБГОНЯЕТ. Настоящим обгоном считается переход
       из «на 6 м позади» в «на 6 м впереди» — длина болида. Машины, едущие
@@ -86,15 +88,41 @@ function run(opt) {
         var live=function(){return cars.filter(function(c){return !c.retired;}).sort(rankCmp);};
         var mode0='', modeSecs={}, overtakes=[], capBad=0, n=0;
         var max=Math.round(75/dt), yellowCapped=0, playerPassed=0;
-        var pairs=null;
+        var pairs=null, pairsY=null, overtakesY=[];
         var gapAhead0=null, gapAheadEnd=null, rank0=null, rankEnd=null, rival=null;
+        var gapY0=null, gapYEnd=null, rankY0=null, rivalY=null, inY=0;
         while(n<max && !raceOver){
           __AP.drive();
           update(dt); n++;
           var m=neutral.mode; if(m)modeSecs[m]=(modeSecs[m]||0)+dt;
           if(!mode0&&m)mode0=m;
           var neut=(m==='vsc'||m==='ending');
-          if(m==='yellow'&&vscOn())yellowCapped++;        // под жёлтым потолок не накладывается вовсе
+          if(m==='yellow'){                                // жёлтый: в своих секторах потолок обязан быть наложен
+            var nzP=neutralAt(player.hint);
+            inY=nzP?inY+dt:0;                              // въезд в зону идёт на гоночной скорости: 2.5 с на сброс
+            if(inY>2.5&&player.speed>neutralCap(player.hint,player.speed,nzP)+3)yellowCapped++;
+            if(nzP){var Ly=cars.filter(function(c){return !c.retired;}).sort(rankCmp);
+              var py=Ly.indexOf(player);
+              if(rankY0===null){rankY0=py+1;rivalY=py>0?Ly[py-1]:null;}
+              if(rivalY){var gy=rivalY.dist-player.dist; if(gapY0===null)gapY0=gy; gapYEnd=gy;}}
+          }
+          if(m==='yellow'){                                // обгонов не должно быть и в жёлтой зоне — но считаем
+            var Lz=live().filter(function(c){                // только пары, где ОБА в ней: снаружи гонка идёт как шла
+              return neutralAt(c.isPlayer?player.hint:Math.floor(((c.u%1)+1)%1*track.M)%track.M);});
+            if(!pairsY){pairsY={};
+              for(var ay=0;ay<Lz.length;ay++)for(var by=0;by<Lz.length;by++)if(ay!==by)
+                pairsY[Lz[ay].code+'>'+Lz[by].code]=Lz[ay].dist-Lz[by].dist;
+            } else {
+              for(var ay2=0;ay2<Lz.length;ay2++)for(var by2=0;by2<Lz.length;by2++){
+                if(ay2===by2)continue;
+                if(Lz[ay2].isPlayer||Lz[by2].isPlayer)continue;    // пары с игроком — отдельно, по отыгранным метрам:
+                var ky=Lz[ay2].code+'>'+Lz[by2].code, wasy=pairsY[ky];   // ПОТЕРЯТЬ место под флагом можно, отыграть — нет
+                if(wasy===undefined){pairsY[ky]=Lz[ay2].dist-Lz[by2].dist;continue;}
+                var nowy=Lz[ay2].dist-Lz[by2].dist;
+                if(wasy<-6&&nowy>6){overtakesY.push(ky+' ('+wasy.toFixed(1)+' -> '+nowy.toFixed(1)+')');pairsY[ky]=nowy;}
+              }
+            }
+          }
           if(neut){
             var L=live();
             var pi=L.indexOf(player);
@@ -125,6 +153,8 @@ function run(opt) {
         return {mode0:mode0, secs:modeSecs, overtakes:overtakes.slice(0,6), nOver:overtakes.length,
                 capBad:capBad, yellowCapped:yellowCapped,
                 gained:(gapAhead0===null||gapAheadEnd===null)?null:+(gapAhead0-gapAheadEnd).toFixed(1),
+                gainedY:(gapY0===null||gapYEnd===null)?null:+(gapY0-gapYEnd).toFixed(1),
+                nOverY:overtakesY.length, overtakesY:overtakesY.slice(0,4),
                 rank0:rank0, rankEnd:rankEnd,
                 blocking0:v.blockedRoad, offEnd:+offEnd.toFixed(2),
                 wall:+((v.retiredSide>0?track.WR:track.WL)[i]).toFixed(2),
@@ -137,13 +167,17 @@ function run(opt) {
             end = +(res.secs.ending || 0).toFixed(1), grn = +(res.secs.green || 0).toFixed(1);
       r.line(`${tag.padEnd(24)} ${res.mode0 === 'vsc' ? 'VSC' : 'жёлтый'} · жёлтый ${yel} с · VSC ${vsc}+${end} с`
         + ` · зелёный ${grn} с · обгонов ИИ под VSC ${res.nOver}`
+        + (res.mode0 === 'yellow' ? ` · обгонов в жёлтой зоне ${res.nOverY}` : '')
         + (res.gained === null ? '' : ` · игрок отыграл ${res.gained} м, место P${res.rank0}→P${res.rankEnd}`)
+        + (res.gainedY === null ? '' : ` · игрок отыграл в жёлтой зоне ${res.gainedY} м`)
         + ` · болид стоит в ${res.offEnd} м (стена ${res.wall})`);
 
       if (res.mode0 === 'yellow') {
         if (Math.abs(yel - 40) > 0.6) r.fail(`${tag}: жёлтый горел ${yel} с вместо 40`);
-        if (res.yellowCapped) r.fail(`${tag}: под жёлтым игроку ${res.yellowCapped} кадров резали скорость — жёлтый ограничивать не должен`);
+        if (res.yellowCapped) r.fail(`${tag}: под жёлтым игрок ${res.yellowCapped} кадров ехал быстрее потолка своего сектора`);
+        if (res.gainedY !== null && res.gainedY > 12) r.fail(`${tag}: под жёлтым игрок отыграл ${res.gainedY} м у соперника впереди`);
         if (res.blocking0) r.fail(`${tag}: болид стоит на полотне, а поднят жёлтый вместо VSC`);
+        if (res.nOverY) r.fail(`${tag}: в жёлтой зоне состоялось ${res.nOverY} обгонов: ${res.overtakesY.join(', ')}`);
       } else {
         if (Math.abs(vsc + end - 30) > 0.6) r.fail(`${tag}: VSC длился ${(vsc + end).toFixed(1)} с вместо 30`);
         if (res.nOver) r.fail(`${tag}: под VSC состоялось ${res.nOver} обгонов между соперниками: ${res.overtakes.join(', ')}`);

@@ -88,23 +88,19 @@ async function snap(page, file) {
       // а куда именно доедет машина, само по себе дело случая
       const ahead = field.filter(c => !c.retired && c.dist > player.dist).sort((a, b) => a.dist - b.dist)[0] || field[0];
       window.__victim = ahead;
-      field.forEach(c => { if (c !== ahead) c.retireAt = 0; });      // никаких посторонних сходов в кадре
-      const i0 = Math.floor(((ahead.u % 1) + 1) % 1 * track.M) % track.M;
-      const seg = track.length / track.M;
-      let step = 0;
+      field.forEach(c => { c.retireAt = 0; });        // никаких посторонних сходов в кадре, свой назначим сами
+      // Ждём, пока болид сам не окажется в подходящем месте, и только тогда роняем его.
+      // Предсказывать точку по дистанции нельзя: dist и u расходятся на пару индексов,
+      // а на Монреале годные и негодные места чередуются — сход попадал то в жёлтый, то в VSC.
       const need = 2 * carHalfWidth(0.1) + 0.4;
-      const good = (k) => {                                  // место должно подходить с ОБЕИХ сторон:
-        const u = ((i0 + k) % track.M) / track.M;            // на какой окажется болид, к моменту схода ещё неизвестно
-        const a = retireSpot({ u, lane: 3 }), b = retireSpot({ u, lane: -3 });
-        return want === 'vsc' ? Math.max(a.free, b.free) < need : Math.min(a.free, b.free) >= need;
+      const suits = () => {
+        const sp = retireSpot(ahead);
+        return want === 'vsc' ? sp.free < need - 0.6 : sp.free > need + 0.6;   // с запасом от границы: за кадр болид проезжает метр, и на самой границе признак перещёлкивается
       };
-      for (let k = 1; k < track.M; k++) {                     // и держаться десяток точек подряд: точка остановки
-        let ok = true;                                       // считается по дистанции и на пару индексов гуляет
-        for (let d = -2; d <= 8 && ok; d++) ok = good(k + d);
-        if (ok) { step = k; break; }
+      for (let f = 0; f < 60 * 60 && !ahead.retired; f++) {
+        if (ahead.retireAt === 0 && suits()) ahead.retireAt = ahead.dist - 1;
+        update(1 / 60);
       }
-      ahead.retireAt = ahead.dist + step * seg + 0.5;
-      for (let f = 0; f < 60 * 20 && !ahead.retired; f++) update(1 / 60);
       return track.name;
     }, { want: job.kind });
 
@@ -117,7 +113,8 @@ async function snap(page, file) {
         const lane = v.retiredSide * 2.0;              // ехать по той же стороне: так авария в кадре, а не за краем
         player.x = P.x + R.x * lane; player.z = P.z + R.z * lane;
         player.hdg = Math.atan2(F.x, F.z); player.hint = j;
-        player.speed = vscOn() ? vscCap(j, 30) : 45;
+        const nz = neutralAt(j);                       // на кадре должна стоять та скорость, которую флаг и разрешает
+        player.speed = nz ? neutralCap(j, 30, nz) : 45;
         placePlayer(player); updateCamera(0.016); updateHUD(); render();
         const dx = v.x - player.x, dz = v.z - player.z;
         const s2 = Math.sin(player.hdg), c2 = Math.cos(player.hdg);
