@@ -155,18 +155,25 @@ const STANDS = `(function(){
         for(var q=0;q<=1;q+=0.25){ var off=o.off+o.d*q;
           pts.push([P.x+R.x*sgn*off, P.z+R.z*sgn*off]); } }
     } else {
-      var ai=(o.atS!=null)?idxAtS(o.atS):0, xz=h.toXZ(o.latLon[0],o.latLon[1]);
-      var half=Math.min(o.w/2,55), k=ai, acc=0;
-      while(acc<half){ var m=(k-1+M)%M; acc+=track.P[k].distanceTo(track.P[m]); k=m; if(k===ai)break; }
-      var A=track.P[k]; k=ai; acc=0;
-      while(acc<half){ var m2=(k+1)%M; acc+=track.P[k].distanceTo(track.P[m2]); k=m2; if(k===ai)break; }
-      var B=track.P[k];
-      var dx=B.x-A.x, dz=B.z-A.z, dl=Math.hypot(dx,dz)||1; dx/=dl; dz/=dl;
-      var ox=xz[0]-track.P[ai].x, oz=xz[1]-track.P[ai].z;
-      var pr=ox*dx+oz*dz; ox-=dx*pr; oz-=dz*pr;
-      var ol=Math.hypot(ox,oz)||1; ox/=ol; oz/=ol;
-      for(var u=-1;u<=1;u+=0.25)for(var v=0;v<=1;v+=0.25)
-        pts.push([xz[0]+dx*o.w/2*u+ox*o.d*v, xz[1]+dz*o.w/2*u+oz*o.d*v]);
+      // ПРЯМАЯ трибуна строится настоящим строителем, а не повторением его
+      // формул. Повторение уже соврало: buildScenery ПЕРЕСЧИТЫВАЕТ atS из latLon
+      // (защита «трибуна не должна уехать на 100 м»), а пробник читал atS
+      // из данных — и мерил футпринт трибуны, развёрнутой на 90° от настоящей.
+      // Заодно так учитывается любой будущий ключ ориентации (faceLatLon).
+      var ob={}; for(var kk in o)ob[kk]=o[kk];
+      if(o.latLon)ob.atS=track.S[scenIndexAt(h,o.latLon,o.atS)];
+      var mm=new THREE.MeshBasicMaterial();
+      var g=buildSceneryObject(THREE,ob,{crowd:mm,struct:mm,glass:mm},h);
+      if(!g)continue;
+      g.updateMatrixWorld(true);
+      var v3=new THREE.Vector3();
+      g.traverse(function(ch){
+        if(!ch.isMesh||!ch.geometry||!ch.geometry.attributes.position)return;
+        var pa=ch.geometry.attributes.position;
+        for(var q=0;q<pa.count;q++){
+          v3.set(pa.getX(q),pa.getY(q),pa.getZ(q)).applyMatrix4(ch.matrixWorld);
+          pts.push([v3.x,v3.z]); }
+      });
     }
     out.push({name:o.name||('#'+n), pts:pts});
   }
