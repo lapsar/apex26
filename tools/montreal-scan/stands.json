@@ -1,13 +1,110 @@
 [
-  {"name": "Tribune 1 (ligne de depart)", "fromS": 4060, "toS": 4345, "side": "R", "off": 19.0, "d": 16, "h": 12},
-  {"name": "Platine (virage 1)", "fromS": 0, "toS": 230, "side": "R", "off": 22.5, "d": 18, "h": 12},
-  {"name": "Tribunes 10-11-12 (Senna S)", "fromS": 300, "toS": 430, "side": "L", "off": 27.0, "d": 12, "h": 11},
-  {"name": "Tribune 33 (virages 6-7)", "fromS": 1216, "toS": 1396, "side": "R", "off": 40.0, "d": 16, "h": 11},
-  {"name": "Tribune 31 (virages 8-9)", "fromS": 1950, "toS": 2110, "side": "L", "off": 35.0, "d": 14, "h": 11},
-  {"name": "Tribune 21 (entree Epingle)", "fromS": 2440, "toS": 2600, "side": "L", "off": 35.0, "d": 16, "h": 12},
-  {"name": "Tribune 15 (Epingle exterieur)", "fromS": 2604, "toS": 2744, "side": "L", "off": 30.0, "d": 16, "h": 14},
-  {"name": "Tribune 24 (sortie Epingle)", "fromS": 2760, "toS": 2860, "side": "L", "off": 28.0, "d": 20, "h": 13},
-  {"name": "Tribune 46 (droit du Casino)", "fromS": 2880, "toS": 3040, "side": "L", "off": 22.0, "d": 20, "h": 12},
-  {"name": "Tribune 47 (Casino interieur)", "fromS": 2880, "toS": 3060, "side": "R", "off": 23.0, "d": 18, "h": 12},
-  {"name": "Tribune 34 (interieur Epingle)", "fromS": 2690, "toS": 2702, "side": "R", "off": 22.0, "d": 12, "h": 9}
+ {
+  "name": "Tribune 1 (ligne de depart)",
+  "fromS": 4060,
+  "toS": 4345,
+  "side": "R",
+  "off": 19.0,
+  "d": 16,
+  "h": 12
+ },
+ {
+  "name": "Platine (virage 1)",
+  "fromS": 0,
+  "toS": 230,
+  "side": "R",
+  "off": 22.5,
+  "d": 18,
+  "h": 12
+ },
+ {
+  "name": "Tribunes 10-11-12 (Senna S)",
+  "fromS": 300,
+  "toS": 430,
+  "side": "L",
+  "off": 27.0,
+  "d": 12,
+  "h": 11
+ },
+ {
+  "name": "Tribune 33 (virages 6-7)",
+  "fromS": 1216,
+  "toS": 1396,
+  "side": "R",
+  "off": 40.0,
+  "d": 16,
+  "h": 11
+ },
+ {
+  "name": "Tribune 31 (virages 8-9)",
+  "fromS": 1950,
+  "toS": 2110,
+  "side": "L",
+  "off": 35.0,
+  "d": 14,
+  "h": 11
+ },
+ {
+  "name": "Tribune 21 (entree Epingle)",
+  "fromS": 2440,
+  "toS": 2600,
+  "side": "L",
+  "off": 35.0,
+  "d": 16,
+  "h": 12
+ },
+ {
+  "name": "Tribune 15 (Epingle exterieur)",
+  "fromS": 2604,
+  "toS": 2744,
+  "side": "L",
+  "off": 30.0,
+  "d": 16,
+  "h": 14
+ },
+ {
+  "name": "Tribune 24 (sortie Epingle)",
+  "fromS": 2760,
+  "toS": 2860,
+  "side": "L",
+  "off": 28.0,
+  "d": 20,
+  "h": 13
+ },
+ {
+  "name": "Tribune 46 (droit du Casino)",
+  "fromS": 2880,
+  "toS": 3040,
+  "side": "L",
+  "off": 22.0,
+  "d": 20,
+  "h": 12
+ },
+ {
+  "name": "Tribune 47 (Casino interieur)",
+  "fromS": 2910,
+  "toS": 3008,
+  "side": "R",
+  "off": 20.5,
+  "d": 13,
+  "h": 12
+ },
+ {
+  "name": "Tribune 34 (interieur Epingle)",
+  "fromS": 2690,
+  "toS": 2702,
+  "side": "R",
+  "off": 22.0,
+  "d": 12,
+  "h": 9
+ },
+ {
+  "name": "Tribune interieure (entree Epingle)",
+  "fromS": 2456,
+  "toS": 2514,
+  "side": "R",
+  "off": 18.0,
+  "d": 14,
+  "h": 12
+ }
 ]
