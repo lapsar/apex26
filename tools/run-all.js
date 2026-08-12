@@ -25,6 +25,7 @@ const PROBES = [
   { key: 'load',      mod: './probe-scene-load.js' },
   { key: 'print',     mod: './probe-track-fingerprint.js' },
   { key: 'clear',     mod: './probe-scenery-clear.js' },
+  { key: 'neutral',   mod: './probe-neutralisation.js' },
 ];
 
 function main(argv) {
