@@ -26,6 +26,7 @@ const PROBES = [
   { key: 'print',     mod: './probe-track-fingerprint.js' },
   { key: 'clear',     mod: './probe-scenery-clear.js' },
   { key: 'neutral',   mod: './probe-neutralisation.js' },
+  { key: 'aiover',    mod: './probe-ai-overtakes.js' },
 ];
 
 function main(argv) {

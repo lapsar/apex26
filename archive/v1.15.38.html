@@ -160,7 +160,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.15.39</div>
+    <div class="verstamp">v1.15.38</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -3128,7 +3128,7 @@ function update(dt){
       let ov=c.ovSide, off=2.6;
       if(crawler){                                                           // ahead much slower/stopped: take the open side (toward centre) and clear fully
         ov=c.ahd.lane>0.3?-1:(c.ahd.lane<-0.3?1:c.ovSide); off=3.4;
-        if(c.ahd.speed<6){c.ovLock=c.ahd;c.ovDir=ov;}}                       // latch ONLY onto a car that has genuinely stopped. "crawler" measures against MY pace at MY point on the track, so in every braking zone the car ahead — already in the corner — looks stopped; latching there forced the whole field onto one line two seconds after the lights and killed the start scramble (v1.15.26, found 08.2026)
+        c.ovLock=c.ahd;c.ovDir=ov;}
       want=c.ahd.lane+ov*off;}
     const lim=hw*0.62;want=Math.max(-lim,Math.min(lim,want));
     let eff=c.settle;
