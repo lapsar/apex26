@@ -3338,7 +3338,7 @@ function renderFlagUI(){const el=document.getElementById('flagpanel');if(!el)ret
     else if(neutral.mode==='green'&&greenSeen){cls='green';main='ЗЕЛЁНЫЙ ФЛАГ';sub='ограничения сняты · гонка';}
     else if(neutral.mode==='yellow'&&inFlagZone()){   // a marshal post is seen from its own sector, as in life
       main='ЖЁЛТЫЙ ФЛАГ';sub='скорость ограничена · обгон запрещён';}
-    else if(zoneOut>0){cls='green';main='КОНЕЦ ЗОНЫ';sub='гонка';}}
+    else if(zoneOut>0){cls='green';main='КОНЕЦ ЗОНЫ';sub='ограничения сняты';}}
   const key=cls+'|'+main+'|'+sub;if(key===flagKey)return;flagKey=key;
   el.className=main?('on '+cls):'';
   el.innerHTML=main?`<div class="fl"></div><div><div class="ft">${main}</div><div class="fs">${sub}</div></div>`:'';}
