@@ -248,6 +248,55 @@ function run(opt) {
     if (t.end > t.cap + 2) r.fail(`${T.name}: за кромкой под VSC держит ${t.end} м/с при потолке полотна ${t.cap} — срезать поворот по траве выгодно`);
   }
 
+  /* ---- 6. ПЛАШКИ ФЛАГОВ: панель обязана совпадать с потолком, а не жить своей жизнью ----
+
+     До v1.15.40 зелёный флаг показывался НА ВСЁМ КРУГЕ, хотя жёлтый горит в двух секторах:
+     владелец видел «ЗЕЛЁНЫЙ ФЛАГ» на другой стороне трассы, ни разу не увидев жёлтого,
+     и это читалось как вспышка на ровном месте. Плюс жёлтая плашка гасла молча — игрок
+     не мог понять, действует ли ещё ограничение. Проверяется три вещи:
+       - жёлтая плашка горит РОВНО пока действует потолок (0 расходящихся кадров);
+       - на выезде из зоны загорается «КОНЕЦ ЗОНЫ» на 3 с;
+       - зелёный флаг НЕ показывается вне секторов, где горел жёлтый.                     */
+  for (const T of H.tracks(true)) {
+    for (const mode of ['выезд', 'конец флага']) {
+      const env = H.loadGame();
+      H.setupWeekend(env, { trackIdx: T.idx, diff: 'normal', laps: 3 });
+      H.startRaceAt(env, 11);
+      H.noRetirements(env);
+      H.lightsOut(env);
+      const u = env.evalIn(`(function(){
+        var dt=1/60, short=${mode === 'конец флага' ? 'true' : 'false'};
+        for(var f=0;f<12*60;f++){__AP.drive();update(dt);}
+        var p0=project(player.x,player.z,player.hint);
+        // "конец флага": зона вокруг игрока и флаг гаснет через 2 с — он точно ещё внутри
+        var s=sectorAt(p0.idx/track.M+(short?1/240:1/24)), prev=(s+MARSHAL_SECTORS-1)%MARSHAL_SECTORS;
+        neutral={mode:'yellow',left:short?2.0:YELLOW_SECS,secs:[prev,s],cars:[]};
+        try{zoneOut=0;wasInZone=false;greenSeen=false;}catch(e){}   // до v1.15.40 этих переменных нет — пробник обязан работать и на архивной сборке
+        var capT=0,yelT=0,endT=0,grnT=0,mism=0,grnOut=0;
+        for(var f=0;f<(short?12:50)*60;f++){
+          __AP.drive();update(dt);
+          var pr=project(player.x,player.z,player.hint);
+          var cap=neutralAt(pr.idx)===1;                       // потолок жёлтого действует прямо сейчас
+          var h=document.getElementById('flagpanel').innerHTML;
+          var yel=h.indexOf('ЖЁЛТЫЙ')>=0, end=h.indexOf('КОНЕЦ')>=0, grn=h.indexOf('ЗЕЛЁНЫЙ')>=0;
+          if(cap)capT+=dt; if(yel)yelT+=dt; if(end)endT+=dt; if(grn)grnT+=dt;
+          if(cap!==yel)mism++;
+          if(grn&&grnT<=dt*1.5&&neutral.secs.indexOf(sectorAt(pr.idx/track.M))<0)grnOut++;   // зелёный защёлкивается: важно, где он ЗАГОРЕЛСЯ
+        }
+        return {capT:+capT.toFixed(1),yelT:+yelT.toFixed(1),endT:+endT.toFixed(1),
+                grnT:+grnT.toFixed(1),mism:mism,grnOut:grnOut};
+      })()`);
+      const tag = `${T.name} (${mode})`;
+      r.line(`${tag.padEnd(28)} потолок ${u.capT} с · жёлтая плашка ${u.yelT} с · «конец зоны» ${u.endT} с · зелёный ${u.grnT} с`);
+      if (u.mism) r.fail(`${tag}: плашка и потолок разошлись на ${u.mism} кадров — панель обязана гореть ровно пока действует ограничение`);
+      if (u.grnOut) r.fail(`${tag}: зелёный флаг ЗАГОРЕЛСЯ вне секторов, где горел жёлтый`);
+      if (mode === 'выезд' && Math.abs(u.endT - 3) > 0.6)
+        r.fail(`${tag}: «КОНЕЦ ЗОНЫ» показан ${u.endT} с вместо 3 — выезд из зоны обязан быть виден`);
+      if (mode === 'конец флага' && Math.abs(u.grnT - 3) > 0.6)
+        r.fail(`${tag}: флаг погас при игроке в зоне — зелёный показан ${u.grnT} с вместо 3`);
+    }
+  }
+
   return r;
 }
 
