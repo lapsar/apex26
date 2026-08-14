@@ -106,7 +106,7 @@ function run(opt) {
             var Ls=cars.filter(function(c){return !c.retired&&!c.isPlayer;});
             for(var si=0;si<Ls.length;si++){var sc=Ls[si];
               var sidx=Math.floor(((sc.u%1)+1)%1*track.M)%track.M, snz=neutralAt(sidx);
-              if(snz&&sc.speed<neutralCap(sidx,sc.speed,snz)*0.5)crawled[sc.code]=true;}}
+              if(snz&&sc.speed<paceAt(sc)*0.5)crawled[sc.code]=true;}}   // темп СОПЕРНИКА: neutralCap теперь считает потолок ИГРОКА
           if(!mode0&&m)mode0=m;
           var neut=(m==='vsc'||m==='ending');
           if(m==='yellow'){                                // жёлтый: в своих секторах потолок обязан быть наложен
