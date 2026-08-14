@@ -23,8 +23,10 @@
 const H = require('./harness');
 const R = require('./report');
 
-// снято на v1.15.38 (1 круг, режим Норма, игрок 11-м, зёрна 7/91/13)
-const REF = { Monza: 81, Silverstone: 41, Montreal: 55 };
+// снято на v1.15.45 (1 круг, режим Норма, игрок 11-м, зёрна 7/91/13)
+// было на v1.15.38: Monza 81, Silverstone 41, Montreal 55 — числа выросли вдвое-втрое
+// намеренно, когда обгон научился доводиться до конца (защёлка цели, см. DUEL_EDGE)
+const REF = { Monza: 162, Silverstone: 150, Montreal: 99 };
 const FLOOR = 25;               // на трассу за три зерна; v1.15.35 давал на Монреале 16
 
 function run(opt) {
