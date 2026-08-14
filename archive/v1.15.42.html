@@ -160,7 +160,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.15.44</div>
+    <div class="verstamp">v1.15.42</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -3206,9 +3206,9 @@ function raiseNeutral(kind,c){
   const s=sectorAt(c.u),prev=(s+MARSHAL_SECTORS-1)%MARSHAL_SECTORS;
   for(const k of [prev,s])if(neutral.secs.indexOf(k)<0)neutral.secs.push(k);
   if(kind==='vsc'){neutral.mode='vsc';neutral.left=VSC_SECS;if(neutral.cars.indexOf(c)<0)neutral.cars.push(c);
-    big('VSC','болид на трассе — ограничение скорости',1400);AUDIO.beep(700,0.30,0.18);}
+    big('VSC','болид на трассе — темп ограничен',1400);AUDIO.beep(700,0.30,0.18);}
   else if(neutral.mode!=='vsc'&&neutral.mode!=='ending'){neutral.mode='yellow';neutral.left=YELLOW_SECS;
-    if(inFlagZone()){big('ЖЁЛТЫЙ ФЛАГ','опасность на трассе',1400);AUDIO.beep(620,0.22,0.14);}}}
+    if(inFlagZone()){big('ЖЁЛТЫЙ ФЛАГ','болид сошёл',1400);AUDIO.beep(620,0.22,0.14);}}}
 function updateNeutral(dt){
   // Leaving the yellow zone lifts the ceiling silently: the panel goes out and nothing says why.
   // A real green flag flies at the post at the END of the yellow sector — this is that flag.
@@ -3410,7 +3410,7 @@ function renderFlagUI(){const el=document.getElementById('flagpanel');if(!el)ret
   wasInZone=inZ;
   let cls='',main='',sub='';
   if(phase==='race'){
-    if(vscOn()){cls='vsc';main=neutral.mode==='ending'?'VSC ЗАКАНЧИВАЕТСЯ':'VSC';sub='скорость ограничена · обгон запрещён';}
+    if(vscOn()){cls='vsc';main=neutral.mode==='ending'?'VSC ЗАКАНЧИВАЕТСЯ':'VSC';sub='темп ограничен · обгон запрещён';}
     else if(neutral.mode==='green'&&greenSeen){cls='green';main='ЗЕЛЁНЫЙ ФЛАГ';sub='ограничения сняты · гонка';}
     else if(neutral.mode==='yellow'&&inFlagZone()){   // a marshal post is seen from its own sector, as in life
       main='ЖЁЛТЫЙ ФЛАГ';sub='скорость ограничена · обгон запрещён';}

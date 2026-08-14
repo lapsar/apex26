@@ -160,7 +160,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.15.44</div>
+    <div class="verstamp">v1.15.41</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -335,7 +335,6 @@ let retireCount=0,smokes=[],lastThud=0,wallTouch=false;
 const MARSHAL_SECTORS=12;                 // real circuits have ~20 posts; 12 keeps a sector readable (~360 m at Montreal)
 const YELLOW_SECS=40, VSC_SECS=27, VSC_END_SECS=3, GREEN_SECS=3;   // VSC total = 30 s, the last 3 under "ending"
 const VSC_PACE=0.6;                       // ~40 % off the racing pace, as the real delta is
-const NEUT_GAP=9.0;                       // м между центрами: ближе к переднему под нейтрализацией не подобраться (полтора корпуса)
 const CRAWL_BY=3.5;                       // м/с: шаг, которым объезжают ВСТАВШИЙ болид. Ноль здесь — вечный затор, см. update()
 const YELLOW_PACE=0.9;                    // yellow is a lift, not a neutralisation — but it must still bind, see fieldPace()
 const ZONE_OUT_SECS=3;                    // "end of zone": the ceiling lifts silently otherwise, and the player cannot tell whether it is still on
@@ -3014,11 +3013,10 @@ function update(dt){
   // shuts the door that would otherwise open — cutting a slow corner across the grass,
   // where 22 m/s is allowed while the neutralised pace on the road is ~15.
   {const nzP=neutralAt(pr.idx);
-   if(nzP){const blk=neutBlocker();
-     const cap=Math.min(neutralCap(pr.idx,player.speed,nzP),blk===null?Infinity:blk);
+   if(nzP){const cap=neutralCap(pr.idx,player.speed,nzP);
      // under VSC the ceiling drops on a straight and is met firmly; a yellow is entered at racing
      // speed and should feel like a lift, not like hitting the grass, so it bleeds off half as hard
-     if(cap<surfCap){surfCap=cap;drag=Math.max(drag,nzP===2?MAXSPEED/3:NEUT_BLEED);}}}
+     if(cap<surfCap){surfCap=cap;drag=Math.max(drag,nzP===2?MAXSPEED/3:MAXSPEED/6);}}}
   // after the flag: computer drives — steers along the road and brakes for corners, no throttle
   let outroBrake=false, outroSteer=0;
   if(qualiOutro||raceOutro){
@@ -3097,8 +3095,8 @@ function update(dt){
     c.ahd=ahd;c.gp=gp;c.free=free;
     let target=free;
     const nz=neutralAt(iu);                                          // 0 racing, 1 yellow here, 2 neutralised
-    if(nz)target=Math.min(target,free*neutShare(nz));                // a share of MY OWN pace: everyone loses the same fraction
-    c.pace=nz?free*neutShare(nz):free;                               // the pace I am ENTITLED to right now: under a flag the neutralised one, else the racing one.
+    if(nz)target=Math.min(target,neutralCap(iu,c.speed,nz));         // the same ceiling the player gets: gaps hold, nobody passes
+    c.pace=nz?Math.min(free,neutralCap(iu,c.speed,nz)):free;         // the pace I am ENTITLED to right now: under a flag the neutralised one, else the racing one.
     // Everything that judges "the car ahead cannot hold the pace" must read this and not the racing pace —
     // measured against the racing pace, every car in a slow corner looks delayed and the whole field pulls out to pass.
     const sameLine=!!ahd;
@@ -3206,9 +3204,9 @@ function raiseNeutral(kind,c){
   const s=sectorAt(c.u),prev=(s+MARSHAL_SECTORS-1)%MARSHAL_SECTORS;
   for(const k of [prev,s])if(neutral.secs.indexOf(k)<0)neutral.secs.push(k);
   if(kind==='vsc'){neutral.mode='vsc';neutral.left=VSC_SECS;if(neutral.cars.indexOf(c)<0)neutral.cars.push(c);
-    big('VSC','болид на трассе — ограничение скорости',1400);AUDIO.beep(700,0.30,0.18);}
+    big('VSC','болид на трассе — темп ограничен',1400);AUDIO.beep(700,0.30,0.18);}
   else if(neutral.mode!=='vsc'&&neutral.mode!=='ending'){neutral.mode='yellow';neutral.left=YELLOW_SECS;
-    if(inFlagZone()){big('ЖЁЛТЫЙ ФЛАГ','опасность на трассе',1400);AUDIO.beep(620,0.22,0.14);}}}
+    if(inFlagZone()){big('ЖЁЛТЫЙ ФЛАГ','болид сошёл',1400);AUDIO.beep(620,0.22,0.14);}}}
 function updateNeutral(dt){
   // Leaving the yellow zone lifts the ceiling silently: the panel goes out and nothing says why.
   // A real green flag flies at the post at the END of the yellow sector — this is that flag.
@@ -3232,59 +3230,14 @@ function greenFlagShout(){greenSeen=inFlagZone();      // latched: shown at a po
 /* 0 = racing, 1 = yellow here, 2 = neutralised everywhere */
 function neutralAt(idx){if(vscOn())return 2;
   if(neutral.mode==='yellow'&&neutral.secs.indexOf(sectorAt(idx/track.M))>=0)return 1;return 0;}
-function neutShare(nz){return nz===2?VSC_PACE:YELLOW_PACE;}
-/* The ceiling is a share of EACH CAR'S OWN free pace, not one absolute speed for the field.
-   An absolute ceiling is equal in numbers and therefore unequal in loss: the player is a
-   quarter to a third faster than the field, so the same number took 32 % off him and 10 %
-   off a rival — measured +3.07 s against +1.58 s across a Montreal yellow zone. As a share
-   everyone loses the same 10 % (yellow) or 40 % (VSC). What then stops the player — still
-   the fastest car out there — from driving past the lot of them is NEUT_GAP below, not speed. */
-/* Скорость, с которой ИГРОК проходит эту точку: закон руля §5, решённый относительно v.
-   Не сцепление ИИ: игрок слаб в медленных поворотах и заметно сильнее в быстрых (§10 п.10). */
-function playerCornerV(idx){
-  const top=MAXSPEED*track.grip, K=Math.abs(track.K[idx]);
-  if(K<0.03)return top;
-  // Радиус берётся по ТРАЕКТОРИИ, а не по осевой: игрок срезает поворот и законно быстрее
-  // осевой. Без этой поправки потолок в шпильке ниже того, что игрок реально едет, и он
-  // висит выше потолка каждый медленный поворот — замер дал превышение 3.2 м/с на 0.17 с.
-  const R=24/K+halfAt(idx)*0.8;
-  let v;
-  if(R<=4.7)v=1.7*R;                         // руль в упоре
-  else{v=-2+Math.sqrt(4+20.4*R);             // v = w*R при w=1.7*12/(v+4)
-       if(v>=33.5)v=0.544*R;}                // выше 33.5 м/с скорость поворота постоянна (§10)
-  return Math.min(top,v);}
-/* Свободный темп игрока с упреждением — тем же способом, что aiTarget считает его для ИИ.
-   Без упреждения потолок в поворотах недостижим: он падает ровно на апексе, а сбросить
-   скорость мгновенно нельзя, и игрок висел бы выше него каждый поворот.
-   Сброс в упреждении — РОВНО тот, которым потолок и снимает скорость (NEUT_BLEED).
-   Возьми здесь тормоза болида (38–50 м/с²) — потолок опускался бы быстрее, чем игрок
-   физически может ему следовать, и он всё равно висел бы выше: замер дал до 23 кадров. */
-const NEUT_BLEED=MAXSPEED/6;
-function playerFreeAt(idx){
-  const M=track.M, seg=track.length/M;
-  let t=MAXSPEED*track.grip;
-  const ah=8+Math.round((player&&player.speed||0)*0.8);
-  for(let a=0;a<ah;a++){
-    const vc=playerCornerV((idx+a)%M);
-    if(vc>=t)continue;
-    const v=a===0?vc:Math.sqrt(vc*vc+2*NEUT_BLEED*a*seg);
-    if(v<t)t=v;}
-  return t;}
-function vscCap(idx,speed){return playerFreeAt(idx)*VSC_PACE;}
-function yellowCap(idx,speed){return playerFreeAt(idx)*YELLOW_PACE;}
-function neutralCap(idx,speed,nz){return playerFreeAt(idx)*neutShare(nz);}
-/* Ближайший впереди, к которому под нейтрализацией нельзя подбираться ближе NEUT_GAP.
-   Правило «не приближаться», а не «держать дистанцию»: кто вошёл в зону ближе, тот там
-   и остаётся — заставлять отпускать значило бы бить по тормозам без причины.
-   Исключение — тот, кто не держит темп нейтрализации: вставший болид, из-за которого
-   флаг и подняли, не должен запереть игрока на всю зону. */
-function neutBlocker(){
-  let best=null,bg=1e9;
-  for(const c of field){if(c.retired)continue;
-    const g=c.dist-player.dist;
-    if(g>0&&g<NEUT_GAP+8&&g<bg){bg=g;best=c;}}
-  if(!best||best.speed<paceAt(best)*0.5)return null;
-  return best.speed+Math.max(0,bg-NEUT_GAP);}     // 9 м — ноль сближения, дальше по метру в секунду на метр
+function vscCap(idx,speed){return aiTarget(idx,speed,MAXSPEED*track.grip,DIFF_CORNERK.normal)*VSC_PACE;}
+/* The yellow ceiling is tied to the FIELD's pace, not to the car's own top speed, and that is
+   the whole point: a ceiling set as a share of the player's 88 m/s lands at 73 m/s, which is
+   above every rival's straight-line pace on Новичок and Норма — the player would still drive
+   past the lot of them under a yellow flag. Measured, not guessed. */
+function fieldPace(){return MAXSPEED*(0.5538+0.86*0.32)*DIFF_MUL[sel.diff];}
+function yellowCap(idx,speed){return aiTarget(idx,speed,fieldPace(),DIFF_CORNERK[sel.diff])*YELLOW_PACE;}
+function neutralCap(idx,speed,nz){return nz===2?vscCap(idx,speed):yellowCap(idx,speed);}
 /* The pace a car is ENTITLED to at ITS OWN point on the track. Judging "cannot hold the pace"
    against the follower's own point makes every car that is already in the corner look stopped,
    and the queue behind pulls out to pass it — the very trap fixed in the racing branch (v1.15.39). */
@@ -3307,11 +3260,8 @@ function freeSide(c,base,cur,hw){
   return b>a+0.8?-cur:cur;}
 function carIdx(o){return o===player?(player.hint||0):Math.floor(((o.u%1)+1)%1*track.M)%track.M;}
 function paceAt(o){const i=carIdx(o),nz=neutralAt(i);
-  // Различать надо ПОИМЕННО: игрок создаётся с той же формой объекта, что и соперники,
-  // и его free там ноль. Проверка «не задано» на нём молчит, темп выходил нулевой, и правило
-  // «объезжать можно того, кто не держит темп» переставало работать против вставшего игрока.
-  const free=o===player?playerFreeAt(i):o.free;
-  return nz?free*neutShare(nz):free;}
+  if(nz)return neutralCap(i,o.speed,nz);
+  return o.pace!==undefined?o.pace:aiTarget(i,o.speed,MAXSPEED*track.grip,DIFF_CORNERK[sel.diff]);}
 function addSmoke(x,z){const g=new THREE.Group();
   for(let i=0;i<4;i++){const m=new THREE.MeshBasicMaterial({color:'#8a8a8a',transparent:true,opacity:0.5,depthWrite:false});
     const s=mesh(new THREE.SphereGeometry(0.45+Math.random()*0.4,8,6),m,Math.random()*0.6-0.3,0.5+i*0.5,Math.random()*0.6-0.3);g.add(s);}
@@ -3410,7 +3360,7 @@ function renderFlagUI(){const el=document.getElementById('flagpanel');if(!el)ret
   wasInZone=inZ;
   let cls='',main='',sub='';
   if(phase==='race'){
-    if(vscOn()){cls='vsc';main=neutral.mode==='ending'?'VSC ЗАКАНЧИВАЕТСЯ':'VSC';sub='скорость ограничена · обгон запрещён';}
+    if(vscOn()){cls='vsc';main=neutral.mode==='ending'?'VSC ЗАКАНЧИВАЕТСЯ':'VSC';sub='темп ограничен · обгон запрещён';}
     else if(neutral.mode==='green'&&greenSeen){cls='green';main='ЗЕЛЁНЫЙ ФЛАГ';sub='ограничения сняты · гонка';}
     else if(neutral.mode==='yellow'&&inFlagZone()){   // a marshal post is seen from its own sector, as in life
       main='ЖЁЛТЫЙ ФЛАГ';sub='скорость ограничена · обгон запрещён';}

@@ -106,7 +106,7 @@ function run(opt) {
             var Ls=cars.filter(function(c){return !c.retired&&!c.isPlayer;});
             for(var si=0;si<Ls.length;si++){var sc=Ls[si];
               var sidx=Math.floor(((sc.u%1)+1)%1*track.M)%track.M, snz=neutralAt(sidx);
-              if(snz&&sc.speed<neutralCap(sidx,sc.speed,snz)*0.5)crawled[sc.code]=true;}}
+              if(snz&&sc.speed<paceAt(sc)*0.5)crawled[sc.code]=true;}}   // темп СОПЕРНИКА: neutralCap теперь считает потолок ИГРОКА
           if(!mode0&&m)mode0=m;
           var neut=(m==='vsc'||m==='ending');
           if(m==='yellow'){                                // жёлтый: в своих секторах потолок обязан быть наложен
@@ -246,6 +246,109 @@ function run(opt) {
     if (t.none) { r.line(`${T.name.padEnd(12)} медленных поворотов с потолком ниже травы нет`); continue; }
     r.line(`${T.name.padEnd(12)} за кромкой под VSC: потолок полотна ${t.cap}, травы 22 — с 22 м/с за полсекунды ${t.end}`);
     if (t.end > t.cap + 2) r.fail(`${T.name}: за кромкой под VSC держит ${t.end} м/с при потолке полотна ${t.cap} — срезать поворот по траве выгодно`);
+  }
+
+  /* ---- 6. ПЛАШКИ ФЛАГОВ: панель обязана совпадать с потолком, а не жить своей жизнью ----
+
+     До v1.15.40 зелёный флаг показывался НА ВСЁМ КРУГЕ, хотя жёлтый горит в двух секторах:
+     владелец видел «ЗЕЛЁНЫЙ ФЛАГ» на другой стороне трассы, ни разу не увидев жёлтого,
+     и это читалось как вспышка на ровном месте. Плюс жёлтая плашка гасла молча — игрок
+     не мог понять, действует ли ещё ограничение. Проверяется три вещи:
+       - жёлтая плашка горит РОВНО пока действует потолок (0 расходящихся кадров);
+       - на выезде из зоны загорается «КОНЕЦ ЗОНЫ» на 3 с;
+       - зелёный флаг НЕ показывается вне секторов, где горел жёлтый.                     */
+  for (const T of H.tracks(true)) {
+    for (const mode of ['выезд', 'конец флага']) {
+      const env = H.loadGame();
+      H.setupWeekend(env, { trackIdx: T.idx, diff: 'normal', laps: 3 });
+      H.startRaceAt(env, 11);
+      H.noRetirements(env);
+      H.lightsOut(env);
+      const u = env.evalIn(`(function(){
+        var dt=1/60, short=${mode === 'конец флага' ? 'true' : 'false'};
+        for(var f=0;f<12*60;f++){__AP.drive();update(dt);}
+        var p0=project(player.x,player.z,player.hint);
+        // "конец флага": зона вокруг игрока и флаг гаснет через 2 с — он точно ещё внутри
+        var s=sectorAt(p0.idx/track.M+(short?1/240:1/24)), prev=(s+MARSHAL_SECTORS-1)%MARSHAL_SECTORS;
+        neutral={mode:'yellow',left:short?2.0:YELLOW_SECS,secs:[prev,s],cars:[]};
+        try{zoneOut=0;wasInZone=false;greenSeen=false;}catch(e){}   // до v1.15.40 этих переменных нет — пробник обязан работать и на архивной сборке
+        var capT=0,yelT=0,endT=0,grnT=0,mism=0,grnOut=0;
+        for(var f=0;f<(short?12:50)*60;f++){
+          __AP.drive();update(dt);
+          // Сверять надо с player.hint: ИМЕННО его читают и потолок (в физике игрока),
+          // и панель. Своя проекция здесь — третья величина: после расталкивания игрок
+          // сдвигается ещё раз, и на границе сектора она расходится с обеими на кадр.
+          var pr={idx:player.hint||0};
+          var cap=neutralAt(pr.idx)===1;                       // потолок жёлтого действует прямо сейчас
+          var h=document.getElementById('flagpanel').innerHTML;
+          var yel=h.indexOf('ЖЁЛТЫЙ')>=0, end=h.indexOf('КОНЕЦ')>=0, grn=h.indexOf('ЗЕЛЁНЫЙ')>=0;
+          if(cap)capT+=dt; if(yel)yelT+=dt; if(end)endT+=dt; if(grn)grnT+=dt;
+          if(cap!==yel)mism++;
+          if(grn&&grnT<=dt*1.5&&neutral.secs.indexOf(sectorAt(pr.idx/track.M))<0)grnOut++;   // зелёный защёлкивается: важно, где он ЗАГОРЕЛСЯ
+        }
+        return {capT:+capT.toFixed(1),yelT:+yelT.toFixed(1),endT:+endT.toFixed(1),
+                grnT:+grnT.toFixed(1),mism:mism,grnOut:grnOut};
+      })()`);
+      const tag = `${T.name} (${mode})`;
+      r.line(`${tag.padEnd(28)} потолок ${u.capT} с · жёлтая плашка ${u.yelT} с · «конец зоны» ${u.endT} с · зелёный ${u.grnT} с`);
+      if (u.mism) r.fail(`${tag}: плашка и потолок разошлись на ${u.mism} кадров — панель обязана гореть ровно пока действует ограничение`);
+      if (u.grnOut) r.fail(`${tag}: зелёный флаг ЗАГОРЕЛСЯ вне секторов, где горел жёлтый`);
+      if (mode === 'выезд' && Math.abs(u.endT - 3) > 0.6)
+        r.fail(`${tag}: «КОНЕЦ ЗОНЫ» показан ${u.endT} с вместо 3 — выезд из зоны обязан быть виден`);
+      if (mode === 'конец флага' && Math.abs(u.grnT - 3) > 0.6)
+        r.fail(`${tag}: флаг погас при игроке в зоне — зелёный показан ${u.grnT} с вместо 3`);
+    }
+  }
+
+  /* ---- 7. ВСТАВШИЙ БОЛИД НЕ ЗАЕДАЕТ ПОТОК ПОД ФЛАГОМ ----
+
+     Вопрос владельца: если игрок встанет под жёлтым, не остановит ли он весь пелотон?
+     Замер 08.2026 сказал «да»: правило «объезжать можно того, кто не держит темп»
+     срабатывало, первые 1–5 машин объезжали, а задние вставали намертво. Причина
+     оказалась двойной, и обе — в общем коде, а не в нейтрализации:
+       - профиль подтягивания пришпиливал к НУЛЮ того, кто уже решил объезжать,
+         а на нуле болид не может выехать из полосы: на нуле двигаются только полосы,
+         а они запираются (тяга к линии обгона и отталкивание от соседа уравновешиваются
+         на ~1.9 м — внутри окна «в моей полосе» 2.3 м);
+       - все, кто едет за вставшим, читают ОДНУ И ТУ ЖЕ его полосу, выбирают одну
+         и ту же сторону объезда и запирают друг друга.
+     Проверяется на игроке, потому что он — самый вероятный вставший болид: у соперника
+     сход ставит болид за кромку, а игрок останавливается там, где стоял.                */
+  for (const T of H.tracks(true)) {
+    for (const seed of (opt.seeds || [3, 7, 13])) {
+      const env = H.loadGame({ seed });
+      H.setupWeekend(env, { trackIdx: T.idx, diff: 'normal', laps: 3 });
+      H.startRaceAt(env, 11);
+      H.noRetirements(env);
+      H.lightsOut(env);
+      const j = env.evalIn(`(function(){
+        var dt=1/60;
+        for(var f=0;f<15*60;f++){__AP.drive();update(dt);}
+        var p0=project(player.x,player.z,player.hint);
+        var s=sectorAt(p0.idx/track.M), prev=(s+MARSHAL_SECTORS-1)%MARSHAL_SECTORS, nxt=(s+1)%MARSHAL_SECTORS;
+        neutral={mode:'yellow',left:9999,secs:[prev,s,nxt],cars:[]};   // флаг на весь замер: интересует правило, а не 40 с
+        try{zoneOut=0;wasInZone=false;greenSeen=false;}catch(e){}
+        var behind=field.filter(function(c){return !c.retired&&c.dist<player.dist;});
+        var reached={}, passed={}, t=0;
+        for(var f=0;f<25*60;f++){
+          controls.gas=0;controls.brake=1;controls.left=controls.right=0;   // игрок стоит
+          update(dt);t+=dt;
+          behind.forEach(function(c){
+            var d=player.dist-c.dist;
+            if(d<25&&d>-6&&reached[c.name]===undefined)reached[c.name]=t;    // реально упёрся в игрока
+            if(reached[c.name]!==undefined&&passed[c.name]===undefined&&c.dist>player.dist+6)passed[c.name]=t;});
+        }
+        var stuck=[];
+        Object.keys(reached).forEach(function(k){
+          if(passed[k]===undefined){
+            var c=field.filter(function(x){return x.name===k;})[0];
+            stuck.push(k+' в '+(player.dist-c.dist).toFixed(0)+' м на '+c.speed.toFixed(1)+' м/с');}});
+        return {reached:Object.keys(reached).length, passed:Object.keys(passed).length, stuck:stuck.join(', ')};
+      })()`);
+      const tag = `${T.name} (зерно ${seed})`;
+      r.line(`${tag.padEnd(24)} игрок встал под жёлтым: упёрлись ${j.reached}, объехали ${j.passed}`);
+      if (j.stuck) r.fail(`${tag}: за вставшим игроком встали под флагом — ${j.stuck}`);
+    }
   }
 
   return r;

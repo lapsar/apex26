@@ -160,7 +160,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.15.44</div>
+    <div class="verstamp">v1.15.43</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -3410,7 +3410,7 @@ function renderFlagUI(){const el=document.getElementById('flagpanel');if(!el)ret
   wasInZone=inZ;
   let cls='',main='',sub='';
   if(phase==='race'){
-    if(vscOn()){cls='vsc';main=neutral.mode==='ending'?'VSC ЗАКАНЧИВАЕТСЯ':'VSC';sub='скорость ограничена · обгон запрещён';}
+    if(vscOn()){cls='vsc';main=neutral.mode==='ending'?'VSC ЗАКАНЧИВАЕТСЯ':'VSC';sub='темп ограничен · обгон запрещён';}
     else if(neutral.mode==='green'&&greenSeen){cls='green';main='ЗЕЛЁНЫЙ ФЛАГ';sub='ограничения сняты · гонка';}
     else if(neutral.mode==='yellow'&&inFlagZone()){   // a marshal post is seen from its own sector, as in life
       main='ЖЁЛТЫЙ ФЛАГ';sub='скорость ограничена · обгон запрещён';}
