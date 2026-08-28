@@ -27,6 +27,8 @@ const PROBES = [
   { key: 'clear',     mod: './probe-scenery-clear.js' },
   { key: 'neutral',   mod: './probe-neutralisation.js' },
   { key: 'aiover',    mod: './probe-ai-overtakes.js' },
+  { key: 'charge',    mod: './probe-ai-charge.js' },
+  { key: 'traffic',   mod: './probe-player-traffic.js' },
 ];
 
 function main(argv) {

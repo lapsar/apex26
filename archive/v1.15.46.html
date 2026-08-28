@@ -160,7 +160,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.15.47</div>
+    <div class="verstamp">v1.15.46</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -3118,21 +3118,7 @@ function update(dt){
     let target=free;
     const nz=neutralAt(iu);                                          // 0 racing, 1 yellow here, 2 neutralised
     if(nz)target=Math.min(target,free*neutShare(nz));                // a share of MY OWN pace: everyone loses the same fraction
-    c.pace=nz?free*neutShare(nz):free;
-    /* Под ЖЁЛТЫМ дистанцию держат все, а не только игрок. Потолок — доля от СВОЕГО темпа
-       в СВОЕЙ точке, поэтому выходящий из поворота вправе ехать быстрее входящего и проносится
-       мимо: обгон случается разницей потолков, без всякого решения обгонять, и потому мимо
-       всех проверок ветки обгона. Правило NEUT_GAP ровно от этого и защищает, но до 08.2026
-       было написано только для игрока (сравнивало всех с player.dist). Дыра старая: тем же
-       пробником она видна и на v1.15.44, где защёлки обгона ещё не было.
-       Проверялась и более узкая догадка — «мимо проезжает тот, кто ВНЕ зоны, ведь он ничем
-       не ограничен». Замер её опроверг: те же обгоны остались. Проезжают те, кто ОБА внутри.
-       Только жёлтый, не VSC: под VSC нейтрализован весь круг, дистанция сцепляет поле
-       в поезд по скорости самого медленного, и игрок отыгрывает у застрявших десятки метров
-       (замер: 43 м). Обгонов между соперниками под VSC пробник и так не находит.
-       Исключение прежнее и обязательное: того, кто не держит темп нейтрализации, объезжать
-       можно — иначе вставший болид, из-за которого флаг и подняли, запрёт за собой всю очередь. */
-    if(nz===1){const blk=neutBlocker(c);if(blk!==null)target=Math.min(target,blk);}                               // the pace I am ENTITLED to right now: under a flag the neutralised one, else the racing one.
+    c.pace=nz?free*neutShare(nz):free;                               // the pace I am ENTITLED to right now: under a flag the neutralised one, else the racing one.
     // Everything that judges "the car ahead cannot hold the pace" must read this and not the racing pace —
     // measured against the racing pace, every car in a slow corner looks delayed and the whole field pulls out to pass.
     const sameLine=!!ahd;
@@ -3326,12 +3312,10 @@ function neutralCap(idx,speed,nz){return playerFreeAt(idx)*neutShare(nz);}
    и остаётся — заставлять отпускать значило бы бить по тормозам без причины.
    Исключение — тот, кто не держит темп нейтрализации: вставший болид, из-за которого
    флаг и подняли, не должен запереть игрока на всю зону. */
-function neutBlocker(me,onlyNeut){
-  me=me||player;
+function neutBlocker(){
   let best=null,bg=1e9;
-  for(const c of cars){if(c===me||c.retired)continue;   // соперники в счёт друг другу тоже, и игрок для них — такой же передний
-    if(onlyNeut&&!neutralAt(carIdx(c)))continue;        // ...но держаться надо только за тем, кто САМ под флагом
-    const g=c.dist-me.dist;
+  for(const c of field){if(c.retired)continue;
+    const g=c.dist-player.dist;
     if(g>0&&g<NEUT_GAP+8&&g<bg){bg=g;best=c;}}
   if(!best||best.speed<paceAt(best)*0.5)return null;
   return best.speed+Math.max(0,bg-NEUT_GAP);}     // 9 м — ноль сближения, дальше по метру в секунду на метр
