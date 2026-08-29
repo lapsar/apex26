@@ -29,6 +29,7 @@ const PROBES = [
   { key: 'aiover',    mod: './probe-ai-overtakes.js' },
   { key: 'charge',    mod: './probe-ai-charge.js' },
   { key: 'traffic',   mod: './probe-player-traffic.js' },
+  { key: 'tower',     mod: './probe-tower.js' },
 ];
 
 function main(argv) {
