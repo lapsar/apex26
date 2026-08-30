@@ -162,7 +162,13 @@ function run(opt) {
             if(pRank0===null)pRank0=pi+1; pRankEnd=pi+1;
             var ahead=pi>0?ord[pi-1]:null;
             if(ahead){
-              var g=ahead.dist-player.dist;
+              /* Зазор меряется по НАСТОЯЩЕМУ расстоянию между машинами, а не по разности dist.
+                 dist у игрока — дуга по осевой, у ИИ — пройденный путь (`c.dist+=c.speed*dt`).
+                 В тесном повороте это разные величины: замер 08.2026, Сильверстоун зерно 91,
+                 шпилька радиусом 24 м — разность dist скакала с 9.0 до 5.3 м скачками по 0.8 м
+                 за кадр (48 м/с сближения!), а настоящее расстояние всё это время стояло
+                 на 11.0–11.2 м. Игрок просто срезал внутри, и его дуга росла быстрее. */
+              var g=Math.hypot(ahead.x-player.x,ahead.z-player.z);
               if(raceTime-prevAheadT>0.5){prevAheadV=ahead.speed;prevAheadT=raceTime;}
               if(pnz===1){
                 if(rivalY!==ahead){rivalY=ahead;floorY=Math.min(g,NEUT_GAP);if(gapY0===null)gapY0=g;}
