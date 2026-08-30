@@ -48,11 +48,12 @@ function costRun(T, seed, sector, withFlag) {
       if(neutral.mode!=='yellow')return {skip:neutral.mode||'нет флага'};
       neutral.left=600;}                                  // флаг не должен погаснуть посреди замера
     var s0=z0-200, s1=z0+2*SEC;                           // разгон 200 м до зоны, финиш за её концом
-    __putPlayer(s0,0,playerFreeAt(__arcIdx(s0)));
+    __putPlayer(s0,0,Math.min(playerFreeAt(__arcIdx(s0)),__AP.safeSpeed(__arcIdx(s0))));
     var t=0, off=0;
+    // штатный автопилот, а не полный газ: на полном газу игрок вылетает в первом же повороте
+    // и замер превращается в замер вылета
     for(var f=0;f<Math.round(60/dt);f++){
-      var st=__AP.steer();controls.left=st.st<-0.12?1:0;controls.right=st.st>0.12?1:0;
-      controls.gas=1;controls.brake=0;
+      __AP.drive();
       update(dt); t+=dt;
       var pr=project(player.x,player.z,player.hint);
       if(Math.abs(pr.off)>halfAt(pr.idx)+0.7)off++;
