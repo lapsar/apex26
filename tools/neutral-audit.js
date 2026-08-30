@@ -64,9 +64,13 @@ function runOne(T, seed, pos, fast, hc, mode) {
       victim.u=bi/track.M; victim.dist=track.S[bi]; retireCar(victim);}
     else victim.retireAt=victim.dist+1;
     var idxOf=function(c){return c.isPlayer?(player.hint||0):Math.floor(((c.u%1)+1)%1*track.M)%track.M;};
+    // темп ПОЛЯ в этой точке — вторая мерка «держит ли темп», для сравнения с игровой paceAt
+    var __bs=field.map(function(c){return c.base;}).sort(function(a,b){return a-b;});
+    var FB=__bs[__bs.length>>1], FK=DIFF_CORNERK[sel.diff];
+    var fieldNeut=function(i,nz,v){return aiTarget(i,v||0,FB,FK)*neutShare(nz);};
     var live=function(){return cars.filter(function(c){return !c.retired;});};
     var mode0='', n=0, max=Math.round(80/dt);
-    var pairs=null, ev=[], rankY0=null, rankYEnd=null, yT=0, seen={}, capOver=0, capN=0, slowN=0, ratio=[], aiN=0, aiSlow=0, aiRatio=[], blkN=0, blkBite=0, aiBlkN=0, aiBlkBite=0, capCmp=0, capLow=0, capDiff=0, blkSide=0, trainGap=1e9, trainSlow=1e9, spread0=null, spreadEnd=null, tightMax=0, stuckMax=0;
+    var pairs=null, ev=[], rankY0=null, rankYEnd=null, yT=0, seen={}, capOver=0, capN=0, slowN=0, ratio=[], slowF=0, ratioF=[], aiN=0, aiSlow=0, aiRatio=[], blkN=0, blkBite=0, aiBlkN=0, aiBlkBite=0, capCmp=0, capLow=0, capDiff=0, blkSide=0, trainGap=1e9, trainSlow=1e9, spread0=null, spreadEnd=null, tightMax=0, stuckMax=0;
     while(n<max && !raceOver){
       drv.call(__AP); update(dt); n++;
       var m=neutral.mode;
@@ -81,6 +85,8 @@ function runOne(T, seed, pos, fast, hc, mode) {
       var pnz=neutralAt(player.hint||0);
       if(pnz){capN++; if(player.speed>neutralCap(player.hint,player.speed,pnz)+3)capOver++;
               var pr_=paceAt(player); if(player.speed<pr_*0.5)slowN++; ratio.push(player.speed/Math.max(1,pr_));
+              var fn_=fieldNeut(player.hint||0,pnz,player.speed);
+              if(player.speed<fn_*0.5)slowF++; ratioF.push(player.speed/Math.max(1,fn_));
               // сидит ли игрок в правиле дистанции: есть ли впереди тот, кем его ограничивают
               var b=neutBlocker(), cap0=neutralCap(player.hint,player.speed,pnz);
               if(b!==null){blkN++; if(b<cap0-1){blkBite++;
@@ -134,7 +140,8 @@ function runOne(T, seed, pos, fast, hc, mode) {
       }
     }
     return {mode0:mode0, yT:+yT.toFixed(1), rankY0:rankY0, rankYEnd:rankYEnd, ev:ev,
-            capOver:capOver, capN:capN, slowN:slowN, aiN:aiN, aiSlow:aiSlow,
+            capOver:capOver, capN:capN, slowN:slowN, slowF:slowF,
+            ratioFMed:(function(){if(!ratioF.length)return null;var a=ratioF.slice().sort(function(x,y){return x-y;});return +a[a.length>>1].toFixed(2);})(), aiN:aiN, aiSlow:aiSlow,
             blkN:blkN, blkBite:blkBite, aiBlkN:aiBlkN, aiBlkBite:aiBlkBite,
             capCmp:capCmp, capLow:capLow, blkSide:blkSide,
             trainGap:+trainGap.toFixed(1), trainSlow:+trainSlow.toFixed(1),
@@ -167,7 +174,8 @@ for (const T of H.tracks(true)) {
     tot.all+=r.ev.length;tot.zone+=zev.length;tot.both+=both;tot.edge+=edge;tot.pby+=pby;tot.pof+=pof;tot.heldv+=heldv;
     if(r.rankYEnd>r.rankY0)lost++; if(r.rankYEnd<r.rankY0)gained++;
     console.log(`${T.name.padEnd(12)} зерно ${String(seed).padStart(2)} P${pos} · ${mode==='vsc'?'VSC':'жёлтый'} ${r.yT} с · игрок ${r.rankY0}->${r.rankYEnd}`
-      + `\n    ИГРОК под ограничением ${r.capN} кадров: медиана доли от потолка ${r.ratioMed}, ниже половины ${(100*r.slowN/Math.max(1,r.capN)).toFixed(0)} % кадров`
+      + `\n    ИГРОК под ограничением ${r.capN} кадров: по ИГРОВОЙ мерке (его идеальная линия) медиана ${r.ratioMed}, ниже половины ${(100*r.slowN/Math.max(1,r.capN)).toFixed(0)} % кадров`
+      + `\n                              по мерке ПОЛЯ медиана ${r.ratioFMed}, ниже половины ${(100*r.slowF/Math.max(1,r.capN)).toFixed(0)} % кадров`
       + `\n    ИИ   под ограничением ${r.aiN} кадро-машин: медиана доли ${r.aiMed}, ниже половины ${(100*r.aiSlow/Math.max(1,r.aiN)).toFixed(0)} %`
       + `\n    правило дистанции: у ИГРОКА впереди кто-то есть в ${(100*r.blkN/Math.max(1,r.capN)).toFixed(0)} % кадров, и оно РЕЖЕТ ему скорость в ${(100*r.blkBite/Math.max(1,r.capN)).toFixed(0)} % (из них ${(100*r.blkSide/Math.max(1,r.blkBite)).toFixed(0)} % — по болиду в ДРУГОЙ полосе)`
       + `\n                       у ИИ такой же передний есть в ${(100*r.aiBlkN/Math.max(1,r.aiN)).toFixed(0)} % кадро-машин и резал бы его в ${(100*r.aiBlkBite/Math.max(1,r.aiN)).toFixed(0)} % — но под VSC правило на ИИ не наложено`
