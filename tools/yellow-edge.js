@@ -28,7 +28,7 @@ function __driveHold(n,dt,watch,frac){for(var f=0;f<n;f++){
 `;
 
 function scenario(T, seed, sector, kind, gap, deep, frac) {
-  const env = H.loadGame({ seed });
+  const env = H.loadGame({ seed, file: FILE });
   H.setupWeekend(env, { trackIdx: T.idx, diff: 'normal', laps: 30 });
   H.startRaceAt(env, 11);
   H.lightsOut(env);
@@ -80,6 +80,7 @@ function scenario(T, seed, sector, kind, gap, deep, frac) {
 }
 
 const arg=(k,d)=>{const a=process.argv.find(x=>x.startsWith('--'+k+'='));return a?a.split('=')[1]:d;};
+const FILE = (process.argv.find(x=>x.startsWith('--file='))||'').split('=')[1] || undefined;
 const kind = arg('kind','A'), gap = +arg('gap','35'), deep = arg('deep','0')==='1', frac = +arg('frac','0');
 const only = arg('track',''), seed=+arg('seed','7');
 
