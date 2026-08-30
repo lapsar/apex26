@@ -41,7 +41,7 @@ function __driveFast(n,dt,watch){for(var f=0;f<n;f++){__AP.fast();if(phase==='')
 `;
 
 function runOne(T, seed, pos, fast, hc, mode) {
-  const env = H.loadGame({ seed });
+  const env = H.loadGame({ seed, file: FILE });
   H.setupWeekend(env, { trackIdx: T.idx, diff: 'normal', laps: 3 });
   H.startRaceAt(env, pos);
   H.lightsOut(env);
@@ -138,6 +138,7 @@ const fast  = arg('fast','1')==='1';
 const hc    = +arg('hc','1');
 const quiet = arg('quiet','0')==='1';
 const mode  = arg('mode','yellow');
+const FILE  = arg('file','') || undefined;
 
 let tot={all:0,zone:0,both:0,edge:0,pby:0,pof:0,heldv:0}, runs=0, lost=0, gained=0;
 for (const T of H.tracks(true)) {
