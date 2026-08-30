@@ -3029,12 +3029,12 @@ function update(dt){
   // VSC: one ceiling for everyone, the player included. Taking the LOWER of the two also
   // shuts the door that would otherwise open — cutting a slow corner across the grass,
   // where 22 m/s is allowed while the neutralised pace on the road is ~15.
-  {const nzP=neutralAt(pr.idx);
-   if(nzP){const blk=neutBlocker();
-     const cap=Math.min(neutralCap(pr.idx,player.speed,nzP),blk===null?Infinity:blk);
+  {const nzP=neutralAt(pr.idx), na=neutAhead(pr.idx,player.speed);
+   if(na){const blk=nzP?neutBlocker():neutBlocker(player,true);   // ещё не в зоне — держаться за тем, кто УЖЕ в ней
+     const cap=Math.min(neutBleedBack(playerFreeAt(na.i)*neutShare(na.nz),na.a*(track.length/track.M)),blk===null?Infinity:blk);
      // under VSC the ceiling drops on a straight and is met firmly; a yellow is entered at racing
      // speed and should feel like a lift, not like hitting the grass, so it bleeds off half as hard
-     if(cap<surfCap){surfCap=cap;drag=Math.max(drag,nzP===2?MAXSPEED/3:NEUT_BLEED);}}}
+     if(cap<surfCap){surfCap=cap;drag=Math.max(drag,na.nz===2?MAXSPEED/3:NEUT_BLEED);}}}
   // after the flag: computer drives — steers along the road and brakes for corners, no throttle
   let outroBrake=false, outroSteer=0;
   if(qualiOutro||raceOutro){
@@ -3117,7 +3117,8 @@ function update(dt){
     c.spdAvg+=(c.speed-c.spdAvg)*Math.min(1,dt/PACE_TAU);            // и то, что я реально еду — им судят обо мне сзади
     let target=free;
     const nz=neutralAt(iu);                                          // 0 racing, 1 yellow here, 2 neutralised
-    if(nz)target=Math.min(target,free*neutShare(nz));                // a share of MY OWN pace: everyone loses the same fraction
+    const na=neutAhead(iu,c.speed);                                  // зона впереди связывает ещё до линии сектора
+    if(na)target=Math.min(target,neutBleedBack(aiTarget(na.i,c.speed,c.base,c.cornerK||34)*neutShare(na.nz),na.a*(track.length/track.M)));
     c.pace=nz?free*neutShare(nz):free;
     /* Под ЖЁЛТЫМ дистанцию держат все, а не только игрок. Потолок — доля от СВОЕГО темпа
        в СВОЕЙ точке, поэтому выходящий из поворота вправе ехать быстрее входящего и проносится
@@ -3135,7 +3136,7 @@ function update(dt){
        15 раз за шесть заездов при том, что он шёл на 0.97 своего потолка.
        Исключение прежнее и обязательное: того, кто не держит темп нейтрализации, объезжать
        можно — иначе вставший болид, из-за которого флаг и подняли, запрёт за собой всю очередь. */
-    if(nz){const blk=neutBlocker(c);if(blk!==null)target=Math.min(target,blk);}                               // the pace I am ENTITLED to right now: under a flag the neutralised one, else the racing one.
+    if(na){const blk=nz?neutBlocker(c):neutBlocker(c,true);if(blk!==null)target=Math.min(target,blk);}                               // the pace I am ENTITLED to right now: under a flag the neutralised one, else the racing one.
     // Everything that judges "the car ahead cannot hold the pace" must read this and not the racing pace —
     // measured against the racing pace, every car in a slow corner looks delayed and the whole field pulls out to pass.
     const sameLine=!!ahd;
@@ -3180,12 +3181,12 @@ function update(dt){
        брать нельзя — в зоне торможения передний выглядит стоящим, и на этом уже дважды
        горели. Под нейтрализацией не заходим и защёлку снимаем: там обгон закрыт правилом. */
     if(c.duel){c.duelT-=dt;
-      if(c.duel.retired||nz||neutralAt(carIdx(c.duel))||c.duelT<=0||c.dist>c.duel.dist+CAR_LEN||c.duel.dist-c.dist>25)c.duel=null;}
-    if(!c.duel&&!c.ovLock&&!nz&&!crawler&&c.ahd&&c.gp<20&&raceTime>c.react+2.0
+      if(c.duel.retired||na||neutralAt(carIdx(c.duel))||c.duelT<=0||c.dist>c.duel.dist+CAR_LEN||c.duel.dist-c.dist>25)c.duel=null;}
+    if(!c.duel&&!c.ovLock&&!na&&!crawler&&c.ahd&&c.gp<20&&raceTime>c.react+2.0
        &&!neutralAt(carIdx(c.ahd))                                          // цель под флагом неприкосновенна, даже если Я ещё не въехал в зону: иначе обгон под жёлтым состоится с её границы
        &&c.paceAvg>c.ahd.spdAvg+DUEL_EDGE){                                  // вставший — не сюда: им занимается ovLock со своими правилами
       c.duel=c.ahd;c.duelT=DUEL_TIME;c.duelDir=freeSide(c,c.ahd.lane,c.ovSide,hw);}   // сторону выбираем один раз и там, где просторнее: иначе двое лезут в одну щель
-    if(c.ahd&&c.gp<20&&c.pace>c.ahd.speed+1.0&&(!nz||slowAhd)){              // faster potential -> go around. Under yellow/VSC only a car that cannot hold the pace may be passed — that is the rule, and without it a queue would crawl behind a stopped car for ever (v1.15.26)
+    if(c.ahd&&c.gp<20&&c.pace>c.ahd.speed+1.0&&(!na||slowAhd)){              // faster potential -> go around. Under yellow/VSC only a car that cannot hold the pace may be passed — that is the rule, and without it a queue would crawl behind a stopped car for ever (v1.15.26)
       let ov=c.ovSide, off=2.6;
       if(crawler){                                                           // ahead much slower/stopped: take the open side (toward centre) and clear fully
         ov=c.ahd.lane>0.3?-1:(c.ahd.lane<-0.3?1:c.ovSide);
@@ -3321,6 +3322,19 @@ function playerFreeAt(idx){
     const v=a===0?vc:Math.sqrt(vc*vc+2*NEUT_BLEED*a*seg);
     if(v<t)t=v;}
   return t;}
+/* Первая точка нейтрализации в пределах окна упреждения: {a, i, nz} или null.
+   a=0 — я уже под ограничением, a>0 — линия сектора в a отрезках впереди.
+   Без этого потолок падал СТУПЕНЬКОЙ ровно на линии: передний уже сбросил темп,
+   задний ещё нет, и проезжал мимо на гоночной скорости. Замер (08.2026): игрок,
+   подъезжающий снаружи к очереди из трёх, проходил одного в трёх раскладах из шести. */
+function neutAhead(idx,speed){
+  if(!neutral.mode)return null;
+  const M=track.M, ah=8+Math.round((speed||0)*0.8);
+  for(let a=0;a<ah;a++){const i=(idx+a)%M, nz=neutralAt(i); if(nz)return {a:a,i:i,nz:nz};}
+  return null;}
+/* Потолок, поднятый назад по сбросу: до линии сектора ехать быстрее можно ровно настолько,
+   насколько успеешь сбросить. Сброс тот же, которым потолок и снимает скорость. */
+function neutBleedBack(v,m){return m>0?Math.sqrt(v*v+2*NEUT_BLEED*m):v;}
 function vscCap(idx,speed){return playerFreeAt(idx)*VSC_PACE;}
 function yellowCap(idx,speed){return playerFreeAt(idx)*YELLOW_PACE;}
 function neutralCap(idx,speed,nz){return playerFreeAt(idx)*neutShare(nz);}
@@ -3335,9 +3349,14 @@ function neutBlocker(me,onlyNeut){
   for(const c of cars){if(c===me||c.retired)continue;   // соперники в счёт друг другу тоже, и игрок для них — такой же передний
     if(onlyNeut&&!neutralAt(carIdx(c)))continue;        // ...но держаться надо только за тем, кто САМ под флагом
     const g=c.dist-me.dist;
-    if(g>0&&g<NEUT_GAP+8&&g<bg){bg=g;best=c;}}
+    if(g>0&&g<NEUT_GAP+200&&g<bg){bg=g;best=c;}}
   if(!best||best.speed<paceAt(best)*0.5)return null;
-  return best.speed+Math.max(0,bg-NEUT_GAP);}     // 9 м — ноль сближения, дальше по метру в секунду на метр
+  /* Подъезд гасится ТЕМ ЖЕ сбросом, которым потолок снимает скорость, а не линейной
+     прибавкой «метр в секунду на метр». Прежний закон включался за 17 м, и этого хватало
+     внутри зоны, где разница скоростей мала. На ВЪЕЗДЕ в зону она 28 м/с: за 17 м её
+     не погасить, и задний пролетал мимо. Замер (08.2026): игрок проходил одного
+     в трёх раскладах из шести, и упреждение в потолке само по себе убрало только один. */
+  return neutBleedBack(best.speed,bg-NEUT_GAP);}
 /* The pace a car is ENTITLED to at ITS OWN point on the track. Judging "cannot hold the pace"
    against the follower's own point makes every car that is already in the corner look stopped,
    and the queue behind pulls out to pass it — the very trap fixed in the racing branch (v1.15.39). */

@@ -27,6 +27,40 @@ function __driveHold(n,dt,watch,frac){for(var f=0;f<n;f++){
   update(dt);if(watch&&watch(f)===false)return f+1;}return n;}
 `;
 
+/* Цена жёлтого по времени: проезд двух секторов зоны под флагом против свободного.
+   Один и тот же участок, один и тот же водитель, поле убрано с дороги. */
+function costRun(T, seed, sector, withFlag) {
+  const env = H.loadGame({ seed, file: FILE });
+  H.setupWeekend(env, { trackIdx: T.idx, diff: 'normal', laps: 30 });
+  H.startRaceAt(env, 11);
+  H.lightsOut(env);
+  env.evalIn(SRC, 'harness(edge)');
+  return env.evalIn(`(function(){
+    var dt=1/60, L=track.length, SEC=L/MARSHAL_SECTORS;
+    field.forEach(function(c){c.retireAt=0;});
+    __drive(Math.round(6/dt),dt,'auto');
+    var z0=${sector}*SEC;
+    // поле — за полкруга отсюда, чтобы никто не мешал: меряем чистую цену ограничения
+    var live=field.filter(function(c){return !c.retired;});
+    for(var i=0;i<live.length;i++)__putAI(live[i], z0-L*0.45+i*14, (i%2?1:-1)*2.5, 30);
+    if(${withFlag}){var victim=live[0];
+      __putAI(victim,(${sector}+1.5)*SEC,0,10); retireCar(victim);
+      if(neutral.mode!=='yellow')return {skip:neutral.mode||'нет флага'};
+      neutral.left=600;}                                  // флаг не должен погаснуть посреди замера
+    var s0=z0-200, s1=z0+2*SEC;                           // разгон 200 м до зоны, финиш за её концом
+    __putPlayer(s0,0,playerFreeAt(__arcIdx(s0)));
+    var t=0, off=0;
+    for(var f=0;f<Math.round(60/dt);f++){
+      var st=__AP.steer();controls.left=st.st<-0.12?1:0;controls.right=st.st>0.12?1:0;
+      controls.gas=1;controls.brake=0;
+      update(dt); t+=dt;
+      var pr=project(player.x,player.z,player.hint);
+      if(Math.abs(pr.off)>halfAt(pr.idx)+0.7)off++;
+      if(player.dist>=s1)break;}
+    return {t:+t.toFixed(2), off:off, done:player.dist>=s1};
+  })()`);
+}
+
 function scenario(T, seed, sector, kind, gap, deep, frac) {
   const env = H.loadGame({ seed, file: FILE });
   H.setupWeekend(env, { trackIdx: T.idx, diff: 'normal', laps: 30 });
@@ -84,6 +118,21 @@ const FILE = (process.argv.find(x=>x.startsWith('--file='))||'').split('=')[1] |
 const kind = arg('kind','A'), gap = +arg('gap','35'), deep = arg('deep','0')==='1', frac = +arg('frac','0');
 const only = arg('track',''), seed=+arg('seed','7');
 
+if (kind==='T') {                                   // цена жёлтого по времени
+  for (const T of H.tracks(true)) {
+    if (only && T.name!==only) continue;
+    console.log(`\n${T.name} · зерно ${seed} · цена проезда двух секторов зоны`);
+    let sum=0, n=0, worst=0;
+    for (let sct=0;sct<12;sct++){
+      const a=costRun(T,seed,sct,false), b=costRun(T,seed,sct,true);
+      if(a.skip||b.skip||!a.done||!b.done||a.off||b.off){
+        console.log(`  сектор ${String(sct).padStart(2)}: ${b.skip||a.skip||(a.off||b.off?'игрок вылетел с трассы':'не доехал')} — не в счёт`);continue;}
+      const d=+(b.t-a.t).toFixed(2); n++; sum+=d; if(d>worst)worst=d;
+      console.log(`  сектор ${String(sct).padStart(2)}: свободно ${a.t} с, под флагом ${b.t} с · дороже на ${d>=0?'+':''}${d} с`);
+    }
+    console.log(`  в среднем +${(sum/Math.max(1,n)).toFixed(2)} с, худший случай +${worst.toFixed(2)} с`);
+  }
+} else
 for (const T of H.tracks(true)) {
   if (only && T.name!==only) continue;
   console.log(`\n${T.name} · зерно ${seed} · опыт ${kind} · зазор ${gap} м · ${deep?'оба глубоко в зоне':'граница зоны'}`+(frac?` · игрок едет ${Math.round(frac*100)} % своего потолка`:''));
