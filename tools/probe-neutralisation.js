@@ -82,7 +82,7 @@ function run(opt) {
   const seeds = opt.seeds ? String(opt.seeds).split(',').map(Number) : [7, 91];
   for (const T of H.tracks(true)) {
     for (const seed of seeds) {
-      const env = H.loadGame({ seed });
+      const env = H.loadGame({ seed, file: opt.file });
       H.setupWeekend(env, { trackIdx: T.idx, diff: 'normal', laps: 3 });
       H.startRaceAt(env, 11);
       H.lightsOut(env);
