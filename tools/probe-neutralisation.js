@@ -234,6 +234,7 @@ function run(opt) {
         + (res.edgeBad ? ` · из них на границе зоны ${res.edgeBad}` : '')
         + ((res.nAllowed + res.nAllowedY) ? ` · объехали вставшего ${res.nAllowed + res.nAllowedY}` : '')
         + (res.pRank0 === null ? '' : ` · место игрока P${res.pRank0}→P${res.pRankEnd}`)
+        + ((res.breachY||res.breachV) ? ` · зазор проваливался на ${Math.max(res.breachY,res.breachV)} м` : '')
         + ` · болид стоит в ${res.offEnd} м (стена ${res.wall})`);
 
       /* Обгоны и место игрока — общая часть для обоих режимов. Пары с игроком считаются
