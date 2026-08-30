@@ -109,7 +109,7 @@ function run(opt) {
         var gapAhead0=null, gapAheadEnd=null, rank0=null, rankEnd=null, rival=null;
         var gapY0=null, gapYEnd=null, rivalY=null;
         var pRank0=null, pRankEnd=null;
-        var floorY=0, floorV=0, breachY=0, breachV=0;   // правило «не приближаться»: ниже своего пола падать нельзя
+        var floorY=0, floorV=0, breachY=0, breachV=0, breachWho='';   // правило «не приближаться»: ниже своего пола падать нельзя
         while(n<max && !raceOver){
           __AP.drive();
           update(dt); n++;
@@ -166,7 +166,12 @@ function run(opt) {
               if(pnz===1){
                 if(rivalY!==ahead){rivalY=ahead;floorY=Math.min(g,NEUT_GAP);if(gapY0===null)gapY0=g;}
                 gapYEnd=g;
-                if(held[ahead.code]){var bY=floorY-g; if(bY>breachY)breachY=bY;}
+                if(held[ahead.code]){var bY=floorY-g;
+                  if(bY>breachY){breachY=bY;
+                    breachWho='за '+ahead.code+': зазор '+g.toFixed(1)+' м при поле '+floorY.toFixed(1)
+                      +', игрок '+player.speed.toFixed(1)+' м/с, передний '+ahead.speed.toFixed(1)
+                      +', правило даёт '+(function(){var b=neutBlocker();return b===null?'НИЧЕГО (передний считается вставшим)':b.toFixed(1);})()
+                      +', потолок '+neutralCap(player.hint,player.speed,pnz).toFixed(1);}}
               } else {
                 if(rival!==ahead){rival=ahead;floorV=Math.min(g,NEUT_GAP);if(gapAhead0===null)gapAhead0=g;}
                 gapAheadEnd=g;
@@ -204,7 +209,7 @@ function run(opt) {
                 nAllowed:okAllowed.length, nAllowedY:okY.length,
                 passedPlayer:passedPlayer, playerPassed:playerPassed, edgeBad:edgeBad,
                 pRank0:pRank0, pRankEnd:pRankEnd,
-                breachY:+breachY.toFixed(1), breachV:+breachV.toFixed(1),
+                breachY:+breachY.toFixed(1), breachV:+breachV.toFixed(1), breachWho:breachWho,
                 rank0:rank0, rankEnd:rankEnd,
                 blocking0:v.blockedRoad, offEnd:+offEnd.toFixed(2),
                 wall:+((v.retiredSide>0?track.WR:track.WL)[i]).toFixed(2),
@@ -241,7 +246,7 @@ function run(opt) {
       if (res.mode0 === 'yellow') {
         if (Math.abs(yel - 40) > 0.6) r.fail(`${tag}: жёлтый горел ${yel} с вместо 40`);
         if (res.yellowCapped) r.fail(`${tag}: под жёлтым игрок ${res.yellowCapped} кадров ехал быстрее потолка своего сектора`);
-        if (res.breachY > 1.5) r.fail(`${tag}: под жёлтым игрок подобрался к переднему на ${res.breachY} м ближе, чем позволяет правило`);
+        if (res.breachY > 1.5) r.fail(`${tag}: под жёлтым игрок подобрался к переднему на ${res.breachY} м ближе, чем позволяет правило — ${res.breachWho}`);
         if (res.blocking0) r.fail(`${tag}: болид стоит на полотне, а поднят жёлтый вместо VSC`);
         if (res.nOverY) r.fail(`${tag}: в жёлтой зоне состоялось ${res.nOverY} обгонов: ${res.overtakesY.join(', ')}`);
       } else {
