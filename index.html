@@ -3042,10 +3042,16 @@ function update(dt){
   // where 22 m/s is allowed while the neutralised pace on the road is ~15.
   {const nzP=neutralAt(pr.idx), na=neutAhead(pr.idx,player.speed);
    if(na){const blk=nzP?neutBlocker():neutBlocker(player,true);   // ещё не в зоне — держаться за тем, кто УЖЕ в ней
-     const cap=Math.min(neutBleedBack(playerFreeAt(na.i)*neutShare(na.nz),na.a*(track.length/track.M)),blk===null?Infinity:blk);
+     const capPace=neutBleedBack(playerFreeAt(na.i)*neutShare(na.nz),na.a*(track.length/track.M));
+     const cap=Math.min(capPace,blk===null?Infinity:blk);
      // under VSC the ceiling drops on a straight and is met firmly; a yellow is entered at racing
-     // speed and should feel like a lift, not like hitting the grass, so it bleeds off half as hard
-     if(cap<surfCap){surfCap=cap;drag=Math.max(drag,na.nz===2?MAXSPEED/3:NEUT_BLEED);}}}
+     // speed and should feel like a lift, not like hitting the grass, so it bleeds off half as hard.
+     // Но когда ограничивает ДИСТАНЦИЯ до переднего, а не темп, это уже торможение перед машиной,
+     // и гасить надо жёстко: с мягким сбросом жёлтого правило невыполнимо — передний тормозит
+     // в повороте быстрее, чем игрок успевает отпустить, и зазор проваливается ниже 9 м
+     // (замер 08.2026: Сильверстоун, зерно 91 — 4.9 м при поле 9.0).
+     const byGap=blk!==null&&blk<capPace;
+     if(cap<surfCap){surfCap=cap;drag=Math.max(drag,byGap?MAXSPEED/3:(na.nz===2?MAXSPEED/3:NEUT_BLEED));}}}
   // after the flag: computer drives — steers along the road and brakes for corners, no throttle
   let outroBrake=false, outroSteer=0;
   if(qualiOutro||raceOutro){
