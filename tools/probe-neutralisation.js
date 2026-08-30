@@ -93,10 +93,11 @@ function run(opt) {
         __drive(Math.round(12/dt),dt,'auto');            // дать полю разъехаться
         var victim=field[3]; victim.retireAt=victim.dist+1;
         var live=function(){return cars.filter(function(c){return !c.retired;}).sort(rankCmp);};
-        /* Единая мерка «держит ли темп» — от темпа ПОЛЯ в этой точке, одна для игрока и для ИИ.
-           Своя, а не игровая paceAt(): у игрока paceAt меряет от его ИДЕАЛЬНОЙ линии, и по ней
-           обычная человеческая езда выглядит «встал» — ровно та дыра, которую пробник обязан
-           ловить, а не оправдывать. */
+        /* Мерка «ехал ли болид» — своя, независимая от игровой: от темпа ПОЛЯ в этой точке,
+           одна для игрока и для ИИ. Обгон прощается, только если обгоняемый ЛИБО встал
+           (NEUT_STOPPED), ЛИБО шёл ниже половины темпа поля. Оба условия нужны: игра меряет
+           «вставшего» абсолютным порогом, а пробник обязан ловить обгон над тем, кто ехал,
+           не повторяя при этом формулу игры дословно. */
         var __bs=field.map(function(c){return c.base;}).sort(function(a,b){return a-b;});
         var FB=__bs[__bs.length>>1], FK=DIFF_CORNERK[sel.diff];
         var idxOf=function(c){return c.isPlayer?(player.hint||0):Math.floor(((c.u%1)+1)%1*track.M)%track.M;};

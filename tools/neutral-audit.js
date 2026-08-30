@@ -64,7 +64,7 @@ function runOne(T, seed, pos, fast, hc, mode) {
       victim.u=bi/track.M; victim.dist=track.S[bi]; retireCar(victim);}
     else victim.retireAt=victim.dist+1;
     var idxOf=function(c){return c.isPlayer?(player.hint||0):Math.floor(((c.u%1)+1)%1*track.M)%track.M;};
-    // темп ПОЛЯ в этой точке — вторая мерка «держит ли темп», для сравнения с игровой paceAt
+    // темп ПОЛЯ в этой точке — вторая мерка «держит ли темп», для сравнения с долей от идеальной линии игрока
     var __bs=field.map(function(c){return c.base;}).sort(function(a,b){return a-b;});
     var FB=__bs[__bs.length>>1], FK=DIFF_CORNERK[sel.diff];
     var fieldNeut=function(i,nz,v){return aiTarget(i,v||0,FB,FK)*neutShare(nz);};
@@ -80,11 +80,13 @@ function runOne(T, seed, pos, fast, hc, mode) {
       yT+=dt;
       var L=live(), nz={}, sp={}, pace={}, held={};
       for(var i=0;i<L.length;i++){var c=L[i], k=c.code;
-        nz[k]=neutralAt(idxOf(c)); sp[k]=c.speed; pace[k]=paceAt(c); held[k]=sp[k]>=pace[k]*0.5;
+        nz[k]=neutralAt(idxOf(c)); sp[k]=c.speed;
+        pace[k]=nz[k]?(c.isPlayer?playerFreeAt(idxOf(c)):c.free)*neutShare(nz[k]):(c.isPlayer?playerFreeAt(idxOf(c)):c.free);
+        held[k]=sp[k]>=NEUT_STOPPED;                       // правило v1.15.50: объезжать можно только вставшего
         if(nz[k])seen[k]=n; }                                  // кадр, когда болид последний раз был в зоне
       var pnz=neutralAt(player.hint||0);
       if(pnz){capN++; if(player.speed>neutralCap(player.hint,player.speed,pnz)+3)capOver++;
-              var pr_=paceAt(player); if(player.speed<pr_*0.5)slowN++; ratio.push(player.speed/Math.max(1,pr_));
+              var pr_=playerFreeAt(player.hint||0)*neutShare(pnz); if(player.speed<pr_*0.5)slowN++; ratio.push(player.speed/Math.max(1,pr_));
               var fn_=fieldNeut(player.hint||0,pnz,player.speed);
               if(player.speed<fn_*0.5)slowF++; ratioF.push(player.speed/Math.max(1,fn_));
               // сидит ли игрок в правиле дистанции: есть ли впереди тот, кем его ограничивают

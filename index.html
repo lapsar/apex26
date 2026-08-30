@@ -335,6 +335,17 @@ let retireCount=0,smokes=[],lastThud=0,wallTouch=false;
 const MARSHAL_SECTORS=12;                 // real circuits have ~20 posts; 12 keeps a sector readable (~360 m at Montreal)
 const YELLOW_SECS=40, VSC_SECS=27, VSC_END_SECS=3, GREEN_SECS=3;   // VSC total = 30 s, the last 3 under "ending"
 const VSC_PACE=0.6;                       // ~40 % off the racing pace, as the real delta is
+/* Порог «вставший» под нейтрализацией: объезжать можно только того, кто ДЕЙСТВИТЕЛЬНО встал,
+   а не того, кто по чьей-то мерке едет медленно. До v1.15.50 порогом была половина ТЕМПА,
+   и у игрока этот темп брался от его ИДЕАЛЬНОЙ линии (§10 п.12): неопытный пилот сидел ниже
+   половины больше половины времени в зоне, после чего правило дистанции против него
+   выключалось и его объезжали все. Замену мерки на «темп поля» проверили замером и
+   забраковали: она то строже, то мягче — на Монце ниже половины 53–56 % кадров против
+   38–44 % у прежней, на Сильверстоуне 12–48 % против 57–64 %. Абсолютный порог не зависит
+   ни от трассы, ни от того, чей потенциал берём за образец, и делает ровно то, ради чего
+   исключение и вводилось (v1.15.41): не даёт вставшему запереть за собой очередь.
+   6 м/с — тот же порог, которым ovLock отличает вставшего в гоночной ветке. */
+const NEUT_STOPPED=6.0;
 const NEUT_GAP=9.0;                       // м между центрами: ближе к переднему под нейтрализацией не подобраться (полтора корпуса)
 const CRAWL_BY=3.5;                       // м/с: шаг, которым объезжают ВСТАВШИЙ болид. Ноль здесь — вечный затор, см. update()
 /* Обгон доводится до конца. Решение идти в объезд принималось, только пока цель в окне
@@ -3173,7 +3184,7 @@ function update(dt){
       if(o.retired||o.speed>c.pace*0.5||c.dist>o.dist+3.0||o.dist-c.dist>20)c.ovLock=null;   // without this the car drifts back to the racing line the moment it clears the 2.3 m "same lane" window, gets caught again and crawls behind forever
       else want=o.lane+c.ovDir*3.4;}
     const crawler=!!c.ahd&&c.ahd.speed<c.pace*0.5;                           // stopped or barely moving
-    const slowAhd=nz&&c.ahd?c.ahd.speed<paceAt(c.ahd)*0.5:false;             // ...measured where the CAR AHEAD is, not where I am. Costs nothing off a flag: only computed under one.
+    const slowAhd=nz&&c.ahd?c.ahd.speed<NEUT_STOPPED:false;                  // ...и порог абсолютный, а не доля темпа: см. NEUT_STOPPED
     /* Начатый обгон доводится до конца — см. DUEL_EDGE наверху. Держится ЦЕЛЬ, а не «кто
        сейчас в моей полосе»: как только болид отходит вбок, цель уходит из окна 2.3 м,
        и без этой памяти намерение отменялось само собой. Судим по СГЛАЖЕННЫМ величинам:
@@ -3341,8 +3352,8 @@ function neutralCap(idx,speed,nz){return playerFreeAt(idx)*neutShare(nz);}
 /* Ближайший впереди, к которому под нейтрализацией нельзя подбираться ближе NEUT_GAP.
    Правило «не приближаться», а не «держать дистанцию»: кто вошёл в зону ближе, тот там
    и остаётся — заставлять отпускать значило бы бить по тормозам без причины.
-   Исключение — тот, кто не держит темп нейтрализации: вставший болид, из-за которого
-   флаг и подняли, не должен запереть игрока на всю зону. */
+   Исключение — тот, кто ВСТАЛ (NEUT_STOPPED): вставший болид, из-за которого флаг
+   и подняли, не должен запереть за собой очередь. */
 function neutBlocker(me,onlyNeut){
   me=me||player;
   let best=null,bg=1e9;
@@ -3350,16 +3361,13 @@ function neutBlocker(me,onlyNeut){
     if(onlyNeut&&!neutralAt(carIdx(c)))continue;        // ...но держаться надо только за тем, кто САМ под флагом
     const g=c.dist-me.dist;
     if(g>0&&g<NEUT_GAP+200&&g<bg){bg=g;best=c;}}
-  if(!best||best.speed<paceAt(best)*0.5)return null;
+  if(!best||best.speed<NEUT_STOPPED)return null;
   /* Подъезд гасится ТЕМ ЖЕ сбросом, которым потолок снимает скорость, а не линейной
      прибавкой «метр в секунду на метр». Прежний закон включался за 17 м, и этого хватало
      внутри зоны, где разница скоростей мала. На ВЪЕЗДЕ в зону она 28 м/с: за 17 м её
      не погасить, и задний пролетал мимо. Замер (08.2026): игрок проходил одного
      в трёх раскладах из шести, и упреждение в потолке само по себе убрало только один. */
   return neutBleedBack(best.speed,bg-NEUT_GAP);}
-/* The pace a car is ENTITLED to at ITS OWN point on the track. Judging "cannot hold the pace"
-   against the follower's own point makes every car that is already in the corner look stopped,
-   and the queue behind pulls out to pass it — the very trap fixed in the racing branch (v1.15.39). */
 /* Насколько свободна полоса `lane` рядом со мной — расстояние по ширине до ближайшего соседа.
    Смотрим только тех, чьи корпуса перекрываются с моим вдоль дороги: дальние не мешают. */
 function laneRoom(c,lane){let r=99;
@@ -3378,12 +3386,6 @@ function freeSide(c,base,cur,hw){
   const a=at(cur), b=at(-cur);
   return b>a+0.8?-cur:cur;}
 function carIdx(o){return o===player?(player.hint||0):Math.floor(((o.u%1)+1)%1*track.M)%track.M;}
-function paceAt(o){const i=carIdx(o),nz=neutralAt(i);
-  // Различать надо ПОИМЕННО: игрок создаётся с той же формой объекта, что и соперники,
-  // и его free там ноль. Проверка «не задано» на нём молчит, темп выходил нулевой, и правило
-  // «объезжать можно того, кто не держит темп» переставало работать против вставшего игрока.
-  const free=o===player?playerFreeAt(i):o.free;
-  return nz?free*neutShare(nz):free;}
 function addSmoke(x,z){const g=new THREE.Group();
   for(let i=0;i<4;i++){const m=new THREE.MeshBasicMaterial({color:'#8a8a8a',transparent:true,opacity:0.5,depthWrite:false});
     const s=mesh(new THREE.SphereGeometry(0.45+Math.random()*0.4,8,6),m,Math.random()*0.6-0.3,0.5+i*0.5,Math.random()*0.6-0.3);g.add(s);}
