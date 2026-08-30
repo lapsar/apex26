@@ -66,7 +66,7 @@ function runOne(T, seed, pos, fast, hc, mode) {
     var idxOf=function(c){return c.isPlayer?(player.hint||0):Math.floor(((c.u%1)+1)%1*track.M)%track.M;};
     var live=function(){return cars.filter(function(c){return !c.retired;});};
     var mode0='', n=0, max=Math.round(80/dt);
-    var pairs=null, ev=[], rankY0=null, rankYEnd=null, yT=0, seen={}, capOver=0, capN=0, slowN=0, ratio=[], aiN=0, aiSlow=0, aiRatio=[], blkN=0, blkBite=0, aiBlkN=0, aiBlkBite=0, capCmp=0, capLow=0, capDiff=0, blkSide=0, trainGap=1e9, trainSlow=1e9, spread0=null, spreadEnd=null;
+    var pairs=null, ev=[], rankY0=null, rankYEnd=null, yT=0, seen={}, capOver=0, capN=0, slowN=0, ratio=[], aiN=0, aiSlow=0, aiRatio=[], blkN=0, blkBite=0, aiBlkN=0, aiBlkBite=0, capCmp=0, capLow=0, capDiff=0, blkSide=0, trainGap=1e9, trainSlow=1e9, spread0=null, spreadEnd=null, tightMax=0, stuckMax=0;
     while(n<max && !raceOver){
       drv.call(__AP); update(dt); n++;
       var m=neutral.mode;
@@ -100,11 +100,16 @@ function runOne(T, seed, pos, fast, hc, mode) {
                 var d2=Math.abs(rc.dist-player.dist); if(d2<rg){rg=d2;rv=rc;}}
               if(rv&&rg<60){var mine=cap0, his=aiTarget(player.hint,player.speed,rv.base,rv.cornerK||34)*neutShare(pnz);
                 capCmp++; if(mine<his-0.5)capLow++; capDiff+=mine-his;}}
-      { var so=L.slice().sort(rankCmp), sMin=1e9;                 // сторож «поезда»: самый медленный и теснейший зазор
-        for(var t=1;t<so.length;t++){var gg=so[t-1].dist-so[t].dist; if(gg<sMin)sMin=gg;}
+      { var so=L.slice().sort(rankCmp), sMin=1e9, tight=0, slowStuck=0;   // сторож «поезда»
+        for(var t=1;t<so.length;t++){var gg=so[t-1].dist-so[t].dist;
+          if(gg<sMin)sMin=gg;
+          if(gg<12)tight++;}                                     // нос в хвост: зазор меньше двух корпусов
         if(sMin<trainGap)trainGap=sMin;
-        var slow=1e9; for(var t2=0;t2<L.length;t2++)if(L[t2].speed<slow)slow=L[t2].speed;
+        tightMax=tight;                       // на ПОСЛЕДНЕМ кадре под ограничением, а не максимум: максимум ловил стартовую свалку
+        var slow=1e9; for(var t2=0;t2<L.length;t2++){if(L[t2].speed<slow)slow=L[t2].speed;
+          if(L[t2].speed<6)slowStuck++;}                         // почти встал
         if(slow<trainSlow)trainSlow=slow;
+        stuckMax=slowStuck;
         spreadEnd=so[0].dist-so[so.length-1].dist; if(spread0===null)spread0=spreadEnd; }
       for(var q=0;q<L.length;q++){var qc=L[q]; if(qc.isPlayer)continue; if(!nz[qc.code])continue;
         aiN++; if(qc.speed<pace[qc.code]*0.5)aiSlow++; aiRatio.push(qc.speed/Math.max(1,pace[qc.code]));}
@@ -133,6 +138,7 @@ function runOne(T, seed, pos, fast, hc, mode) {
             blkN:blkN, blkBite:blkBite, aiBlkN:aiBlkN, aiBlkBite:aiBlkBite,
             capCmp:capCmp, capLow:capLow, blkSide:blkSide,
             trainGap:+trainGap.toFixed(1), trainSlow:+trainSlow.toFixed(1),
+            tightMax:tightMax, stuckMax:stuckMax,
             spread0:spread0===null?null:+spread0.toFixed(0), spreadEnd:spreadEnd===null?null:+spreadEnd.toFixed(0), capDiff:+(capDiff/Math.max(1,capCmp)).toFixed(1),
             aiMed:(function(){if(!aiRatio.length)return null;var a=aiRatio.slice().sort(function(x,y){return x-y;});return +a[a.length>>1].toFixed(2);})(),
             ratioMed:(function(){if(!ratio.length)return null;var a=ratio.slice().sort(function(x,y){return x-y;});return +a[a.length>>1].toFixed(2);})()};
@@ -165,7 +171,7 @@ for (const T of H.tracks(true)) {
       + `\n    ИИ   под ограничением ${r.aiN} кадро-машин: медиана доли ${r.aiMed}, ниже половины ${(100*r.aiSlow/Math.max(1,r.aiN)).toFixed(0)} %`
       + `\n    правило дистанции: у ИГРОКА впереди кто-то есть в ${(100*r.blkN/Math.max(1,r.capN)).toFixed(0)} % кадров, и оно РЕЖЕТ ему скорость в ${(100*r.blkBite/Math.max(1,r.capN)).toFixed(0)} % (из них ${(100*r.blkSide/Math.max(1,r.blkBite)).toFixed(0)} % — по болиду в ДРУГОЙ полосе)`
       + `\n                       у ИИ такой же передний есть в ${(100*r.aiBlkN/Math.max(1,r.aiN)).toFixed(0)} % кадро-машин и резал бы его в ${(100*r.aiBlkBite/Math.max(1,r.aiN)).toFixed(0)} % — но под VSC правило на ИИ не наложено`
-      + `\n    поле: теснейший зазор ${r.trainGap} м, самый медленный ${r.trainSlow} м/с, растянутость ${r.spread0}->${r.spreadEnd} м`
+      + `\n    поле: теснейший зазор ${r.trainGap} м, самый медленный ${r.trainSlow} м/с, растянутость ${r.spread0}->${r.spreadEnd} м, на выходе пар нос-в-хвост ${r.tightMax} из 21, почти встали ${r.stuckMax}`
       + `\n    потолок игрока против потолка соседа в той же точке: ниже в ${(100*r.capLow/Math.max(1,r.capCmp)).toFixed(0)} % кадров, в среднем ${r.capDiff>=0?'+':''}${r.capDiff} м/с`
       + ` · обгонов при участии зоны ${zev.length} (оба в зоне ${both}, один ${edge}; игрок обогнал ${pby}, игрока обогнали ${pof}, жертва держала темп ${heldv})`);
     if(!quiet) for (const e of zev)

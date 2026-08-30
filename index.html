@@ -3127,12 +3127,15 @@ function update(dt){
        пробником она видна и на v1.15.44, где защёлки обгона ещё не было.
        Проверялась и более узкая догадка — «мимо проезжает тот, кто ВНЕ зоны, ведь он ничем
        не ограничен». Замер её опроверг: те же обгоны остались. Проезжают те, кто ОБА внутри.
-       Только жёлтый, не VSC: под VSC нейтрализован весь круг, дистанция сцепляет поле
-       в поезд по скорости самого медленного, и игрок отыгрывает у застрявших десятки метров
-       (замер: 43 м). Обгонов между соперниками под VSC пробник и так не находит.
+       До v1.15.50 правило действовало только под жёлтым: под VSC оно сцепляло поле в поезд,
+       а пробник считал нарушением подъезд игрока к переднему с 50 м до разрешённых 9 (те
+       самые «43 м»). Второй довод отпал — пробник научен мерить настоящее правило
+       «не приближаться ближе, чем вошёл». А цена одностороннего правила замерена: под VSC
+       оно было наложено на игрока и НЕ наложено на ИИ, и игрока обгоняли в каждом заезде —
+       15 раз за шесть заездов при том, что он шёл на 0.97 своего потолка.
        Исключение прежнее и обязательное: того, кто не держит темп нейтрализации, объезжать
        можно — иначе вставший болид, из-за которого флаг и подняли, запрёт за собой всю очередь. */
-    if(nz===1){const blk=neutBlocker(c);if(blk!==null)target=Math.min(target,blk);}                               // the pace I am ENTITLED to right now: under a flag the neutralised one, else the racing one.
+    if(nz){const blk=neutBlocker(c);if(blk!==null)target=Math.min(target,blk);}                               // the pace I am ENTITLED to right now: under a flag the neutralised one, else the racing one.
     // Everything that judges "the car ahead cannot hold the pace" must read this and not the racing pace —
     // measured against the racing pace, every car in a slow corner looks delayed and the whole field pulls out to pass.
     const sameLine=!!ahd;
