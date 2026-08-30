@@ -1,5 +1,8 @@
-/* СПРАВКА (не пробник, порога нет): меняются ли места под ЖЁЛТЫМ флагом.
-   Пробник `neutral` считает обгоны только в парах, где ОБА болида в зоне,
+/* СПРАВКА (не пробник, порога нет): меняются ли места под НЕЙТРАЛИЗАЦИЕЙ.
+   --mode=yellow — жёлтый флаг (сход вне полотна), --mode=vsc — VSC (сход на полотне).
+   Под VSC место схода подбирается: ищется точка круга, где болид не помещается
+   за кромкой, иначе на Монце и Сильверстоуне почти всегда выходит жёлтый.
+   Пробник `neutral` считает обгоны только в парах, где ОБА болида под ограничением,
    и пары с игроком из счёта выбрасывает вовсе. Эта справка считает ВСЕ пары
    и печатает, в каком секторе был каждый в момент обгона — так видно и обгоны
    на границе зоны, и обгоны игрока.
@@ -37,7 +40,7 @@ __AP.fast = function(){
 function __driveFast(n,dt,watch){for(var f=0;f<n;f++){__AP.fast();if(phase==='')return f;update(dt);if(watch){if(watch(f)===false)return f+1;}}return n;}
 `;
 
-function runOne(T, seed, pos, fast, hc) {
+function runOne(T, seed, pos, fast, hc, mode) {
   const env = H.loadGame({ seed });
   H.setupWeekend(env, { trackIdx: T.idx, diff: 'normal', laps: 3 });
   H.startRaceAt(env, pos);
@@ -46,17 +49,30 @@ function runOne(T, seed, pos, fast, hc) {
   return env.evalIn(`(function(){
     var dt=1/60, PASS=${PASS}; __HC=${hc}; var drv=${hc}<1?__AP.kid:${fast?'__AP.fast':'__AP.drive'};
     field.forEach(function(c){c.retireAt=0;});
+    var WANT='${mode}';
+    var blockIdx=function(){                       // где сошедший не помещается за кромкой -> VSC
+      for(var i=0;i<track.M;i++){for(var s2=-1;s2<=1;s2+=2){
+        var sp=retireSpot({u:i/track.M,lane:s2*3});
+        var ok=true;
+        for(var k=-1;k<=1;k+=2){var ang=sp.base*k,hw2=carHalfWidth(ang),w=wallAt(sp.i,sp.side);
+          var off2=Math.min(sp.hw+hw2+0.2,w-hw2); if(!(off2-hw2<sp.hw-0.05))ok=false;}
+        if(ok)return i;}}
+      return -1;};
     ${hc}<1?__driveKid(Math.round(12/dt),dt):${fast?'__driveFast':'__drive'}(Math.round(12/dt),dt${fast?'':",'auto'"});
-    var victim=field[3]; victim.retireAt=victim.dist+1;
+    var victim=field[3];
+    if(WANT==='vsc'){var bi=blockIdx(); if(bi<0)return {mode0:'нет узкого места'};
+      victim.u=bi/track.M; victim.dist=track.S[bi]; retireCar(victim);}
+    else victim.retireAt=victim.dist+1;
     var idxOf=function(c){return c.isPlayer?(player.hint||0):Math.floor(((c.u%1)+1)%1*track.M)%track.M;};
     var live=function(){return cars.filter(function(c){return !c.retired;});};
     var mode0='', n=0, max=Math.round(80/dt);
-    var pairs=null, ev=[], rankY0=null, rankYEnd=null, yT=0, seen={}, capOver=0, capN=0, slowN=0, ratio=[], aiN=0, aiSlow=0, aiRatio=[];
+    var pairs=null, ev=[], rankY0=null, rankYEnd=null, yT=0, seen={}, capOver=0, capN=0, slowN=0, ratio=[], aiN=0, aiSlow=0, aiRatio=[], blkN=0, blkBite=0, aiBlkN=0, aiBlkBite=0, capCmp=0, capLow=0, capDiff=0, blkSide=0;
     while(n<max && !raceOver){
       drv.call(__AP); update(dt); n++;
       var m=neutral.mode;
-      if(!mode0&&m)mode0=m;
-      if(m!=='yellow'){ if(m==='green')pairs=null; continue; }
+      if(!mode0&&m)mode0=(m==='ending'?'vsc':m);
+      var on=(WANT==='vsc')?(m==='vsc'||m==='ending'):(m==='yellow');
+      if(!on){ if(m==='green')pairs=null; continue; }
       yT+=dt;
       var L=live(), nz={}, sp={}, pace={}, held={};
       for(var i=0;i<L.length;i++){var c=L[i], k=c.code;
@@ -64,7 +80,26 @@ function runOne(T, seed, pos, fast, hc) {
         if(nz[k])seen[k]=n; }                                  // кадр, когда болид последний раз был в зоне
       var pnz=neutralAt(player.hint||0);
       if(pnz){capN++; if(player.speed>neutralCap(player.hint,player.speed,pnz)+3)capOver++;
-              var pr_=paceAt(player); if(player.speed<pr_*0.5)slowN++; ratio.push(player.speed/Math.max(1,pr_));}
+              var pr_=paceAt(player); if(player.speed<pr_*0.5)slowN++; ratio.push(player.speed/Math.max(1,pr_));
+              // сидит ли игрок в правиле дистанции: есть ли впереди тот, кем его ограничивают
+              var b=neutBlocker(), cap0=neutralCap(player.hint,player.speed,pnz);
+              if(b!==null){blkN++; if(b<cap0-1){blkBite++;
+                // кем именно ограничен: тем, кто в моей полосе, или тем, кто сбоку
+                var bc=null,bg=1e9;
+                for(var z=0;z<L.length;z++){var zc=L[z]; if(zc.isPlayer)continue;
+                  var zg=zc.dist-player.dist; if(zg>0&&zg<17&&zg<bg){bg=zg;bc=zc;}}
+                if(bc&&Math.abs((bc.lane||0)-(player.lane||0))>2.3)blkSide++;}}
+              // а действует ли то же правило на соперника: считаем тех, у кого впереди тоже есть кто-то в 17 м
+              for(var w=0;w<L.length;w++){var wc=L[w]; if(wc.isPlayer)continue;
+                if(neutBlocker(wc)!==null){aiBlkN++;
+                  if(neutBlocker(wc)<aiTarget(idxOf(wc),wc.speed,wc.base,wc.cornerK||34)*neutShare(nz[wc.code]||2)-1)aiBlkBite++;}}
+              // потолок игрока против потолка соперника В ТОЙ ЖЕ ТОЧКЕ: у каждого он свой,
+              // а игрок слаб в медленных поворотах (§10 п.12) — там его потолок НИЖЕ
+              var rv=null,rg=1e9;
+              for(var w2=0;w2<L.length;w2++){var rc=L[w2]; if(rc.isPlayer)continue;
+                var d2=Math.abs(rc.dist-player.dist); if(d2<rg){rg=d2;rv=rc;}}
+              if(rv&&rg<60){var mine=cap0, his=aiTarget(player.hint,player.speed,rv.base,rv.cornerK||34)*neutShare(pnz);
+                capCmp++; if(mine<his-0.5)capLow++; capDiff+=mine-his;}}
       for(var q=0;q<L.length;q++){var qc=L[q]; if(qc.isPlayer)continue; if(!nz[qc.code])continue;
         aiN++; if(qc.speed<pace[qc.code]*0.5)aiSlow++; aiRatio.push(qc.speed/Math.max(1,pace[qc.code]));}
       var ord=L.slice().sort(rankCmp), pi=ord.indexOf(player)+1;
@@ -89,6 +124,8 @@ function runOne(T, seed, pos, fast, hc) {
     }
     return {mode0:mode0, yT:+yT.toFixed(1), rankY0:rankY0, rankYEnd:rankYEnd, ev:ev,
             capOver:capOver, capN:capN, slowN:slowN, aiN:aiN, aiSlow:aiSlow,
+            blkN:blkN, blkBite:blkBite, aiBlkN:aiBlkN, aiBlkBite:aiBlkBite,
+            capCmp:capCmp, capLow:capLow, blkSide:blkSide, capDiff:+(capDiff/Math.max(1,capCmp)).toFixed(1),
             aiMed:(function(){if(!aiRatio.length)return null;var a=aiRatio.slice().sort(function(x,y){return x-y;});return +a[a.length>>1].toFixed(2);})(),
             ratioMed:(function(){if(!ratio.length)return null;var a=ratio.slice().sort(function(x,y){return x-y;});return +a[a.length>>1].toFixed(2);})()};
   })()`);
@@ -100,12 +137,13 @@ const poss  = arg('pos','11').split(',').map(Number);
 const fast  = arg('fast','1')==='1';
 const hc    = +arg('hc','1');
 const quiet = arg('quiet','0')==='1';
+const mode  = arg('mode','yellow');
 
 let tot={all:0,zone:0,both:0,edge:0,pby:0,pof:0,heldv:0}, runs=0, lost=0, gained=0;
 for (const T of H.tracks(true)) {
   for (const seed of seeds) for (const pos of poss) {
-    const r = runOne(T, seed, pos, fast, hc);
-    if (r.mode0 !== 'yellow') { console.log(`${T.name} зерно ${seed} P${pos}: ${r.mode0||'нет флага'} — пропуск`); continue; }
+    const r = runOne(T, seed, pos, fast, hc, mode);
+    if (r.mode0 !== mode) { console.log(`${T.name} зерно ${seed} P${pos}: ${r.mode0||'нет флага'} — пропуск`); continue; }
     runs++;
     const zev = r.ev.filter(e=>e.nzBy||e.nzOf);          // хотя бы один участник В ЗОНЕ в момент обгона
     const both = zev.filter(e=>e.nzBy&&e.nzOf).length, edge = zev.length-both;
@@ -113,9 +151,12 @@ for (const T of H.tracks(true)) {
     const heldv = zev.filter(e=>e.held).length;
     tot.all+=r.ev.length;tot.zone+=zev.length;tot.both+=both;tot.edge+=edge;tot.pby+=pby;tot.pof+=pof;tot.heldv+=heldv;
     if(r.rankYEnd>r.rankY0)lost++; if(r.rankYEnd<r.rankY0)gained++;
-    console.log(`${T.name.padEnd(12)} зерно ${String(seed).padStart(2)} P${pos} · жёлтый ${r.yT} с · игрок ${r.rankY0}->${r.rankYEnd}`
-      + `\n    ИГРОК в зоне ${r.capN} кадров: медиана доли от потолка ${r.ratioMed}, ниже половины ${(100*r.slowN/Math.max(1,r.capN)).toFixed(0)} % кадров`
-      + `\n    ИИ   в зоне ${r.aiN} кадро-машин: медиана доли ${r.aiMed}, ниже половины ${(100*r.aiSlow/Math.max(1,r.aiN)).toFixed(0)} %`
+    console.log(`${T.name.padEnd(12)} зерно ${String(seed).padStart(2)} P${pos} · ${mode==='vsc'?'VSC':'жёлтый'} ${r.yT} с · игрок ${r.rankY0}->${r.rankYEnd}`
+      + `\n    ИГРОК под ограничением ${r.capN} кадров: медиана доли от потолка ${r.ratioMed}, ниже половины ${(100*r.slowN/Math.max(1,r.capN)).toFixed(0)} % кадров`
+      + `\n    ИИ   под ограничением ${r.aiN} кадро-машин: медиана доли ${r.aiMed}, ниже половины ${(100*r.aiSlow/Math.max(1,r.aiN)).toFixed(0)} %`
+      + `\n    правило дистанции: у ИГРОКА впереди кто-то есть в ${(100*r.blkN/Math.max(1,r.capN)).toFixed(0)} % кадров, и оно РЕЖЕТ ему скорость в ${(100*r.blkBite/Math.max(1,r.capN)).toFixed(0)} % (из них ${(100*r.blkSide/Math.max(1,r.blkBite)).toFixed(0)} % — по болиду в ДРУГОЙ полосе)`
+      + `\n                       у ИИ такой же передний есть в ${(100*r.aiBlkN/Math.max(1,r.aiN)).toFixed(0)} % кадро-машин и резал бы его в ${(100*r.aiBlkBite/Math.max(1,r.aiN)).toFixed(0)} % — но под VSC правило на ИИ не наложено`
+      + `\n    потолок игрока против потолка соседа в той же точке: ниже в ${(100*r.capLow/Math.max(1,r.capCmp)).toFixed(0)} % кадров, в среднем ${r.capDiff>=0?'+':''}${r.capDiff} м/с`
       + ` · обгонов при участии зоны ${zev.length} (оба в зоне ${both}, один ${edge}; игрок обогнал ${pby}, игрока обогнали ${pof}, жертва держала темп ${heldv})`);
     if(!quiet) for (const e of zev)
       console.log(`    ${String(e.t).padStart(6)} с  ${e.by}${e.byP?'(ИГРОК)':''} обошёл ${e.of}${e.ofP?'(ИГРОК)':''}`
