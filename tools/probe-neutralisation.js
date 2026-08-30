@@ -93,93 +93,117 @@ function run(opt) {
         __drive(Math.round(12/dt),dt,'auto');            // дать полю разъехаться
         var victim=field[3]; victim.retireAt=victim.dist+1;
         var live=function(){return cars.filter(function(c){return !c.retired;}).sort(rankCmp);};
-        var mode0='', modeSecs={}, overtakes=[], capBad=0, n=0;
-        var max=Math.round(75/dt), yellowCapped=0, playerPassed=0;
-        var pairs=null, pairsY=null, overtakesY=[], crawled={}, allowedY=[], allowed=[];
+        /* Единая мерка «держит ли темп» — от темпа ПОЛЯ в этой точке, одна для игрока и для ИИ.
+           Своя, а не игровая paceAt(): у игрока paceAt меряет от его ИДЕАЛЬНОЙ линии, и по ней
+           обычная человеческая езда выглядит «встал» — ровно та дыра, которую пробник обязан
+           ловить, а не оправдывать. */
+        var __bs=field.map(function(c){return c.base;}).sort(function(a,b){return a-b;});
+        var FB=__bs[__bs.length>>1], FK=DIFF_CORNERK[sel.diff];
+        var idxOf=function(c){return c.isPlayer?(player.hint||0):Math.floor(((c.u%1)+1)%1*track.M)%track.M;};
+        var fieldNeut=function(i,nz){return aiTarget(i,0,FB,FK)*neutShare(nz);};
+        var PASS=6.04;                                   // обгон = переход из «на корпус позади» в «на корпус впереди»
+        var mode0='', modeSecs={}, capBad=0, n=0;
+        var max=Math.round(75/dt), yellowCapped=0;
+        var pairs=null, ev=[], crawled={}, inY=0, inV=0;
         var gapAhead0=null, gapAheadEnd=null, rank0=null, rankEnd=null, rival=null;
-        var gapY0=null, gapYEnd=null, rankY0=null, rivalY=null, inY=0, inV=0;
+        var gapY0=null, gapYEnd=null, rivalY=null;
+        var pRank0=null, pRankEnd=null;
+        var floorY=0, floorV=0, breachY=0, breachV=0;   // правило «не приближаться»: ниже своего пола падать нельзя
         while(n<max && !raceOver){
           __AP.drive();
           update(dt); n++;
           var m=neutral.mode; if(m)modeSecs[m]=(modeSecs[m]||0)+dt;
-          if(m&&m!=='green'){                              // кто под флагом провалился ниже ПОЛОВИНЫ своего потолка — того правила разрешают объезжать (§4-bis), и это не нарушение
-            var Ls=cars.filter(function(c){return !c.retired&&!c.isPlayer;});
-            for(var si=0;si<Ls.length;si++){var sc=Ls[si];
-              var sidx=Math.floor(((sc.u%1)+1)%1*track.M)%track.M, snz=neutralAt(sidx);
-              if(snz&&sc.speed<paceAt(sc)*0.5)crawled[sc.code]=true;}}   // темп СОПЕРНИКА: neutralCap теперь считает потолок ИГРОКА
           if(!mode0&&m)mode0=m;
+          var on=(m&&m!=='green');
           var neut=(m==='vsc'||m==='ending');
-          if(m==='yellow'){                                // жёлтый: в своих секторах потолок обязан быть наложен
-            var nzP=neutralAt(player.hint);
-            inY=nzP?inY+dt:0;                              // въезд в зону идёт на гоночной скорости: 2.5 с на сброс
-            if(inY>2.5&&player.speed>neutralCap(player.hint,player.speed,nzP)+3)yellowCapped++;
-            if(nzP){var Ly=cars.filter(function(c){return !c.retired;}).sort(rankCmp);
-              var py=Ly.indexOf(player);
-              if(rankY0===null){rankY0=py+1;rivalY=py>0?Ly[py-1]:null;}
-              if(rivalY){var gy=rivalY.dist-player.dist; if(gapY0===null)gapY0=gy; gapYEnd=gy;}}
+          if(!on){ if(m==='green')pairs=null; continue; }
+
+          var L=cars.filter(function(c){return !c.retired;});
+          var nz={}, held={};
+          for(var q=0;q<L.length;q++){var qc=L[q], qi=idxOf(qc), qn=neutralAt(qi);
+            nz[qc.code]=qn;
+            held[qc.code]=!(qn && qc.speed<fieldNeut(qi,qn)*0.5);
+            if(!held[qc.code])crawled[qc.code]=true;}   // кто хоть раз провалился — того объезжать разрешено (§4-bis)
+
+          /* ОБГОНЫ. Считаются ВСЕ пары, включая пары с игроком в обе стороны, и пары,
+             где под ограничением только обгоняемый — это граница зоны, и она тоже нарушение:
+             задний, ещё не доехавший до линии сектора, не имеет права проехать мимо того,
+             кто уже сбросил темп. Пары, где обгоняемый вообще не под ограничением, — обычная
+             гонка на другой стороне круга, они не в счёт. */
+          if(!pairs)pairs={};
+          {
+            for(var a2=0;a2<L.length;a2++)for(var b2=0;b2<L.length;b2++){
+              if(a2===b2)continue;
+              var A=L[a2], B=L[b2], k=A.code+'>'+B.code, was=pairs[k];
+              var now=A.dist-B.dist, sign=now>PASS?1:(now<-PASS?-1:0);
+              // защёлка знака, а не снимок первого кадра: пара, стоявшая ближе корпуса,
+              // раньше в счёт не попадала вовсе — обгон между ними был невидим
+              if(!sign)continue;
+              if(was===undefined){pairs[k]=sign;continue;}
+              if(was<0 && sign>0){ pairs[k]=sign;
+                if(!nz[B.code])continue;                 // обгоняемый не под ограничением — это не зона
+                ev.push({t:+raceTime.toFixed(1), v:B.code, mode:neut?'vsc':'yellow',
+                         edge:!nz[A.code],
+                         txt:k+(A.isPlayer?' (ИГРОК обогнал)':(B.isPlayer?' (обогнали ИГРОКА)':''))
+                             +(nz[A.code]?'':' [обгонявший ещё не в зоне]')
+                             +' (был позади, стал впереди на '+now.toFixed(1)+' м)',
+                         byP:!!A.isPlayer, ofP:!!B.isPlayer});
+              } else pairs[k]=sign;
+            }
           }
-          if(m==='yellow'){                                // обгонов не должно быть и в жёлтой зоне — но считаем
-            var Lz=live().filter(function(c){                // только пары, где ОБА в ней: снаружи гонка идёт как шла
-              return neutralAt(c.isPlayer?player.hint:Math.floor(((c.u%1)+1)%1*track.M)%track.M);});
-            if(!pairsY){pairsY={};
-              for(var ay=0;ay<Lz.length;ay++)for(var by=0;by<Lz.length;by++)if(ay!==by)
-                pairsY[Lz[ay].code+'>'+Lz[by].code]=Lz[ay].dist-Lz[by].dist;
-            } else {
-              for(var ay2=0;ay2<Lz.length;ay2++)for(var by2=0;by2<Lz.length;by2++){
-                if(ay2===by2)continue;
-                if(Lz[ay2].isPlayer||Lz[by2].isPlayer)continue;    // пары с игроком — отдельно, по отыгранным метрам:
-                var ky=Lz[ay2].code+'>'+Lz[by2].code, wasy=pairsY[ky];   // ПОТЕРЯТЬ место под флагом можно, отыграть — нет
-                if(wasy===undefined){pairsY[ky]=Lz[ay2].dist-Lz[by2].dist;continue;}
-                var nowy=Lz[ay2].dist-Lz[by2].dist;
-                if(wasy<-6&&nowy>6){pairsY[ky]=nowy;
-                  var txty=ky+' ('+wasy.toFixed(1)+' -> '+nowy.toFixed(1)+')';
-                  overtakesY.push({t:txty,v:Lz[by2].code});}
+
+          /* ИГРОК: место и правило «не приближаться». Пол — тот зазор, с которым он вошёл
+             под ограничение, но не ближе NEUT_GAP: подъехать с 50 м до 9 правила разрешают,
+             ближе 9 — нет. К тому, кто не держит темп, это не относится. */
+          var pnz=neutralAt(player.hint||0);
+          if(pnz){
+            var ord=L.slice().sort(rankCmp), pi=ord.indexOf(player);
+            if(pRank0===null)pRank0=pi+1; pRankEnd=pi+1;
+            var ahead=pi>0?ord[pi-1]:null;
+            if(ahead){
+              var g=ahead.dist-player.dist;
+              if(pnz===1){
+                if(rivalY!==ahead){rivalY=ahead;floorY=Math.min(g,NEUT_GAP);if(gapY0===null)gapY0=g;}
+                gapYEnd=g;
+                if(held[ahead.code]){var bY=floorY-g; if(bY>breachY)breachY=bY;}
+              } else {
+                if(rival!==ahead){rival=ahead;floorV=Math.min(g,NEUT_GAP);if(gapAhead0===null)gapAhead0=g;}
+                gapAheadEnd=g;
+                if(held[ahead.code]){var bV=floorV-g; if(bV>breachV)breachV=bV;}
               }
             }
+          }
+
+          if(m==='yellow'){
+            inY=pnz?inY+dt:0;                            // въезд в зону идёт на гоночной скорости: 2.5 с на сброс
+            if(inY>2.5&&player.speed>neutralCap(player.hint,player.speed,pnz)+3)yellowCapped++;
           }
           if(neut){
-            var L=live();
-            var pi=L.indexOf(player);
-            if(rank0===null){rank0=pi+1;rival=pi>0?L[pi-1]:null;}    // ЗАПОМНИТЬ соперника: по ходу VSC впереди может оказаться другой
-            rankEnd=pi+1;
-            if(rival){var gp=rival.dist-player.dist;
-              if(gapAhead0===null)gapAhead0=gp; gapAheadEnd=gp;}
-            if(!pairs){                                   // снимок «кто за кем» на входе в нейтрализацию
-              pairs={};
-              for(var a=0;a<L.length;a++)for(var b=0;b<L.length;b++)if(a!==b)
-                pairs[L[a].code+'>'+L[b].code]=L[a].dist-L[b].dist;
-            } else {
-              for(var a2=0;a2<L.length;a2++)for(var b2=0;b2<L.length;b2++){
-                if(a2===b2)continue;
-                if(L[a2].isPlayer||L[b2].isPlayer)continue;         // пары с игроком считаются отдельно, по отыгранным метрам
-                var k=L[a2].code+'>'+L[b2].code, was=pairs[k];
-                if(was===undefined)continue;
-                var now=L[a2].dist-L[b2].dist;
-                if(was<-6&&now>6){pairs[k]=now;
-                  var txt=k+' ('+was.toFixed(1)+' -> '+now.toFixed(1)+')';
-                  overtakes.push({t:txt,v:L[b2].code});}
-              }
-            }
-            inV+=dt;                                     // как и у жёлтого, вход в VSC идёт на гоночной скорости: дать 1.5 с на сброс.
-            if(inV>1.5&&player.speed>vscCap(player.hint,player.speed)+3)capBad++;   // без этого пробник ловил ровно 3 кадра (0.05 с) сразу после включения — сброс, а не нарушение
+            var Lv=live(); var pv=Lv.indexOf(player);
+            if(rank0===null)rank0=pv+1; rankEnd=pv+1;
+            inV+=dt;                                     // как и у жёлтого, вход в VSC идёт на гоночной скорости: 1.5 с на сброс
+            if(inV>1.5&&player.speed>vscCap(player.hint,player.speed)+3)capBad++;
           }
-          if(m==='green'&&pairs)pairs=null;
         }
-        // Классифицировать в конце, а не в момент обгона: болид, за которым застряла очередь,
-        // проваливается ниже половины потолка через секунду-две ПОСЛЕ того, как его объехали.
-        var sift=function(arr){var bad=[],ok=[];
-          for(var q=0;q<arr.length;q++)(crawled[arr[q].v]?ok:bad).push(arr[q].t);
-          return {bad:bad,ok:ok};};
-        var sY=sift(overtakesY), sV=sift(overtakes);
-        overtakesY=sY.bad; allowedY=sY.ok; overtakes=sV.bad; allowed=sV.ok;
+        /* Классифицировать в конце, а не в момент обгона: болид, за которым застряла очередь,
+           проваливается ниже половины потолка через секунду-две ПОСЛЕ того, как его объехали. */
+        var bad=[], okAllowed=[], badY=[], okY=[], passedPlayer=0, playerPassed=0, edgeBad=0;
+        for(var e=0;e<ev.length;e++){var E=ev[e];
+          var tgt = E.mode==='vsc' ? (crawled[E.v]?okAllowed:bad) : (crawled[E.v]?okY:badY);
+          tgt.push(E.txt);
+          if(!crawled[E.v]){ if(E.ofP)passedPlayer++; if(E.byP)playerPassed++; if(E.edge)edgeBad++; }
+        }
         var v=victim, i=v.retiredIdx, P=track.P[i], R2=track.R[i];
         var offEnd=((v.x-P.x)*R2.x+(v.z-P.z)*R2.z)*v.retiredSide;
-        return {mode0:mode0, secs:modeSecs, overtakes:overtakes.slice(0,6), nOver:overtakes.length,
+        return {mode0:mode0, secs:modeSecs, overtakes:bad.slice(0,6), nOver:bad.length,
                 capBad:capBad, yellowCapped:yellowCapped,
                 gained:(gapAhead0===null||gapAheadEnd===null)?null:+(gapAhead0-gapAheadEnd).toFixed(1),
                 gainedY:(gapY0===null||gapYEnd===null)?null:+(gapY0-gapYEnd).toFixed(1),
-                nOverY:overtakesY.length, overtakesY:overtakesY.slice(0,4),
-                nAllowed:allowed.length, nAllowedY:allowedY.length,
+                nOverY:badY.length, overtakesY:badY.slice(0,4),
+                nAllowed:okAllowed.length, nAllowedY:okY.length,
+                passedPlayer:passedPlayer, playerPassed:playerPassed, edgeBad:edgeBad,
+                pRank0:pRank0, pRankEnd:pRankEnd,
+                breachY:+breachY.toFixed(1), breachV:+breachV.toFixed(1),
                 rank0:rank0, rankEnd:rankEnd,
                 blocking0:v.blockedRoad, offEnd:+offEnd.toFixed(2),
                 wall:+((v.retiredSide>0?track.WR:track.WL)[i]).toFixed(2),
@@ -191,24 +215,39 @@ function run(opt) {
       const yel = +(res.secs.yellow || 0).toFixed(1), vsc = +(res.secs.vsc || 0).toFixed(1),
             end = +(res.secs.ending || 0).toFixed(1), grn = +(res.secs.green || 0).toFixed(1);
       r.line(`${tag.padEnd(24)} ${res.mode0 === 'vsc' ? 'VSC' : 'жёлтый'} · жёлтый ${yel} с · VSC ${vsc}+${end} с`
-        + ` · зелёный ${grn} с · обгонов ИИ под VSC ${res.nOver}`
-        + (res.mode0 === 'yellow' ? ` · обгонов в жёлтой зоне ${res.nOverY}` : '')
+        + ` · зелёный ${grn} с`
+        + (res.mode0 === 'vsc' ? ` · обгонов под VSC ${res.nOver}` : ` · обгонов под жёлтым ${res.nOverY}`)
+        + (res.passedPlayer ? ` · ИГРОКА обогнали ${res.passedPlayer}` : '')
+        + (res.playerPassed ? ` · ИГРОК обогнал ${res.playerPassed}` : '')
+        + (res.edgeBad ? ` · из них на границе зоны ${res.edgeBad}` : '')
         + ((res.nAllowed + res.nAllowedY) ? ` · объехали вставшего ${res.nAllowed + res.nAllowedY}` : '')
-        + (res.gained === null ? '' : ` · игрок отыграл ${res.gained} м, место P${res.rank0}→P${res.rankEnd}`)
-        + (res.gainedY === null ? '' : ` · игрок отыграл в жёлтой зоне ${res.gainedY} м`)
+        + (res.pRank0 === null ? '' : ` · место игрока P${res.pRank0}→P${res.pRankEnd}`)
         + ` · болид стоит в ${res.offEnd} м (стена ${res.wall})`);
+
+      /* Обгоны и место игрока — общая часть для обоих режимов. Пары с игроком считаются
+         наравне с остальными: до 08.2026 они выбрасывались, и пробник был зелёным, пока
+         игрока обгоняли в каждом заезде (§4-bis). Обгон засчитывается нарушением, только
+         если обгоняемый ДЕРЖАЛ темп нейтрализации: объезжать вставшего правила разрешают. */
+      if (res.passedPlayer) r.fail(`${tag}: под нейтрализацией игрока обогнали ${res.passedPlayer} раз, и он держал темп`);
+      if (res.playerPassed) r.fail(`${tag}: под нейтрализацией игрок обогнал ${res.playerPassed} соперников, державших темп`);
+      if (res.edgeBad) r.fail(`${tag}: ${res.edgeBad} обгонов на ГРАНИЦЕ зоны — обгонявший ещё не доехал до линии сектора`);
+      /* Место — грубый сторож поверх счёта обгонов: две машины, идущие борт в борт, меняются
+         строками на сантиметрах, и это не обгон (та же оговорка, что у башни). Поэтому
+         сдвиг на одну позицию только печатается, а валит проба с двух. */
+      if (res.pRank0 !== null && res.pRankEnd - res.pRank0 >= 2)
+        r.fail(`${tag}: игрок потерял под нейтрализацией ${res.pRankEnd - res.pRank0} позиции (P${res.pRank0}→P${res.pRankEnd})`);
 
       if (res.mode0 === 'yellow') {
         if (Math.abs(yel - 40) > 0.6) r.fail(`${tag}: жёлтый горел ${yel} с вместо 40`);
         if (res.yellowCapped) r.fail(`${tag}: под жёлтым игрок ${res.yellowCapped} кадров ехал быстрее потолка своего сектора`);
-        if (res.gainedY !== null && res.gainedY > 12) r.fail(`${tag}: под жёлтым игрок отыграл ${res.gainedY} м у соперника впереди`);
+        if (res.breachY > 1.5) r.fail(`${tag}: под жёлтым игрок подобрался к переднему на ${res.breachY} м ближе, чем позволяет правило`);
         if (res.blocking0) r.fail(`${tag}: болид стоит на полотне, а поднят жёлтый вместо VSC`);
         if (res.nOverY) r.fail(`${tag}: в жёлтой зоне состоялось ${res.nOverY} обгонов: ${res.overtakesY.join(', ')}`);
       } else {
         if (Math.abs(vsc + end - 30) > 0.6) r.fail(`${tag}: VSC длился ${(vsc + end).toFixed(1)} с вместо 30`);
-        if (res.nOver) r.fail(`${tag}: под VSC состоялось ${res.nOver} обгонов между соперниками: ${res.overtakes.join(', ')}`);
+        if (res.nOver) r.fail(`${tag}: под VSC состоялось ${res.nOver} обгонов: ${res.overtakes.join(', ')}`);
         if (res.capBad) r.fail(`${tag}: игрок ${res.capBad} кадров ехал быстрее потолка VSC`);
-        if (res.gained !== null && res.gained > 12) r.fail(`${tag}: игрок отыграл под VSC ${res.gained} м у соперника, который был впереди`);
+        if (res.breachV > 1.5) r.fail(`${tag}: под VSC игрок подобрался к переднему на ${res.breachV} м ближе, чем позволяет правило`);
         if (res.offEnd < res.wall) r.fail(`${tag}: после эвакуации болид остался перед отбойником (${res.offEnd} м при стене ${res.wall} м)`);
         if (res.blockingEnd) r.fail(`${tag}: после эвакуации болид всё ещё помечен как мешающий`);
       }
@@ -315,7 +354,7 @@ function run(opt) {
      Проверяется на игроке, потому что он — самый вероятный вставший болид: у соперника
      сход ставит болид за кромку, а игрок останавливается там, где стоял.                */
   for (const T of H.tracks(true)) {
-    for (const seed of (opt.seeds || [3, 7, 13])) {
+    for (const seed of seeds) {                      // seeds уже разобраны выше: по строке цикл шёл посимвольно, и в подписи стояло «зерно ,»
       const env = H.loadGame({ seed });
       H.setupWeekend(env, { trackIdx: T.idx, diff: 'normal', laps: 3 });
       H.startRaceAt(env, 11);
