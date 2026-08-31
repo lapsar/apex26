@@ -30,6 +30,7 @@ const PROBES = [
   { key: 'charge',    mod: './probe-ai-charge.js' },
   { key: 'traffic',   mod: './probe-player-traffic.js' },
   { key: 'tower',     mod: './probe-tower.js' },
+  { key: 'fastlap',   mod: './probe-fastest-lap.js' },
 ];
 
 function main(argv) {
