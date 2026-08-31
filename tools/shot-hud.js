@@ -80,22 +80,40 @@ async function snap(page, file) {
   });
 
   // рекорд у соперника: ставим время, которое живой круг не побьёт, и даём показу дозреть
-  await shoot('best-ai', 'плашка лучшего круга гонки (соперник) + значок БК', () => {
-    const c = cars.filter(x => !x.isPlayer).sort((a, b) => b.dist - a.dist)[0];
+  // берём НАМЕРЕННО тёмную ливрею (Red Bull): текст плашки красится цветом пилота,
+  // и на почти чёрном фоне именно тёмные ливреи проверяют подсветку uiTint
+  await shoot('best-ai', 'плашка лучшего круга (соперник, тёмная ливрея) + значок', () => {
+    const c = cars.filter(x => !x.isPlayer && x.num === 3)[0] || cars.filter(x => !x.isPlayer)[0];
     const rr = ROSTER.find(r => r.num === c.num);
     fastestLap = { time: 70.317, name: c.name, team: rr ? rr.team : '', color: c.color, you: false, car: c };
     for (let f = 0; f < 60 * 3.2; f++) update(1 / 60);
     updateHUD(); render();
     return { plate: document.getElementById('flagpanel').innerText.replace(/\n/g, ' · '),
-             mark: Array.from(document.querySelectorAll('#tower .trow')).findIndex(r => r.querySelector('.tf').classList.contains('on')) + 1 };
+             mark: (() => { const m = document.querySelector('#tower .flmark');
+               if (!m || !m.classList.contains('on')) return 'не горит';
+               const rows = Array.from(document.querySelectorAll('#tower .trow'));
+               const i = rows.findIndex(r => Math.abs(r.offsetTop + (r.offsetHeight - 17) / 2 - parseFloat(m.style.top)) < 1);
+               return 'строка ' + (i + 1); })() };
   });
+
+  // крупный план: значок 17 px и подпись плашки на общем кадре не разглядеть
+  await page.evaluate(() => { document.body.style.zoom = '2.6'; });
+  await page.waitForTimeout(250);
+  await snap(page, path.join(OUT, `${name.toLowerCase()}-zoom.png`));
+  console.log(`  ${path.join(OUT, name.toLowerCase() + '-zoom.png')}  — крупный план: значок и подпись плашки`);
+  await page.evaluate(() => { document.body.style.zoom = ''; });
+  await page.waitForTimeout(150);
 
   await shoot('best-you', 'плашка лучшего круга гонки — поставил игрок', () => {
     fastestLap = { time: 69.115, name: player.name, team: ROSTER[sel.roster].team, color: player.color, you: true, car: player };
     for (let f = 0; f < 60 * 3.2; f++) update(1 / 60);
     updateHUD(); render();
     return { plate: document.getElementById('flagpanel').innerText.replace(/\n/g, ' · '),
-             mark: Array.from(document.querySelectorAll('#tower .trow')).findIndex(r => r.querySelector('.tf').classList.contains('on')) + 1 };
+             mark: (() => { const m = document.querySelector('#tower .flmark');
+               if (!m || !m.classList.contains('on')) return 'не горит';
+               const rows = Array.from(document.querySelectorAll('#tower .trow'));
+               const i = rows.findIndex(r => Math.abs(r.offsetTop + (r.offsetHeight - 17) / 2 - parseFloat(m.style.top)) < 1);
+               return 'строка ' + (i + 1); })() };
   });
 
   await shoot('finish', 'после флага: «ПОБЕДА» в первой строке и плашка финиша без «P»', () => {
