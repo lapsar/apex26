@@ -113,11 +113,15 @@ function run(opt) {
       fastestLap={time:59.5,name:'DELTA',team:'TEAM',color:'#fff',you:false,car:field[0]};
       var u=(${WATCH})(Math.round(6*60),dt,true);
       var h=document.getElementById('flagpanel').innerHTML||'';
-      return {plates:u.plates,underFlag:u.underFlag,vsc:h.indexOf('VSC')>=0,shown:flShown?flShown.name:null};
+      // «действует ли нейтрализация» спрашиваем у самой игры, а не у панели: если панель
+      // перебита плашкой рекорда, по её тексту выйдет «флага не было» — то есть пробник
+      // объявит раздел недостоверным ровно в том случае, ради которого он и написан
+      return {plates:u.plates,underFlag:u.underFlag,vsc:vscOn(),panel:h.indexOf('VSC')>=0,shown:flShown?flShown.name:null};
     })()`);
-    r.line(`под VSC · плашек ${u.plates} (перебито флагом ${u.underFlag}) · панель VSC ${u.vsc ? 'горит' : 'НЕ горит'} · значок у ${u.shown}`);
-    if (!u.vsc) r.fail('раздел 3 недостоверен: панель VSC не горела, проверять было нечего');
-    if (u.plates !== u.underFlag) r.fail(`под нейтрализацией плашка лучшего круга перебила флаг (${u.plates - u.underFlag} раз)`);
+    r.line(`под VSC · плашек ${u.plates} (перебито флагом ${u.underFlag}) · панель показывает ${u.panel ? 'VSC' : 'НЕ VSC'} · значок у ${u.shown}`);
+    if (!u.vsc) r.fail('раздел 3 недостоверен: нейтрализация не действовала, проверять было нечего');
+    else if (u.plates !== u.underFlag || !u.panel)
+      r.fail(`под нейтрализацией плашка лучшего круга перебила флаг: панель показывала ${u.panel ? 'VSC' : 'рекорд'}, не перебито ${u.plates - u.underFlag} из ${u.plates}`);
     if (u.shown !== 'DELTA') r.fail(`под нейтрализацией значок «БК» не перешёл к новому рекордсмену (показан «${u.shown}»)`);
   }
 
