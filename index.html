@@ -95,7 +95,10 @@
   #tower .trow.you{background:rgba(70,150,60,.6);}
   #tower .tp{width:20px;text-align:center;color:#cfd4da;font-weight:800;}
   #tower .tc{width:6px;height:19px;margin-right:6px;} #tower .tn{color:#fff;font-weight:700;letter-spacing:.04em;padding-right:8px;min-width:34px;}
-  #tower .tg{margin-left:auto;padding:0 9px 0 4px;color:#c3c9d2;font-variant-numeric:tabular-nums;font-size:11px;min-width:46px;text-align:right;}
+  #tower .tg{margin-left:auto;padding:0 6px 0 4px;color:#c3c9d2;font-variant-numeric:tabular-nums;font-size:11px;min-width:46px;text-align:right;}
+  #tower .trow.lead .tp{background:var(--f1);color:#fff;}
+  #tower .tf{width:20px;padding-right:3px;text-align:center;}
+  #tower .tf span{display:none;} #tower .tf.on span{display:inline-block;background:#b57bff;color:#12101a;font-size:9px;font-weight:800;line-height:11px;padding:0 2px;border-radius:2px;}
   @media (max-height:400px){#tower .trow{height:16px;font-size:10.5px;}#tower .tc{height:16px;}#tower .tg{font-size:10px;}}
   #topinfo{position:absolute;top:calc(env(safe-area-inset-top) + 44px);right:calc(env(safe-area-inset-right) + 12px);z-index:5;text-align:right;pointer-events:none;font-family:"Arial Narrow",sans-serif;}
   #topinfo .t1{font-size:11px;color:#8A94A3;letter-spacing:.14em;} #topinfo .t2{font-size:24px;color:#fff;font-weight:800;line-height:1;}
@@ -113,6 +116,7 @@
   #flagpanel .fs{font-size:12px;color:#cfd4da;letter-spacing:.04em;margin-top:2px;}
   #flagpanel.green{border-color:#39d353;} #flagpanel.green .fl{background:#39d353;animation:none;} #flagpanel.green .ft{color:#39d353;}
   #flagpanel.vsc .fl{background:#fff;} #flagpanel.vsc .ft{color:#fff;}
+  #flagpanel.best{border-color:#b57bff;} #flagpanel.best .fl{background:#b57bff;animation:none;} #flagpanel.best .ft{color:#b57bff;}
   @keyframes flagwave{0%,100%{opacity:1;transform:skewX(0deg)}50%{opacity:.35;transform:skewX(-14deg)}}
   #lightsG{position:absolute;top:8%;left:50%;transform:translateX(-50%);z-index:6;display:none;gap:10px;pointer-events:none;}
   #lightsG.on{display:flex;}
@@ -160,7 +164,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.15.50</div>
+    <div class="verstamp">v1.15.51</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -323,7 +327,23 @@ let controls={left:0,right:0,gas:0,brake:0}, keys={left:0,right:0,gas:0,brake:0}
 let phase='',camMode='cockpit';
 let lights={t:0,seq:0,go:false,offAt:0,beeped:0,hide:0};
 let totalLaps=3,gridPos=0,raceOver=false,qualiLapsLeft=0,rafId=0;
-let raceTime=0,fastestLap={time:Infinity,name:'',color:'',you:false},qualiField=null;
+let raceTime=0,fastestLap={time:Infinity,name:'',team:'',color:'',you:false,car:null},qualiField=null;
+/* ПОКАЗ быстрого круга гонки (плашка + значок «БК» в башне).
+   Рекорд меняет владельца ВСПЫШКАМИ: все 22 болида пересекают линию почти
+   одновременно, и замер (08.2026, 3 трассы x 5 зёрен) дал 2-6 смен за гонку,
+   до трёх за 0.9 с подряд. Поэтому показ ждёт FL_HOLD и берёт последнего
+   владельца вспышки — иначе плашки шли бы очередью. Со вспышкой схлопыванием
+   выходит 2-3 плашки за гонку, примерно по одной на круг.
+   Значок в башне загорается ТЕМ ЖЕ движением, что и плашка (решение владельца),
+   поэтому оба смотрят на flShown, а не на сам fastestLap. */
+const FL_HOLD=3, FL_SHOW=3;
+let flPend=null,flWait=0,flShown=null,flPlate=0;
+function tickFastestLap(dt){
+  if(isFinite(fastestLap.time)&&(!flShown||flShown.time!==fastestLap.time)){
+    if(!flPend||flPend.time!==fastestLap.time){flPend=fastestLap;flWait=FL_HOLD;}
+    else if((flWait-=dt)<=0){flPend=null;flShown=fastestLap;
+      if(!raceOver)flPlate=FL_SHOW;}}          // после клетчатого флага плашки нет — значок всё равно загорается
+  if(flPlate>0)flPlate-=dt;}
 let qualiOutro=false,qualiOutroTimer=0,raceOutro=false,raceOutroTimer=0;
 let retireCount=0,smokes=[],lastThud=0,wallTouch=false;
 /* ---- race neutralisation: yellow flags and the virtual safety car ----
@@ -2973,7 +2993,7 @@ function beginQualiOutro(){
 function endQualiToResult(){qualiOutro=false;hideQualiBanner();endLoop();phase='';showQualiResult(window.__grid);}
 function showQualiBanner(pos,me,pole){const b=document.getElementById('qbanner');if(!b)return;
   const gap=pos===1?'ПОУЛ':'+'+(me.time-pole).toFixed(3);const cls=pos===1?'gp':'gpp';
-  b.innerHTML=`<div class="qpos">P${pos}</div><div class="qbody"><div class="qname">${me.name}</div><div class="qtime">${fmt(me.time)} <span class="${cls}">${gap}</span></div></div>`;
+  b.innerHTML=`<div class="qpos">${pos}</div><div class="qbody"><div class="qname">${me.name}</div><div class="qtime">${fmt(me.time)} <span class="${cls}">${gap}</span></div></div>`;
   b.classList.add('show');}
 function hideQualiBanner(){const b=document.getElementById('qbanner');if(b)b.classList.remove('show');}
 function showQualiResult(grid){document.getElementById('game').classList.remove('active');
@@ -3006,7 +3026,8 @@ function startRace(){document.getElementById('s-quali').classList.remove('active
     c.paceAvg=c.base;c.spdAvg=0;c.duel=null;c.duelT=0;      // сглаженный темп начинается со своего же, скорость — с нуля: на решётке все и правда стоят
     scene.add(c.mesh);field.push(c);cars.push(c);});
   // reset race timing + fastest lap + smoke
-  raceTime=0;fastestLap={time:Infinity,name:'',color:'',you:false};retireCount=0;
+  raceTime=0;fastestLap={time:Infinity,name:'',team:'',color:'',you:false,car:null};retireCount=0;
+  flPend=null;flWait=0;flShown=null;flPlate=0;
   neutral={mode:'',left:0,secs:[],cars:[]};zoneOut=0;wasInZone=false;greenSeen=false;renderFlagUI();
   raceOutro=false;clearTimeout(raceOutroTimer);hideQualiBanner();window.__raceOrder=null;
   for(const g of smokes)scene.remove(g);smokes=[];
@@ -3028,7 +3049,7 @@ function update(dt){
     if(lights.offAt&&lights.t>=lights.offAt){lights.go=true;lights.hide=0.7;big("GO!","",700);}   // lights out = race start; gantry stays visible (dark) briefly
     renderLightsUI();player.speed=0;placePlayer(player);field.forEach(c=>placeAI(c,dt));updateCarLOD();updateCamera(dt);render();
     updateHUD();return;}   // without this the panels keep the LAST quali frame all through the lights: "КВАЛ · БЫСТРЫЙ", the quali lap time and the speed the car was doing when qualifying ended
-  if(phase==='race'&&lights.go){if(lights.hide>0){lights.hide-=dt;if(lights.hide<=0)showGantry(false);}raceTime+=dt;updateNeutral(dt);}
+  if(phase==='race'&&lights.go){if(lights.hide>0){lights.hide-=dt;if(lights.hide<=0)showGantry(false);}raceTime+=dt;updateNeutral(dt);tickFastestLap(dt);}
 
   const kL=controls.left||keys.left,kR=controls.right||keys.right,kG=(controls.gas||keys.gas)&&!qualiOutro&&!raceOutro,kB=controls.brake||keys.brake;
   // surface at current pos
@@ -3111,7 +3132,7 @@ function update(dt){
     player.lapLock=25;
     if(!player.started){player.started=true;player.lapT=0;if(phase==='quali'){big("БЫСТРЫЙ КРУГ!","",800);AUDIO.beep(700,0.4,0.26);}}
     else{player.last=player.lapT;if(player.last<player.best)player.best=player.last;
-      if(phase==='race'&&lights.go&&player.last<fastestLap.time)fastestLap={time:player.last,name:player.name,color:player.color,you:true};
+      if(phase==='race'&&lights.go&&player.last<fastestLap.time)fastestLap={time:player.last,name:player.name,team:ROSTER[sel.roster].team,color:player.color,you:true,car:player};
       player.lap++;player.lapT=0;
       if(phase==='quali'){qualiLapsLeft--;if(qualiLapsLeft<=0){beginQualiOutro();return;}}
       else if(player.lap>=totalLaps){finishRace();return;}}
@@ -3177,7 +3198,8 @@ function update(dt){
     const prevU=c.u;c.u=(c.u+(c.speed*dt)/track.length)%1;c.dist+=c.speed*dt;
     // per-car lap timing for the race's fastest lap
     if(phase==='race'&&lights.go&&prevU>0.6&&c.u<0.4){
-      if(c.lapStart!==undefined){const lt=raceTime-c.lapStart;if(lt<fastestLap.time)fastestLap={time:lt,name:c.name,color:c.color,you:false};}
+      if(c.lapStart!==undefined){const lt=raceTime-c.lapStart;
+        if(lt<fastestLap.time){const rr=ROSTER.find(r=>r.num===c.num);fastestLap={time:lt,name:c.name,team:rr?rr.team:'',color:c.color,you:false,car:c};}}
       c.lapStart=raceTime;}
     if(c.retireAt&&c.dist>=c.retireAt){retireCar(c);continue;}
     // lane: hold your grid slot off the line, then settle into a single file on the racing line
@@ -3432,10 +3454,11 @@ function towerOrder(){
   return o;}
 function ensureTower(n,head){const el=document.getElementById('tower');
   if(el.childElementCount!==n+1||el.dataset.head!==head){el.dataset.head=head;
-    let h=`<div class="thead">${head}</div>`;for(let i=0;i<n;i++)h+='<div class="trow"><div class="tp"></div><div class="tc"></div><div class="tn"></div><div class="tg"></div></div>';el.innerHTML=h;}
+    let h=`<div class="thead">${head}</div>`;for(let i=0;i<n;i++)h+='<div class="trow"><div class="tp"></div><div class="tc"></div><div class="tn"></div><div class="tg"></div><div class="tf"><span>БК</span></div></div>';el.innerHTML=h;}
   return el.querySelectorAll('.trow');}
-function fillRow(row,pos,color,code,gap,you){if(!row)return;row.querySelector('.tp').textContent=pos;row.querySelector('.tc').style.background=color;
-  row.querySelector('.tn').textContent=code;row.querySelector('.tg').textContent=gap;row.classList.toggle('you',you);}
+function fillRow(row,pos,color,code,gap,you,lead,best){if(!row)return;row.querySelector('.tp').textContent=pos;row.querySelector('.tc').style.background=color;
+  row.querySelector('.tn').textContent=code;row.querySelector('.tg').textContent=gap;row.classList.toggle('you',you);
+  row.classList.toggle('lead',!!lead);row.querySelector('.tf').classList.toggle('on',!!best);}
 function buildTower(){/* built lazily by updateHUD */ document.getElementById('tower').dataset.head='';}
 let towerT=0;
 function updateHUD(){const order=(raceOutro&&window.__raceOrder)?window.__raceOrder:towerOrder();const rank=order.findIndex(c=>c.isPlayer)+1;const total=cars.length;
@@ -3459,10 +3482,11 @@ function updateHUD(){const order=(raceOutro&&window.__raceOrder)?window.__raceOr
       ord.forEach((c,i)=>{let gap='';
         if(!lights.go){}                                              // on the grid the "gap" would just be the 4 m between boxes turned into seconds — show nothing until the lights go out
         else if(c.retired)gap='СХ';
+        else if(i===0)gap=raceOutro?'ПОБЕДА':'ЛИДЕР';                 // у лидера отставания нет, и пустая ячейка читается как недоделка
         else{const down=Math.floor((leadDist-c.dist)/track.length);   // laps behind the leader
           if(down>=1)gap='+'+down+' '+lapWord(down);
-          else if(i>0){const ah=ord[i-1];gap=ah.retired?'':'+'+(Math.max(0,ah.dist-c.dist)/pace).toFixed(3);}}   // внутри защёлки идущий выше может быть на полкорпуса позади — отставание не бывает отрицательным
-        fillRow(rows[i],i+1,c.color,c.code,gap,c.isPlayer);});
+          else{const ah=ord[i-1];gap=ah.retired?'':'+'+(Math.max(0,ah.dist-c.dist)/pace).toFixed(3);}}   // внутри защёлки идущий выше может быть на полкорпуса позади — отставание не бывает отрицательным
+        fillRow(rows[i],i+1,c.color,c.code,gap,c.isPlayer,i===0&&!c.retired,!!flShown&&flShown.car===c);});
     }
   }
   renderFlagUI();
@@ -3470,7 +3494,7 @@ function updateHUD(){const order=(raceOutro&&window.__raceOrder)?window.__raceOr
     <div class="t2">${phase==='race'?`КРУГ ${Math.min(player.lap+1,totalLaps)}/${totalLaps}`:(player.started?'КВАЛ · БЫСТРЫЙ':'КВАЛ · ПРОГРЕВ')}</div>
     <div class="t3">${fmt(player.lapT)}${player.last?' · '+fmt(player.last):''}</div>`;
   document.getElementById('posbadge').innerHTML=phase==='race'
-    ?`<div class="p1">ПОЗИЦИЯ</div><div class="p2" style="color:${player.color}">P${rank}<span style="font-size:15px;color:#8A94A3">/${total}</span></div><div class="p1" style="margin-top:2px">${Math.round(player.speed*3.6)} км/ч</div>`
+    ?`<div class="p1">ПОЗИЦИЯ</div><div class="p2" style="color:${player.color}">${rank}<span style="font-size:15px;color:#8A94A3">/${total}</span></div><div class="p1" style="margin-top:2px">${Math.round(player.speed*3.6)} км/ч</div>`
     :`<div class="p1">СКОРОСТЬ</div><div class="p2">${Math.round(player.speed*3.6)}</div><div class="p1">км/ч</div>`;}
 
 /* ---------- finish ---------- */
@@ -3482,7 +3506,7 @@ function finishRace(){raceOver=true;releaseTouches();const order=[...cars].sort(
   clearTimeout(raceOutroTimer);raceOutroTimer=setTimeout(endRaceToResult,3000);}
 function endRaceToResult(){raceOutro=false;hideQualiBanner();endLoop();phase='';showRaceResult();}
 function showRaceBanner(pos,name,team){const b=document.getElementById('qbanner');if(!b)return;
-  b.innerHTML=`<div class="qpos">P${pos}</div><div class="qbody"><div class="qname">${name}</div><div class="qtime" style="color:#c3c9d2">${team}</div></div>`;
+  b.innerHTML=`<div class="qpos">${pos}</div><div class="qbody"><div class="qname">${name}</div><div class="qtime" style="color:#c3c9d2">${team}</div></div>`;
   b.classList.add('show');}
 function showRaceResult(){const order=window.__raceOrder||[...cars].sort(rankCmp);const yp=order.findIndex(c=>c.isPlayer)+1;
   document.getElementById('game').classList.remove('active');
@@ -3515,7 +3539,9 @@ function renderFlagUI(){const el=document.getElementById('flagpanel');if(!el)ret
     else if(neutral.mode==='green'&&greenSeen){cls='green';main='ЗЕЛЁНЫЙ ФЛАГ';sub='ограничения сняты · гонка';}
     else if(neutral.mode==='yellow'&&inFlagZone()){   // a marshal post is seen from its own sector, as in life
       main='ЖЁЛТЫЙ ФЛАГ';sub='скорость ограничена · обгон запрещён';}
-    else if(zoneOut>0){cls='green';main='КОНЕЦ ЗОНЫ';sub='ограничения сняты';}}
+    else if(zoneOut>0){cls='green';main='КОНЕЦ ЗОНЫ';sub='ограничения сняты';}
+    if(!main&&flPlate>0&&flShown){cls='best';main='ЛУЧШИЙ КРУГ ГОНКИ';   // флаг важнее: плашка рекорда ждёт своей очереди и не перебивает ограничение
+      sub=`${flShown.name}${flShown.team?' · '+flShown.team.toUpperCase():''} · ${fmt(flShown.time)}`;}}
   const key=cls+'|'+main+'|'+sub;if(key===flagKey)return;flagKey=key;
   el.className=main?('on '+cls):'';
   el.innerHTML=main?`<div class="fl"></div><div><div class="ft">${main}</div><div class="fs">${sub}</div></div>`:'';}
