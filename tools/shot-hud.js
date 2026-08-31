@@ -92,7 +92,7 @@ async function snap(page, file) {
              mark: (() => { const m = document.querySelector('#tower .flmark');
                if (!m || !m.classList.contains('on')) return 'не горит';
                const rows = Array.from(document.querySelectorAll('#tower .trow'));
-               const i = rows.findIndex(r => Math.abs(r.offsetTop + (r.offsetHeight - 17) / 2 - parseFloat(m.style.top)) < 1);
+               const i = rows.findIndex(r => Math.abs(r.offsetTop - parseFloat(m.style.top)) < 1);
                return 'строка ' + (i + 1); })() };
   });
 
@@ -112,7 +112,7 @@ async function snap(page, file) {
              mark: (() => { const m = document.querySelector('#tower .flmark');
                if (!m || !m.classList.contains('on')) return 'не горит';
                const rows = Array.from(document.querySelectorAll('#tower .trow'));
-               const i = rows.findIndex(r => Math.abs(r.offsetTop + (r.offsetHeight - 17) / 2 - parseFloat(m.style.top)) < 1);
+               const i = rows.findIndex(r => Math.abs(r.offsetTop - parseFloat(m.style.top)) < 1);
                return 'строка ' + (i + 1); })() };
   });
 

@@ -93,15 +93,14 @@
   #tower .thead{background:rgba(8,10,14,.85);color:#fff;padding:5px 12px 4px;font-weight:800;font-size:15px;border-left:4px solid var(--f1);}
   #tower .trow{display:flex;align-items:center;background:rgba(8,10,14,.62);font-size:12px;line-height:1;height:19px;border-bottom:1px solid rgba(255,255,255,.05);}
   #tower .trow.you{background:rgba(70,150,60,.6);}
-  #tower .tp{width:20px;text-align:center;color:#cfd4da;font-weight:800;}
+  #tower .tp{width:20px;align-self:stretch;display:flex;align-items:center;justify-content:center;color:#cfd4da;font-weight:800;}
   #tower .tc{width:6px;height:19px;margin-right:6px;} #tower .tn{color:#fff;font-weight:700;letter-spacing:.04em;padding-right:8px;min-width:34px;}
   #tower .tg{margin-left:auto;padding:0 9px 0 4px;color:#c3c9d2;font-variant-numeric:tabular-nums;font-size:11px;min-width:46px;text-align:right;}
   #tower .trow.lead .tp{background:var(--f1);color:#fff;}
   /* Значок лучшего круга ВИСИТ СБОКУ, а не стоит в строке: внутри строки он либо
      съедал ширину у всех 22, либо тонул в зелёной подсветке игрока. Снаружи он
      один и тот же для любой строки, и башня осталась прежней ширины. */
-  #tower .flmark{position:absolute;left:100%;margin-left:5px;display:none;width:17px;height:17px;
-    border-radius:4px;background:#b57bff;box-shadow:0 1px 4px rgba(0,0,0,.5);padding:2px;box-sizing:border-box;}
+  #tower .flmark{position:absolute;left:100%;display:none;background:#b57bff;padding:2px;box-sizing:border-box;}
   #tower .flmark.on{display:block;}
   @media (max-height:400px){#tower .trow{height:16px;font-size:10.5px;}#tower .tc{height:16px;}#tower .tg{font-size:10px;}}
   #topinfo{position:absolute;top:calc(env(safe-area-inset-top) + 44px);right:calc(env(safe-area-inset-right) + 12px);z-index:5;text-align:right;pointer-events:none;font-family:"Arial Narrow",sans-serif;}
@@ -121,7 +120,6 @@
   #flagpanel.green{border-color:#39d353;} #flagpanel.green .fl{background:#39d353;animation:none;} #flagpanel.green .ft{color:#39d353;}
   #flagpanel.vsc .fl{background:#fff;} #flagpanel.vsc .ft{color:#fff;}
   #flagpanel.best{border-color:#b57bff;} #flagpanel.best .fl{background:#b57bff;animation:none;} #flagpanel.best .ft{color:#b57bff;}
-  #flagpanel.best .fs{font-size:13px;font-weight:700;letter-spacing:.05em;}
   @keyframes flagwave{0%,100%{opacity:1;transform:skewX(0deg)}50%{opacity:.35;transform:skewX(-14deg)}}
   #lightsG{position:absolute;top:8%;left:50%;transform:translateX(-50%);z-index:6;display:none;gap:10px;pointer-events:none;}
   #lightsG.on{display:flex;}
@@ -3466,14 +3464,16 @@ function fillRow(row,pos,color,code,gap,you,lead,best){if(!row)return;row.queryS
   row.classList.toggle('lead',!!lead);}
 /* Секундомер рисуется вектором, а не символом шрифта: ⏱ на устройствах приезжает
    цветным эмодзи, и фиолетовым его не сделать. */
-const FL_ICON='<svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="#17121f" stroke-width="2.4" stroke-linecap="round">'
-  +'<circle cx="12" cy="14" r="7.4"/><path d="M12 10.4V14h2.8"/><path d="M9.4 2.6h5.2"/><path d="M12 2.6v3.9"/></svg>';
+/* Размеры подобраны так, чтобы фигура была симметрична относительно центра квадрата:
+   заводная головка сверху 3..6, циферблат 6..21 при cy=13.5 — вместе 3..21, середина 12. */
+const FL_ICON='<svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round">'
+  +'<circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.8v3.7h2.8"/><path d="M9.7 3h4.6"/><path d="M12 3v3"/></svg>';
 function markFastestRow(el,rows,idx){if(!rows||!rows.length)return;   // в заглушке браузера строк нет — значку не за что цепляться
   let m=el.querySelector('.flmark');
   if(!m){m=document.createElement('div');m.className='flmark';m.innerHTML=FL_ICON;el.appendChild(m);}   // ensureTower перебирает innerHTML — значок вешается заново
   const row=idx>=0?rows[idx]:null;
   m.classList.toggle('on',!!row);
-  if(row)m.style.top=(row.offsetTop+(row.offsetHeight-17)/2)+'px';}
+  if(row){const h=row.offsetHeight;m.style.top=row.offsetTop+'px';m.style.width=m.style.height=h+'px';}}   // квадрат ровно в высоту строки: она меняется на низких экранах
 function buildTower(){/* built lazily by updateHUD */ document.getElementById('tower').dataset.head='';}
 let towerT=0;
 function updateHUD(){const order=(raceOutro&&window.__raceOrder)?window.__raceOrder:towerOrder();const rank=order.findIndex(c=>c.isPlayer)+1;const total=cars.length;
@@ -3541,13 +3541,6 @@ function showRaceResult(){const order=window.__raceOrder||[...cars].sort(rankCmp
 function showGantry(on){const g=document.getElementById('lightsG');g.classList.toggle('on',on);if(on&&!g.childElementCount){for(let i=0;i<5;i++){const col=document.createElement('div');col.className='col';col.innerHTML='<div class="lb"></div><div class="lb"></div>';g.appendChild(col);}}}
 /* Flag panel lives in the HUD, not in the world: Montreal already runs at 492 draw calls
    of the 495 budget, and a DOM overlay costs none. */
-/* Цвет команды для ТЕКСТА на тёмной плашке: Ferrari и Red Bull в своём виде
-   на почти чёрном фоне не читаются, поэтому тёмные ливреи разбавляются белым
-   до порога яркости. Полоса в башне и сам болид красятся точным цветом. */
-function uiTint(hex){let n=parseInt(String(hex).replace('#',''),16);if(!isFinite(n))return '#cfd4da';
-  let r=n>>16&255,g=n>>8&255,b=n&255,L=(0.2126*r+0.7152*g+0.0722*b)/255;
-  for(let i=0;i<9&&L<0.45;i++){r+=(255-r)*0.12;g+=(255-g)*0.12;b+=(255-b)*0.12;L=(0.2126*r+0.7152*g+0.0722*b)/255;}
-  const h=v=>Math.round(v).toString(16).padStart(2,'0');return '#'+h(r)+h(g)+h(b);}
 let flagKey='';
 function renderFlagUI(){const el=document.getElementById('flagpanel');if(!el)return;
   // The zone is tracked from the SAME reading the panel uses. Tracked anywhere else it is one frame
@@ -3564,7 +3557,7 @@ function renderFlagUI(){const el=document.getElementById('flagpanel');if(!el)ret
       main='ЖЁЛТЫЙ ФЛАГ';sub='скорость ограничена · обгон запрещён';}
     else if(zoneOut>0){cls='green';main='КОНЕЦ ЗОНЫ';sub='ограничения сняты';}
     if(!main&&flPlate>0&&flShown){cls='best';main='ЛУЧШИЙ КРУГ ГОНКИ';   // флаг важнее: плашка рекорда ждёт своей очереди и не перебивает ограничение
-      sub=`<span style="color:${uiTint(flShown.color)}">${flShown.name}${flShown.team?' · '+flShown.team.toUpperCase():''} · ${fmt(flShown.time)}</span>`;}}
+      sub=`${flShown.name}${flShown.team?' · '+flShown.team.toUpperCase():''} · ${fmt(flShown.time)}`;}}
   const key=cls+'|'+main+'|'+sub;if(key===flagKey)return;flagKey=key;
   el.className=main?('on '+cls):'';
   el.innerHTML=main?`<div class="fl"></div><div><div class="ft">${main}</div><div class="fs">${sub}</div></div>`:'';}
