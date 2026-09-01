@@ -129,12 +129,25 @@ function run(opt) {
         var gapY0=null, gapYEnd=null, rivalY=null;
         var pRank0=null, pRankEnd=null;
         var floorY=0, floorV=0, breachY=0, breachV=0, breachWho='', firstY='', prevAheadV=0, prevAheadT=0;   // правило «не приближаться»: ниже своего пола падать нельзя
+        /* Пол зазора нельзя защёлкивать в тот же кадр, в котором включилась нейтрализация.
+           Пробник поднимает флаг присваиванием, мгновенно, а в игре он приходит через
+           updateNeutral и предупреждается neutAhead — то есть здесь у игрока нет ни кадра
+           упреждения: он идёт на гоночной скорости с зажатым газом, и пока темп падает,
+           зазор честно съедается. Замер (Монца, зерно 91, VSC принудительно): худший
+           провал приходится на 0.2-0.4 с ПОСЛЕ включения, на прямой (кривизна 0.001),
+           руль в нуле, игрок 44 м/с при разрешённых 42.7 — то есть он просто не успел
+           сбросить. То же и на отданной v1.15.57 (1.09 м, 0.2 с после включения).
+           Даём на сброс те же 2.5 с, что уже дают потолку при въезде в жёлтую зону
+           (§4-bis), и всё это время пол переснимается. */
+        var neutT=0;
         while(n<max && !raceOver){
           __AP.drive();
           update(dt); n++;
           var m=neutral.mode; if(m)modeSecs[m]=(modeSecs[m]||0)+dt;
           if(!mode0&&m)mode0=m;
           var on=(m&&m!=='green');
+          neutT=on?neutT+dt:0;
+          var settling=neutT<2.5;                        // столько же, сколько даётся потолку на въезде в жёлтую зону
           var neut=(m==='vsc'||m==='ending');
           if(!on){ if(m==='green')pairs=null; continue; }
 
@@ -190,7 +203,7 @@ function run(opt) {
               var g=Math.hypot(ahead.x-player.x,ahead.z-player.z);
               if(raceTime-prevAheadT>0.5){prevAheadV=ahead.speed;prevAheadT=raceTime;}
               if(pnz===1){
-                if(rivalY!==ahead){rivalY=ahead;floorY=Math.min(g,NEUT_GAP);if(gapY0===null)gapY0=g;}
+                if(rivalY!==ahead||settling){rivalY=ahead;floorY=Math.min(g,NEUT_GAP);if(gapY0===null)gapY0=g;}
                 gapYEnd=g;
                 if(held[ahead.code]&&!firstY&&g<floorY-0.5){
                   firstY='ПЕРВЫЙ провал за '+ahead.code+' на '+raceTime.toFixed(1)+' с: зазор '+g.toFixed(1)
@@ -204,7 +217,7 @@ function run(opt) {
                       +', правило даёт '+(function(){var b=neutBlocker();return b===null?'НИЧЕГО (передний считается вставшим)':b.toFixed(1);})()
                       +', потолок '+neutralCap(player.hint,player.speed,pnz).toFixed(1);}}
               } else {
-                if(rival!==ahead){rival=ahead;floorV=Math.min(g,NEUT_GAP);if(gapAhead0===null)gapAhead0=g;}
+                if(rival!==ahead||settling){rival=ahead;floorV=Math.min(g,NEUT_GAP);if(gapAhead0===null)gapAhead0=g;}
                 gapAheadEnd=g;
                 if(held[ahead.code]){var bV=floorV-g; if(bV>breachV)breachV=bV;}
               }
@@ -396,7 +409,17 @@ function run(opt) {
      Три режима, по просьбе владельца (08.2026): под жёлтым, под VSC и БЕЗ ФЛАГА. Последний
      важен отдельно: правило дистанции под флагом и ветка `ovLock` в гоночном коде — разные
      механизмы, и объезд вставшего обязан работать в обоих. Объезд на СТАРТЕ проверяет свой
-     пробник (`overtake`), здесь болид встаёт посреди круга, через 15 с после старта.       */
+     пробник (`overtake`), здесь болид встаёт посреди круга, через 15 с после старта.
+
+     Окно ожидания — 40 с, а не 25 (v1.15.58). Причина измерена: с появлением предела
+     по выкруту колёс игрока больше не доворачивает вдоль дороги на малой скорости,
+     поэтому он замирает как встал — иногда поперёк или задом. Монреаль, VSC, 10 зёрен:
+     в трёх из них игрок замирает под 154-159° и объезд занимает 25-27 с вместо 1-4 с
+     в остальных семи. Объезжают ВСЕ и там, то есть затора нет — упирается только окно.
+     Зубы пробника от расширения не тупятся: настоящий затор (v1.15.40) — это колонна,
+     стоящая на 0 м/с, она не рассасывается ни за 25 с, ни за 40; проверено прогоном
+     по архивной v1.15.40.                                                              */
+  const STUCK_WAIT = 40;                 // с — сколько ждём объезда вставшего игрока
   for (const T of H.tracks(true)) {
     for (const mode of ['yellow', 'vsc', 'race']) {
     for (const seed of seeds) {                      // seeds уже разобраны выше: по строке цикл шёл посимвольно, и в подписи стояло «зерно ,»
@@ -418,8 +441,14 @@ function run(opt) {
         try{zoneOut=0;wasInZone=false;greenSeen=false;}catch(e){}
         var behind=field.filter(function(c){return !c.retired&&c.dist<player.dist;});
         var reached={}, passed={}, t=0;
-        for(var f=0;f<25*60;f++){
-          controls.gas=0;controls.brake=1;controls.left=controls.right=0;   // игрок стоит
+        for(var f=0;f<${STUCK_WAIT}*60;f++){
+          // Игрок стоит. Тормоз ДЕРЖАТЬ НЕЛЬЗЯ: с появлением заднего хода (v1.15.58)
+          // зажатый на стоящем болиде тормоз через REV_ARM секунд включает заднюю,
+          // и «вставший игрок» уезжает назад на весь запас REV_RANGE — сценарий
+          // подменяется молча, а пробник продолжает печатать «прошло». Замер до
+          // правки: за те же 25 с игрок смещался на Монреале на 70 м иначе, чем
+          // в нынешней игре. Поэтому тормоз только до остановки, дальше кнопки прочь.
+          controls.gas=0;controls.brake=player.speed>0.05?1:0;controls.left=controls.right=0;
           update(dt);t+=dt;
           behind.forEach(function(c){
             var d=player.dist-c.dist;
@@ -436,7 +465,7 @@ function run(opt) {
       const what = mode === 'yellow' ? 'под жёлтым' : mode === 'vsc' ? 'под VSC' : 'без флага';
       const tag = `${T.name} (зерно ${seed}, ${what})`;
       r.line(`${tag.padEnd(34)} игрок встал ${what}: упёрлись ${j.reached}, объехали ${j.passed}`);
-      if (j.stuck) r.fail(`${tag}: за вставшим игроком встали ${what} — ${j.stuck}`);
+      if (j.stuck) r.fail(`${tag}: за вставшим игроком встали ${what} (${STUCK_WAIT} с) — ${j.stuck}`);
     }
     }
   }
