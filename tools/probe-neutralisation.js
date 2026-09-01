@@ -80,7 +80,16 @@ function run(opt) {
 
   /* ---- 2..4. поведение в гонке ---- */
   const seeds = opt.seeds ? String(opt.seeds).split(',').map(Number) : [7, 91];
+  /* Режим нейтрализации выбирает ГЕОМЕТРИЯ: влез сошедший между кромкой и стеной — жёлтый,
+     не влез — VSC. На Монце и Сильверстоуне влезает почти всегда, поэтому при штатном сходе
+     VSC проверялся только на Монреале, и все проверки ветки VSC (зазор, обгоны, потолок,
+     эвакуация) на двух трассах из трёх не выполнялись НИ РАЗУ. Так и был пропущен провал
+     зазора 2.2 м на Монце (08.2026, вопрос владельца). Поэтому второй проход устраивает
+     VSC насильно: ищется точка круга, где болид не помещается за кромкой, и сход ставится
+     туда. Сильверстоун такой точки не имеет вовсе (§4-bis, 0 % мест) — там проход пропускается
+     с заметкой, а не молча. */
   for (const T of H.tracks(true)) {
+    for (const want of ['natural', 'vsc']) {
     for (const seed of seeds) {
       const env = H.loadGame({ seed, file: opt.file });
       H.setupWeekend(env, { trackIdx: T.idx, diff: 'normal', laps: 3 });
@@ -88,10 +97,20 @@ function run(opt) {
       H.lightsOut(env);
       // сход устраивается принудительно: штатный график сходов случаен и до нужного места может не дойти
       const res = env.evalIn(`(function(){
-        var dt=1/60;
+        var dt=1/60, WANT='${want}';
         field.forEach(function(c){c.retireAt=0;});
         __drive(Math.round(12/dt),dt,'auto');            // дать полю разъехаться
-        var victim=field[3]; victim.retireAt=victim.dist+1;
+        var victim=field[3];
+        if(WANT==='vsc'){
+          var bi=-1;                                     // точка, где сошедший НЕ помещается за кромкой
+          for(var i=0;i<track.M&&bi<0;i++){for(var s2=-1;s2<=1;s2+=2){
+            var sp=retireSpot({u:i/track.M,lane:s2*3}), ok=true;
+            for(var k=-1;k<=1;k+=2){var ang=sp.base*k,hw2=carHalfWidth(ang),w=wallAt(sp.i,sp.side);
+              var off2=Math.min(sp.hw+hw2+0.2,w-hw2); if(!(off2-hw2<sp.hw-0.05))ok=false;}
+            if(ok){bi=i;break;}}}
+          if(bi<0)return {skip:1};
+          victim.u=bi/track.M; victim.dist=track.S[bi]; retireCar(victim);
+        } else victim.retireAt=victim.dist+1;
         var live=function(){return cars.filter(function(c){return !c.retired;}).sort(rankCmp);};
         /* Мерка «ехал ли болид» — своя, независимая от игровой: от темпа ПОЛЯ в этой точке,
            одна для игрока и для ИИ. Обгон прощается, только если обгоняемый ЛИБО встал
@@ -229,10 +248,11 @@ function run(opt) {
                 retired:cars.filter(function(c){return c.retired;}).length};
       })()`);
 
-      const tag = `${T.name} (зерно ${seed})`;
+      const tag = `${T.name} (зерно ${seed}${want === 'vsc' ? ', VSC принудительно' : ''})`;
+      if (res.skip) { r.line(`${tag.padEnd(34)} узкого места на круге нет — VSC невозможен`); continue; }
       const yel = +(res.secs.yellow || 0).toFixed(1), vsc = +(res.secs.vsc || 0).toFixed(1),
             end = +(res.secs.ending || 0).toFixed(1), grn = +(res.secs.green || 0).toFixed(1);
-      r.line(`${tag.padEnd(24)} ${res.mode0 === 'vsc' ? 'VSC' : 'жёлтый'} · жёлтый ${yel} с · VSC ${vsc}+${end} с`
+      r.line(`${tag.padEnd(34)} ${res.mode0 === 'vsc' ? 'VSC' : 'жёлтый'} · жёлтый ${yel} с · VSC ${vsc}+${end} с`
         + ` · зелёный ${grn} с`
         + (res.mode0 === 'vsc' ? ` · обгонов под VSC ${res.nOver}` : ` · обгонов под жёлтым ${res.nOverY}`)
         + (res.passedPlayer ? ` · ИГРОКА обогнали ${res.passedPlayer}` : '')
@@ -272,6 +292,7 @@ function run(opt) {
       }
       if (Math.abs(grn - 3) > 0.6) r.fail(`${tag}: зелёный флаг показан ${grn} с вместо 3`);
       if (!res.inScene) r.fail(`${tag}: сошедший болид исчез из сцены — он обязан стоять до клетчатого флага`);
+    }
     }
   }
 
@@ -371,8 +392,13 @@ function run(opt) {
        - все, кто едет за вставшим, читают ОДНУ И ТУ ЖЕ его полосу, выбирают одну
          и ту же сторону объезда и запирают друг друга.
      Проверяется на игроке, потому что он — самый вероятный вставший болид: у соперника
-     сход ставит болид за кромку, а игрок останавливается там, где стоял.                */
+     сход ставит болид за кромку, а игрок останавливается там, где стоял.
+     Три режима, по просьбе владельца (08.2026): под жёлтым, под VSC и БЕЗ ФЛАГА. Последний
+     важен отдельно: правило дистанции под флагом и ветка `ovLock` в гоночном коде — разные
+     механизмы, и объезд вставшего обязан работать в обоих. Объезд на СТАРТЕ проверяет свой
+     пробник (`overtake`), здесь болид встаёт посреди круга, через 15 с после старта.       */
   for (const T of H.tracks(true)) {
+    for (const mode of ['yellow', 'vsc', 'race']) {
     for (const seed of seeds) {                      // seeds уже разобраны выше: по строке цикл шёл посимвольно, и в подписи стояло «зерно ,»
       const env = H.loadGame({ seed });
       H.setupWeekend(env, { trackIdx: T.idx, diff: 'normal', laps: 3 });
@@ -384,7 +410,11 @@ function run(opt) {
         for(var f=0;f<15*60;f++){__AP.drive();update(dt);}
         var p0=project(player.x,player.z,player.hint);
         var s=sectorAt(p0.idx/track.M), prev=(s+MARSHAL_SECTORS-1)%MARSHAL_SECTORS, nxt=(s+1)%MARSHAL_SECTORS;
-        neutral={mode:'yellow',left:9999,secs:[prev,s,nxt],cars:[]};   // флаг на весь замер: интересует правило, а не 40 с
+        var MODE='${mode}';
+        // флаг держим на весь замер: интересует правило объезда, а не длительность флага
+        if(MODE==='yellow')neutral={mode:'yellow',left:9999,secs:[prev,s,nxt],cars:[]};
+        else if(MODE==='vsc')neutral={mode:'vsc',left:9999,secs:[],cars:[]};
+        else neutral={mode:'',left:0,secs:[],cars:[]};                 // без флага: чистая гоночная ветка
         try{zoneOut=0;wasInZone=false;greenSeen=false;}catch(e){}
         var behind=field.filter(function(c){return !c.retired&&c.dist<player.dist;});
         var reached={}, passed={}, t=0;
@@ -403,9 +433,11 @@ function run(opt) {
             stuck.push(k+' в '+(player.dist-c.dist).toFixed(0)+' м на '+c.speed.toFixed(1)+' м/с');}});
         return {reached:Object.keys(reached).length, passed:Object.keys(passed).length, stuck:stuck.join(', ')};
       })()`);
-      const tag = `${T.name} (зерно ${seed})`;
-      r.line(`${tag.padEnd(24)} игрок встал под жёлтым: упёрлись ${j.reached}, объехали ${j.passed}`);
-      if (j.stuck) r.fail(`${tag}: за вставшим игроком встали под флагом — ${j.stuck}`);
+      const what = mode === 'yellow' ? 'под жёлтым' : mode === 'vsc' ? 'под VSC' : 'без флага';
+      const tag = `${T.name} (зерно ${seed}, ${what})`;
+      r.line(`${tag.padEnd(34)} игрок встал ${what}: упёрлись ${j.reached}, объехали ${j.passed}`);
+      if (j.stuck) r.fail(`${tag}: за вставшим игроком встали ${what} — ${j.stuck}`);
+    }
     }
   }
 
