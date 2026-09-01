@@ -127,7 +127,8 @@ const MARKERS = `(function(){
               wall:+wall.toFixed(2), S:Math.round(track.S[bi]),
               bottom:+(sc.markers.baseY||0).toFixed(2),
               top:+(((sc.markers.baseY||0)+(sc.markers.panelH||0.9))).toFixed(2),
-              wallH:(track.style==='street'?1.1:1.0)});
+              wallH:(track.style==='street'?1.1:1.0),
+              corner:(m.corner||'?'), past:+(near-track.HW[bi]).toFixed(2)});
   }
   return {list:out, baseY:(sc.markers.baseY||0), postW:(sc.markers.postW||0),
           panelH:(sc.markers.panelH||0.9)};
@@ -183,6 +184,16 @@ const STAND_GAP = 1.5;       // ближе этого две трибуны уж
 
 const MARKER_GAP = 0.15;     // насколько щит обязан выступать перед стеной, если он низкий
 const MARKER_FREE = 2.0;     // ближе этого к стене считаем, что стена стоит прямо за щитом
+// Четвёртая проверка: ЩИТ НЕ ДОЛЖЕН УЕХАТЬ ОТ КРОМКИ. Позиция щита снимается
+// с линии отбойника, а отбойник местами убегает в вылет (у шпильки Монреаля
+// 9.0 -> 16.0 м на ста метрах, вдоль прямой Casino стоит на потолке 12 м).
+// В v1.15.24 потолок выноса потеряли, и щит «50» у шпильки уехал на 6.8 м
+// за кромку — вчетверо дальше своих же соседей по зоне торможения; владелец
+// увидел это на устройстве спустя 31 сборку, а пробник молчал, потому что
+// смотрел только «не спрятан ли щит ЗА стеной». Порог взят с запасом над
+// самыми дальними законными щитами: Сильверстоун/Village 4.07 и Монца/Lesmo 1
+// 4.05 м за кромкой.
+const MARKER_FAR = 5.0;      // дальше этого за кромкой щит уже не прочитать
 
 function run(opt) {
   opt = opt || {};
@@ -217,8 +228,25 @@ function run(opt) {
     const behind = m => m.far > m.wall - MARKER_FREE;
     const bad = s.list.filter(m => behind(m) && m.near > m.wall - MARKER_GAP && m.bottom < m.wallH);
     const dim = s.list.filter(m => behind(m) && m.top <= m.wallH);
+    const far = s.list.filter(m => m.past > MARKER_FAR);
+    const byCorner = {};
+    s.list.forEach(m => { (byCorner[m.corner] = byCorner[m.corner] || []).push(m.past); });
+    let spread = 0, spreadAt = '';
+    for (const c in byCorner) {
+      const v = byCorner[c], d = Math.max(...v) - Math.min(...v);
+      if (d > spread) { spread = d; spreadAt = c; }
+    }
     r.line(`${T.name.padEnd(12)} щитов торможения ${String(s.list.length).padStart(3)} · `
-      + `за отбойником ${bad.length} · тонет в отбойнике ${dim.length}`);
+      + `за отбойником ${bad.length} · тонет в отбойнике ${dim.length} · `
+      + `дальше ${MARKER_FAR} м за кромкой ${far.length} · `
+      + `наибольший разброс в зоне торможения ${spread.toFixed(2)} м (${spreadAt})`);
+    for (const m of far) {
+      const say = T.hidden ? r.note.bind(r) : r.fail.bind(r);
+      say(`${T.name}: щит «${m.name}» стоит в ${m.off} м от осевой — это ${m.past} м `
+        + `за кромкой (${m.S} м от старта), отбойник в ${m.wall} м. Позицию сняли `
+        + `с линии барьера там, где она убегает в вылет; щит должен оставаться `
+        + `у кромки, а не у стены`);
+    }
     for (const m of dim) {
       const say = T.hidden ? r.note.bind(r) : r.fail.bind(r);
       say(`${T.name}: щит «${m.name}» стоит у отбойника (${m.wall} м), а его верх ${m.top} м `
