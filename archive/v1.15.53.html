@@ -167,7 +167,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.15.55</div>
+    <div class="verstamp">v1.15.53</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -369,7 +369,6 @@ const VSC_PACE=0.6;                       // ~40 % off the racing pace, as the r
    исключение и вводилось (v1.15.41): не даёт вставшему запереть за собой очередь.
    6 м/с — тот же порог, которым ovLock отличает вставшего в гоночной ветке. */
 const NEUT_STOPPED=6.0;
-const NEUT_RECOVER=3.0;                   // м/с на каждый метр провала зазора
 const NEUT_GAP=9.0;                       // м между центрами: ближе к переднему под нейтрализацией не подобраться (полтора корпуса)
 const CRAWL_BY=3.5;                       // м/с: шаг, которым объезжают ВСТАВШИЙ болид. Ноль здесь — вечный затор, см. update()
 /* Обгон доводится до конца. Решение идти в объезд принималось, только пока цель в окне
@@ -2940,7 +2939,7 @@ function makeState(name,num,color,skill,isPlayer){
   return {mesh:meshObj,name:name.toUpperCase(),code:code3(name),num,color,skill,isPlayer:!!isPlayer,
     x:0,z:0,hdg:0,speed:0,u:0,lane:0,lap:0,dist:0,lapT:0,best:Infinity,last:0,started:false,prevIdx:0,hint:0,base:0,steerVis:0,steerAmt:0,lapLock:0,
     retired:false,retireAt:0,lapStart:undefined,arcPrev:0,settle:0,react:0,ovSide:1,ovLock:null,ovDir:1,laneJit:0,gridLane:0,free:0,pace:0,lanePrev:undefined,crab:0,
-    paceAvg:0,spdAvg:0,duel:null,duelDir:1,duelT:0,neutFloor:null};}
+    paceAvg:0,spdAvg:0,duel:null,duelDir:1,duelT:0};}
 
 // place player from x,z,hdg ; place AI from u,lane
 function placePlayer(c){c.mesh.position.set(c.x,0,c.z);c.mesh.rotation.set(0,c.hdg,0);
@@ -3093,12 +3092,7 @@ function update(dt){
      // в повороте быстрее, чем игрок успевает отпустить, и зазор проваливается ниже 9 м
      // (замер 08.2026: Сильверстоун, зерно 91 — 4.9 м при поле 9.0).
      const byGap=blk!==null&&blk<capPace;
-     // Когда ограничивает МАШИНА впереди, а не темп, сбрасывать разрешено собственными
-     // тормозами (50 м/с²), а не половиной от них: потолок = скорость переднего минус
-     // поправка на провал, и в зоне торможения он падает быстрее, чем игрок физически
-     // успевает за ним идти при MAXSPEED/3. Замер 08.2026, Монца/42 под VSC: зазор
-     // стоял на 6.1 м при поле 7.8 и не возвращался, пока передний тормозил.
-     if(cap<surfCap){surfCap=cap;drag=Math.max(drag,byGap?50:(na.nz===2?MAXSPEED/3:NEUT_BLEED));}}}
+     if(cap<surfCap){surfCap=cap;drag=Math.max(drag,byGap?MAXSPEED/3:(na.nz===2?MAXSPEED/3:NEUT_BLEED));}}}
   // after the flag: computer drives — steers along the road and brakes for corners, no throttle
   let outroBrake=false, outroSteer=0;
   if(qualiOutro||raceOutro){
@@ -3419,12 +3413,6 @@ function neutralCap(idx,speed,nz){return playerFreeAt(idx)*neutShare(nz);}
 function neutBlocker(me,onlyNeut){
   me=me||player;
   let best=null,bg=1e9;
-  /* Пол по каждому сопернику, живёт одну нейтрализацию: отметка времени нужна, иначе
-     он переживёт конец флага и вернётся к следующему. Ключ — номер болида. */
-  let st=me.neutFloor;
-  if(!st||raceTime-st.t>0.5)st={t:raceTime,f:{}};
-  st.t=raceTime;me.neutFloor=st;
-  const fs=st.f;
   for(const c of cars){if(c===me||c.retired)continue;   // соперники в счёт друг другу тоже, и игрок для них — такой же передний
     if(onlyNeut&&!neutralAt(carIdx(c)))continue;        // ...но держаться надо только за тем, кто САМ под флагом
     /* Вставший ПРОПУСКАЕТСЯ, а не отменяет правило целиком. Раньше проверка стояла после
@@ -3433,47 +3421,15 @@ function neutBlocker(me,onlyNeut){
        (08.2026, Сильверстоун, зерно 91): единственный на 21 заезд глубокий провал зазора,
        3.7 м против 0.1–0.9 м везде остальном. */
     if(c.speed<NEUT_STOPPED)continue;
-    /* Зазор меряется НАСТОЯЩИМ расстоянием, а не разностью dist. Это разные линейки (§9):
-       у игрока dist — дуга по осевой, у ИИ — пройденный путь. Замер 08.2026, Сильверстоун
-       зерно 64: правило видело зазор 0.0 м там, где между машинами было 4.9, — а на нуле
-       передний вообще переставал выбираться (проверка `g>0`), и правило снималось целиком.
-       Отсюда провалы пробника до 4.4 м на СДАННЫХ сборках. Прежняя запись «для дистанции
-       под флагом расхождение безобидно» была неверна.
-       Дуга всё равно нужна, но только чтобы отсечь другой виток круга: рядом в пространстве
-       может идти параллельный участок трассы. «Впереди ли он» решает проекция на направление
-       дороги — она, в отличие от дуги, не врёт в тесном повороте. */
-    const ga=c.dist-me.dist;
-    if(ga<-60||ga>NEUT_GAP+200)continue;                 // чужой виток; назад с запасом — линейки расходятся
-    const f=track.F[carIdx(me)],dx=c.x-me.x,dz=c.z-me.z;
-    if(dx*f.x+dz*f.z<=0)continue;                        // физически сзади
-    const g=Math.hypot(dx,dz);
-    /* Пол запоминается для КАЖДОГО, кто впереди, а не только для ближайшего. Иначе он
-       съезжает вниз: пока ближайшим был кто-то другой, ты успел подобраться к следующему,
-       и в момент, когда он стал ближайшим, пол берётся уже с укороченного зазора. Замер
-       08.2026, Монца зерно 42 под VSC: правило держало зазор безупречно — и всё равно
-       провал 1.7 м, потому что его пол был 6.29 там, где на входе в зону было 7.8. */
-    if(fs[c.num]===undefined)fs[c.num]=Math.min(g,NEUT_GAP);
-    if(g<bg){bg=g;best=c;}}
+    const g=c.dist-me.dist;
+    if(g>0&&g<NEUT_GAP+200&&g<bg){bg=g;best=c;}}
   if(!best)return null;
-  /* Пол — тот зазор, с которым пара сложилась, но не больше NEUT_GAP: подъехать с 50 м
-     до 9 правила разрешают, ближе 9 — нет, а кто вошёл ближе 9, тот там и остаётся.
-     Пол запоминается, потому что БЕЗ НЕГО правило невыполнимо в принципе: оно держало
-     игрока на скорости переднего, а при равной скорости зазор всё равно закрывается, если
-     твоя траектория короче — ты срезаешь поворот, он едет широко. Замер 08.2026, Монца
-     зерно 64: игрок держался в 0.1 м/с ниже разрешённого всю зону, и зазор всё равно
-     просел с 4.5 до 1.7 м. Чтобы держать РАССТОЯНИЕ, мало держать скорость. */
-  const floor=fs[best.num];
   /* Подъезд гасится ТЕМ ЖЕ сбросом, которым потолок снимает скорость, а не линейной
      прибавкой «метр в секунду на метр». Прежний закон включался за 17 м, и этого хватало
      внутри зоны, где разница скоростей мала. На ВЪЕЗДЕ в зону она 28 м/с: за 17 м её
      не погасить, и задний пролетал мимо. Замер (08.2026): игрок проходил одного
-     в трёх раскладах из шести, и упреждение в потолке само по себе убрало только один.
-     Ниже пола та же формула работает В ОБРАТНУЮ сторону — разрешённая скорость становится
-     МЕНЬШЕ скорости переднего, и зазор восстанавливается сам. Раньше она обрывалась на нуле
-     (`m>0?...:v`), поэтому провалившийся зазор не возвращался никогда. */
-  const m=bg-NEUT_GAP;
-  if(m>=0)return neutBleedBack(best.speed,m);
-  return Math.max(0,best.speed-NEUT_RECOVER*Math.max(0,floor-bg));}
+     в трёх раскладах из шести, и упреждение в потолке само по себе убрало только один. */
+  return neutBleedBack(best.speed,bg-NEUT_GAP);}
 /* Насколько свободна полоса `lane` рядом со мной — расстояние по ширине до ближайшего соседа.
    Смотрим только тех, чьи корпуса перекрываются с моим вдоль дороги: дальние не мешают. */
 function laneRoom(c,lane){let r=99;
