@@ -32,6 +32,7 @@ const PROBES = [
   { key: 'tower',     mod: './probe-tower.js' },
   { key: 'fastlap',   mod: './probe-fastest-lap.js' },
   { key: 'audio',     mod: './probe-audio-resume.js' },
+  { key: 'taps',      mod: './probe-tap-through.js' },
 ];
 
 function main(argv) {
