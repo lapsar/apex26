@@ -167,7 +167,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.15.66</div>
+    <div class="verstamp">v1.15.67</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -468,6 +468,48 @@ const OFFLINE_COST=0.10;                  // доля темпа, теряема
    дожимать езду бок о бок (§10 п.14), потолок надо ПЕРЕСНЯТЬ, а не читать отсюда.
    Отделить «атаку» от «висения» пробовали четырьмя способами — все отвалились замером,
    см. §11 v1.15.59. */
+/* СЛИПСТРИМ И ГРЯЗНЫЙ ВОЗДУХ — единственная сила в игре, которая делает
+   догоняющего быстрее на прямой и медленнее в повороте.
+   Без неё равные потолки (v1.15.66) запирают трафик: замер по пробникам дал
+   на Монреале «болид +20 % отыгрывает 10 мест из 20 при пороге 14» и мельтешение
+   башни 7.7 при пороге 5, а понижение потолка переносило поломку на Сильверстоун,
+   а не убирало её. Обгон на прямой мотором убран намеренно — вместо него должен
+   появиться обгон из-за спины, как в настоящей гонке.
+   Действует ОДИНАКОВО на игрока и на ИИ. Это не вежливость, а требование §4-bis:
+   правка, меняющая темп только ИИ, молча ломает равенство под флагами — на этом
+   в проекте горели дважды (v1.15.59 и v1.15.61). По той же причине под
+   нейтрализацией и на подъезде к зоне и слипстрим, и грязный воздух выключены
+   целиком: там темп задан долей от собственного, и любая добавка ломает равенство. */
+const TOW_RANGE=50;                       // м: дальше этого спутная струя не достаёт
+const TOW_GAIN=0.12;                      // доля потолка, прибавляемая вплотную за передним
+const DIRTY_RANGE=18;                     // м: грязный воздух душит только вплотную, а не на всю длину струи
+const DIRTY_LOSS=0.05;                    // доля сцепления в повороте, теряемая вплотную за передним
+const TOW_LAT=6.0;                        // м поперёк: струя затухает к краю, а не обрывается — иначе она пропадает ровно в тот миг, когда болид вышел на обгон, и разгон из-за спины никогда не доводится до конца
+const DIRTY_LAT=2.5;                      // м поперёк: грязный воздух — это ехать ПРЯМО за кем-то, тут окно узкое
+/* Зазор до того, за кем едешь. Меряется НАСТОЯЩИМ расстоянием, а не разностью
+   dist: у игрока и у ИИ это разные линейки и в тесном повороте они расходятся
+   на метры (§9). Продольность решается проекцией на направление дороги. */
+/* Две зоны, а не одна, и это не украшение. Одинаковый радиус делает висение
+   за передним чистым проигрышем: догоняющий теряет сцепление ровно там, где
+   ему надо подобраться, и пробник `charge` падал на всех трёх трассах сразу
+   (12.0 / 11.7 / 10.7 мест из 20 при пороге 14). С разведёнными зонами между
+   DIRTY_RANGE и TOW_RANGE появляется полоса, где струя уже тянет, а грязный
+   воздух ещё не душит — именно оттуда и делается обгон.
+   По ШИРИНЕ струя тоже затухает, а не обрывается: с жёстким окном болид терял
+   её в тот самый миг, когда выходил из-за спины, и разгон никогда не доводился
+   до обгона. Грязный воздух, наоборот, живёт в узком окне — это буквально
+   «ехать прямо за кем-то». */
+function towFactor(me){
+  const mi=carIdx(me), F=track.F[mi], R=track.R[mi];
+  let tow=0, dirty=0;
+  for(const o of cars){ if(o===me||o.retired)continue;
+    const dx=o.x-me.x, dz=o.z-me.z;
+    const lon=dx*F.x+dz*F.z;
+    if(lon<=0||lon>TOW_RANGE)continue;
+    const lat=Math.abs(dx*R.x+dz*R.z);
+    if(lat<TOW_LAT){const t=(1-lon/TOW_RANGE)*(1-lat/TOW_LAT);if(t>tow)tow=t;}
+    if(lon<DIRTY_RANGE&&lat<DIRTY_LAT){const d=(1-lon/DIRTY_RANGE)*(1-lat/DIRTY_LAT);if(d>dirty)dirty=d;}}
+  return (tow>0||dirty>0)?{tow,dirty}:null;}
 const PACE_TAU=6.0;                       // с: окно сглаживания темпа, длиннее зоны торможения и короче круга
 const YELLOW_PACE=0.9;                    // yellow is a lift, not a neutralisation — but it must still bind, see fieldPace()
 const ZONE_OUT_SECS=3;                    // "end of zone": the ceiling lifts silently otherwise, and the player cannot tell whether it is still on
@@ -3228,6 +3270,13 @@ function update(dt){
   const corner=Math.abs(track.K[pr.idx])>0.05;
   let surfCap=MAXSPEED*track.grip, drag=MAXSPEED/8, grip=1;
   if(!onRoad){ if(track.style!=='street'&&corner){surfCap=22;drag=MAXSPEED/2.8;grip=0.65;} else {surfCap=24;drag=MAXSPEED/3.2;grip=0.7;} }
+  /* Спутная струя и грязный воздух у игрока — тем же законом, что у соперников.
+     Струя поднимает потолок (меньше сопротивление), грязный воздух снимает
+     сцепление в повороте (меньше прижимная сила), поэтому висеть вплотную
+     в связке невыгодно, а на прямой — выгодно. Под флагом выключено. */
+  if(phase==='race'&&lights.go&&!neutralAt(pr.idx)&&!neutAhead(pr.idx,player.speed)){
+    const tf=towFactor(player);
+    if(tf){surfCap*=1+TOW_GAIN*tf.tow;grip*=1-DIRTY_LOSS*tf.dirty;}}
   // VSC: one ceiling for everyone, the player included. Taking the LOWER of the two also
   // shuts the door that would otherwise open — cutting a slow corner across the grass,
   // where 22 m/s is allowed while the neutralised pace on the road is ~15.
@@ -3343,7 +3392,11 @@ function update(dt){
   const __oidx=new Map();__order.forEach((o,i)=>__oidx.set(o,i));
   for(const c of field){if(c.retired)continue;
     const iu=Math.floor(((c.u%1)+1)%1*track.M)%track.M;
-    const free=aiTarget(iu,c.speed,c.base,c.cornerK||34);            // pace if the road were clear
+    /* Спутная струя и грязный воздух: тот же закон, что у игрока. Струя даёт
+       прибавку к прямолинейному потолку, грязный воздух снимает сцепление
+       в повороте. Под нейтрализацией и на её подъезде выключено — см. TOW_RANGE. */
+    const tf=(neutralAt(iu)||neutAhead(iu,c.speed))?null:towFactor(c);
+    const free=aiTarget(iu,c.speed,c.base*(1+(tf?TOW_GAIN*tf.tow:0)),(c.cornerK||34)*(1-(tf?DIRTY_LOSS*tf.dirty:0)));   // pace if the road were clear
     let ahd=null,gp=1e9;                                             // nearest car ahead IN MY LANE, player included
     {const k=__oidx.get(c);
      for(let j=(k===undefined?0:k)-1;j>=0;j--){const o=__order[j];
