@@ -33,6 +33,7 @@ const PROBES = [
   { key: 'fastlap',   mod: './probe-fastest-lap.js' },
   { key: 'audio',     mod: './probe-audio-resume.js' },
   { key: 'taps',      mod: './probe-tap-through.js' },
+  { key: 'dispose',   mod: './probe-scene-dispose.js' },
 ];
 
 function main(argv) {
