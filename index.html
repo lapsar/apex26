@@ -3824,11 +3824,14 @@ window.addEventListener('touchend',()=>AUDIO.kick(),true);
 ['gesturestart','gesturechange','gestureend'].forEach(ev=>document.addEventListener(ev,e=>e.preventDefault(),{passive:false}));
 document.addEventListener('dblclick',e=>e.preventDefault(),{passive:false});
 document.addEventListener('touchmove',e=>{if(e.touches&&e.touches.length>1)e.preventDefault();},{passive:false});
-/* Гаситель двойного тапа: масштабирование по двойному касанию сдвигало HUD в гонке.
-   Гасить ЛЮБОЙ быстрый тап нельзя: отменённый touchend не даёт КЛИКА, а окно продлевалось
-   каждым погашенным тапом — кнопки экрана итогов умирали насмерть, пока по ним жали чаще
-   раза в 0.4 с, и помогала только перезагрузка (v1.15.64). Нажимаемые вещи не гасим никогда. */
-const TAPPABLE='button,input,select,textarea,a,label,.card,.drv,.kb,[onclick]';
+/* Гаситель быстрых касаний: он стоит против зума по двойному тапу, сдвигавшего HUD, и против
+   залипания педали (браузер шлёт после касания совместимостные мышиные события, и педаль ловит
+   их вторым pointerdown). Гасить ЛЮБОЙ быстрый тап при этом нельзя: отменённый touchend не даёт
+   КЛИКА, а окно продлевалось каждым погашенным тапом — кнопки экрана итогов умирали насмерть,
+   пока по ним жали чаще раза в 0.4 с, и помогала только перезагрузка (v1.15.64).
+   Поэтому не гасим только то, что живёт КЛИКОМ. Педали (`.kb`) сюда НЕ входят намеренно:
+   они работают на pointerdown/pointerup, клик им не нужен, и защита у них остаётся прежняя. */
+const TAPPABLE='button,input,select,textarea,a,label,.card,.drv,[onclick]';
 let _lastTap=0;document.addEventListener('touchend',e=>{const n=Date.now();
   const t=e.target,pressable=!!(t&&t.closest&&t.closest(TAPPABLE));
   if(!pressable&&n-_lastTap<400)e.preventDefault();
