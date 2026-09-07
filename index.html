@@ -167,7 +167,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.15.65</div>
+    <div class="verstamp">v1.15.66</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -274,8 +274,37 @@ const TRACKS=[
    desc:"Остров на реке: длинные прямые, шпилька, тесные шиканы и стены у самой кромки."},
 ];
 const sel={track:null,roster:null,custom:"",laps:3,view:"cockpit",diff:"easy"};
-const DIFF_MUL={easy:0.80,normal:0.90,hard:1.02};        // AI straight-line pace multiplier (250-era values)
-const DIFF_CORNERK={easy:20,normal:22,hard:24};          // AI corner speed (lower=slower in corners). was 26/34/46 in v1.6
+/* СЛОЖНОСТЬ — ЭТО ДОЛЯ ОТ ОДНОЙ И ТОЙ ЖЕ МАШИНЫ, а не отдельные числа для ИИ.
+   До v1.15.66 у игрока и у ИИ были РАЗНЫЕ законы: игрок ограничен законом руля,
+   то есть машиной с прижимной силой (1.64 g на 15 м/с, 4.88 g на 88), а ИИ —
+   постоянными 20/22/24 м/с² на любой скорости, то есть машиной без аэродинамики
+   вовсе. Отсюда шло всё: игрок структурно проигрывал 15-18 % в КАЖДОМ повороте
+   круче R=80 м и выигрывал 30 % на дугах положе 140 м, а значит сложность
+   зависела от того, из чего сложена трасса. Замер (запас идеального круга игрока
+   над поулом): разброс по трём открытым трассам 6.9 с на Профи, 8.9 на Норме,
+   10.5 на Новичке. Ровно поэтому Монца выигрывалась с запасом, а Канада на Профи
+   не давалась. С единым законом тот же разброс — 0.4-0.7 с.
+   Прямолинейный темп ИИ был вторым источником того же перекоса: он не читал
+   track.grip вовсе и был числом, не привязанным к машине игрока. Замер по гонке:
+   потолок ИИ 217-277 км/ч против 310-336 у игрока, то есть +12 % на Профи и +55 %
+   на Новичке — обгон на прямой не мог не состояться (проход соперника с 6 м позади
+   до 6 м впереди занимал 0.74 с на Монце даже на Профи).
+   Теперь обе доли считаются от возможностей ИГРОКА на этой трассе. */
+const DIFF_MUL={easy:0.85,normal:0.90,hard:1.00};        // доля от ПОТОЛКА игрока (MAXSPEED*track.grip) у сильнейшего пилота
+const DIFF_GRIP={easy:0.80,normal:0.90,hard:0.95};       // доля от СЦЕПЛЕНИЯ игрока на том же радиусе
+/* Сила пилота обязана влиять и на ПОВОРОТ, иначе на равных потолках поле
+   схлопывается: чем выше потолок, тем меньше круга болид проводит, упершись
+   в него, и различать пилотов становится нечем. Замер без этой строки, разброс
+   P1→P22 на Профи: Монца 2.56 -> 0.67 с, Сильверстоун 1.05 -> 0.19, Монреаль
+   1.15 -> 0.39 — то есть Монако на всех трассах сразу. С коэффициентом 0.5
+   выходит 2.46 / 3.89 / 2.47, а само Монако разъезжается с 0.047 до 2.50 с.
+   Якорь по ЛИДЕРУ (у skill=0.98 множитель ровно 1): поул считается минимумом
+   по ростеру, поэтому таблицу-якорь §4 двигает только максимум силы в поле. */
+const CORNER_SKILL=0.5;
+const AI_REF=0.5538+0.98*0.32;                           // нормировка: доля 1.00 = потолок игрока у сильнейшего пилота
+function aiBase(skill,mul){return MAXSPEED*track.grip*mul*(0.5538+skill*0.32)/AI_REF;}
+function aiGrip(skill,gf){return gf*(1+(skill-0.98)*CORNER_SKILL);}
+const DIFF_CORNERK={easy:20,normal:22,hard:24};          // ЛЕГАСИ: боковое ускорение в м/с². Сама игра его больше не читает — остался для внешних инструментов (tools/harness.js), сравнивающих сборки
 let selTeam=null;
 
 /* ---------- menu ---------- */
@@ -3084,21 +3113,29 @@ function beginQuali(){phase='quali';raceOver=false;cars=[player];towerOrd=null;f
   player.speed=0;player.lap=0;player.lapT=0;player.best=Infinity;player.last=0;player.started=false;player.prevIdx=0;player.hint=0;player.dist=0;player.arcPrev=0;
   // provisional field (as if everyone has already set a time and you run last)
   const diffMul=DIFF_MUL[sel.diff];
-  const cornerKb=DIFF_CORNERK[sel.diff];
-  qualiField=ROSTER.filter((_,i)=>i!==sel.roster).map(r=>{const base=MAXSPEED*(0.5538+r.skill*0.32)*diffMul;
-    return {name:r.name,code:code3(r.name),num:r.num,color:r.color,team:r.team,skill:r.skill,time:estLapTime(base,cornerKb)*(1+(Math.random()*0.004-0.002))};});   // ±0.2 %, симметрично: шире разброс делал решётку лотереей там, где поле плотное (Сильверстоун/Профи)
+  const cornerKb=DIFF_GRIP[sel.diff];
+  qualiField=ROSTER.filter((_,i)=>i!==sel.roster).map(r=>{const base=aiBase(r.skill,diffMul);
+    return {name:r.name,code:code3(r.name),num:r.num,color:r.color,team:r.team,skill:r.skill,time:estLapTime(base,aiGrip(r.skill,cornerKb))*(1+(Math.random()*0.004-0.002))};});   // ±0.2 %, симметрично: шире разброс делал решётку лотереей там, где поле плотное (Сильверстоун/Профи)
   qualiField.sort((a,b)=>a.time-b.time);
   document.getElementById('tower').innerHTML='';document.getElementById('tower').dataset.head='';
   qualiOutro=false;clearTimeout(qualiOutroTimer);hideQualiBanner();
   showGantry(false);big("КВАЛИФИКАЦИЯ","Прогревочный круг",2200);qualiLapsLeft=1;startLoop();}
 var ESTFUDGE=1.0;
-const AIBRAKE=38;                       // m/s^2 the AI is willing to shed
+const AIBRAKE=38;                       // m/s^2 the AI is willing to shed. НЕ равен тормозам игрока (50) намеренно: это оставленный игроку запас, 1.8-2.5 с на круге
+/* Возможности болида в повороте — ОДНА функция на игрока и на ИИ.
+   Это закон руля игрока (turn в update), решённый относительно скорости:
+   выше 33.5 м/с угловая скорость постоянна (0.544 рад/с), значит v=0.544*R;
+   ниже — v(v+4)=20.4*R. Третья ветка — предел по выкруту колёс. */
+function aiCornerV(Rr){const GR=track.grip;
+  let v=0.544*GR*Rr; if(v>33.5)return Math.min(v,MAXSPEED*GR);
+  v=-2+Math.sqrt(4+20.4*GR*Rr); if(v>8)return Math.min(v,MAXSPEED*GR);
+  return Math.min(1.7*GR*Rr,MAXSPEED*GR);}
 function aiTarget(iu,speed,base,cornerK){const M=track.M,seg=track.length/M;
   // Don't crawl the whole straight because a corner sits somewhere ahead: carry speed
   // and brake as it arrives. For each corner in view, ask what speed still lets me slow in time.
   let t=base;const ah=6+Math.round(speed*0.6);
   for(let a=1;a<ah;a++){const K=Math.abs(track.K[(iu+a)%M]);if(K<0.03)continue;
-    const vc=Math.sqrt(cornerK*24/K);if(vc>=t)continue;   // cornerK = lateral m/s^2; v=sqrt(a*R), R=24/K
+    const vc=aiCornerV(24/K)*cornerK;if(vc>=t)continue;   // cornerK здесь — ДОЛЯ от сцепления игрока на радиусе R=24/K, а не боковое ускорение
     const v=Math.sqrt(vc*vc+2*AIBRAKE*a*seg);if(v<t)t=v;}
   return t;}
 function estLapTime(base,cornerK){const M=track.M;let v=base*0.5,t=0;
@@ -3115,8 +3152,8 @@ function estLapTime(base,cornerK){const M=track.M;let v=base*0.5,t=0;
 function beginQualiOutro(){
   releaseTouches();
   const diffMul=DIFF_MUL[sel.diff];
-  const cornerKb=DIFF_CORNERK[sel.diff];
-  const yt=isFinite(player.best)?player.best:estLapTime(MAXSPEED*0.80*diffMul,cornerKb)*1.25;
+  const cornerKb=DIFF_GRIP[sel.diff];
+  const yt=isFinite(player.best)?player.best:estLapTime(aiBase(0.80,diffMul),cornerKb)*1.25;
   const grid=(qualiField||[]).map(r=>({name:r.name,code:r.code,num:r.num,color:r.color,team:r.team,skill:r.skill,time:r.time,you:false}));
   grid.push({name:player.name,code:code3(player.name),num:player.num,color:player.color,team:ROSTER[sel.roster].team,skill:player.skill,time:yt,you:true});
   grid.sort((a,b)=>a.time-b.time);window.__grid=grid;
@@ -3153,9 +3190,9 @@ function startRace(){document.getElementById('s-quali').classList.remove('active
     c.settle=0;c.react=0.10+(1-gd.skill)*0.45+Math.random()*0.20;               // sharper drivers launch sooner
     c.ovSide=Math.random()<0.5?-1:1;c.laneJit=(Math.random()-0.5)*0.7;
     const diffMul=DIFF_MUL[sel.diff];
-    const cornerK=DIFF_CORNERK[sel.diff];
-    c.base=MAXSPEED*(0.5538+gd.skill*0.32)*diffMul*(0.965+Math.random()*0.035);
-    c.cornerK=cornerK*(0.95+Math.random()*0.08);c.dist=-g.back;c.prevU=c.u;c.retired=false;c.retireAt=0;c.lapStart=undefined;
+    const cornerK=DIFF_GRIP[sel.diff];
+    c.base=aiBase(gd.skill,diffMul)*(0.965+Math.random()*0.035);
+    c.cornerK=aiGrip(gd.skill,cornerK)*(0.95+Math.random()*0.08);c.dist=-g.back;c.prevU=c.u;c.retired=false;c.retireAt=0;c.lapStart=undefined;
     c.paceAvg=c.base;c.spdAvg=0;c.duel=null;c.duelT=0;      // сглаженный темп начинается со своего же, скорость — с нуля: на решётке все и правда стоят
     scene.add(c.mesh);field.push(c);cars.push(c);});
   // reset race timing + fastest lap + smoke
@@ -3164,8 +3201,8 @@ function startRace(){document.getElementById('s-quali').classList.remove('active
   neutral={mode:'',left:0,secs:[],cars:[]};zoneOut=0;wasInZone=false;greenSeen=false;renderFlagUI();
   raceOutro=false;clearTimeout(raceOutroTimer);hideQualiBanner();window.__raceOrder=null;
   for(const g of smokes)scene.remove(g);smokes=[];
-  const dmul=DIFF_MUL[sel.diff];const ckb=DIFF_CORNERK[sel.diff];
-  track.paceSpeed=track.length/estLapTime(MAXSPEED*(0.5538+0.86*0.32)*dmul,ckb);
+  const dmul=DIFF_MUL[sel.diff];const ckb=DIFF_GRIP[sel.diff];
+  track.paceSpeed=track.length/estLapTime(aiBase(0.86,dmul),aiGrip(0.86,ckb));
   // schedule up to 2 retirements
   const rr=Math.random();const nRet=rr<0.45?0:rr<0.85?1:2;const pool=field.slice();
   for(let k=0;k<nRet&&pool.length;k++){const pick=pool.splice(Math.floor(Math.random()*pool.length),1)[0];
@@ -3218,7 +3255,7 @@ function update(dt){
     let want=Math.atan2(tp.x-player.x,tp.z-player.z);let dh=want-player.hdg;
     while(dh>Math.PI)dh-=2*Math.PI;while(dh<-Math.PI)dh+=2*Math.PI;
     outroSteer=Math.max(-1,Math.min(1,-dh*2.4));       // proportional; hdg-=steerAmt*turn, so dh>0 -> negative steer
-    const safe=aiTarget(pr.idx,player.speed,MAXSPEED*0.82,DIFF_CORNERK.normal);
+    const safe=aiTarget(pr.idx,player.speed,MAXSPEED*0.82,DIFF_GRIP.normal);
     if(player.speed>safe+1)outroBrake=true;}
   // throttle/brake — strong low-end, tapers toward top speed (no instant max)
   const vmax=surfCap;

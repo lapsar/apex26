@@ -69,9 +69,9 @@ function sample(trackIdx, diff, draws, seed) {
 
   // чистое время каждого соперника — то, во что упирается множитель
   const clean = env.evalIn(`(function(){
-    var mul = DIFF_MUL[sel.diff], ck = DIFF_CORNERK[sel.diff], o = {};
+    var mul = DIFF_MUL[sel.diff], gf = DIFF_GRIP[sel.diff], o = {};
     qualiField.forEach(function(r){
-      o[r.name] = estLapTime(MAXSPEED*(0.5538 + r.skill*0.32)*mul, ck);
+      o[r.name] = estLapTime(aiBase(r.skill, mul), aiGrip(r.skill, gf));   // v1.15.66: темп ИИ — доля от возможностей игрока, а не своя формула
     });
     return o;
   })();`);

@@ -78,7 +78,7 @@ function run(opt) {
         var f=track.F[i];
         player.x=track.P[i].x; player.z=track.P[i].z; player.hdg=Math.atan2(f.x,f.z);
         player.hint=i; player.prevIdx=i; player.steerAmt=0; player.steerVis=0;
-        player.speed=aiTarget(i, MAXSPEED, MAXSPEED*0.82, DIFF_CORNERK.normal);
+        player.speed=aiTarget(i, MAXSPEED, MAXSPEED*0.82, DIFF_GRIP.normal);   // v1.15.66: четвёртый довод — ДОЛЯ от сцепления игрока, а не боковое ускорение в м/с². С прежним 22 aiTarget возвращал base на любом радиусе, и болид выпускался на 72 м/с в Club
         var o=0, w=0;
         for(var k=0;k<${FRAMES};k++){
           update(dt);
