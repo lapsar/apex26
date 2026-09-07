@@ -111,6 +111,7 @@ function makeElement(doc, tag) {
 
 function makeDocument() {
   const byId = new Map();
+  const docLsn = {};
   const doc = {
     hidden: false,
     createElement: tag => makeElement(doc, tag),
@@ -123,7 +124,12 @@ function makeDocument() {
     },
     querySelector: sel => (/^meta\b/.test(sel) ? makeElement(doc, 'meta') : null),
     querySelectorAll: () => [],
-    addEventListener: noop, removeEventListener: noop,
+    // слушатели документа ЗАПОМИНАЮТСЯ: игра вешает на них разбор касаний, и пробнику
+    // нужно уметь подать туда событие. Само по себе это ничего не меняет — раньше здесь
+    // стояла пустышка, а дёргать их некому, кроме пробника.
+    addEventListener(type, fn) { (docLsn[type] || (docLsn[type] = [])).push(fn); },
+    removeEventListener(type, fn) { const a = docLsn[type]; if (a) { const i = a.indexOf(fn); if (i >= 0) a.splice(i, 1); } },
+    _listeners: docLsn,
     _byId: byId,
   };
   doc.documentElement = makeElement(doc, 'html');
