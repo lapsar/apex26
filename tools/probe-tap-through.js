@@ -25,6 +25,18 @@
 
    Пробник проверен на настоящей поломке: на v1.15.63 валится четырьмя
    проверками кликаемого, а на исправленной сборке чист.
+
+   РАЗДЕЛ 2 (v1.15.73). Цель касания бывает ТЕКСТОВЫМ УЗЛОМ — так делает WebKit,
+   и у текстового узла нет `closest`. Кнопка «Ещё заезд» состоит из текста, палец
+   попадает именно в него, и правило v1.15.64 считало такой тап негасимым только
+   на бумаге: на устройстве кнопки экрана итогов снова переставали нажиматься.
+
+   РАЗДЕЛ 3 (v1.15.73). Кнопка руля не имеет права остаться нажатой, если под ней
+   нет пальца. Парность pointerdown/pointerup WebKit держит не всегда (системный
+   жест у нижней кромки экрана уводит касание, и pointerup не приходит вовсе),
+   а залипшая кнопка руля означает, что руль перестал слушаться и болид едет
+   в стену. Проверяется правило игры: состояние кнопок обязано сходиться
+   со списком живых касаний в каждом touch-событии.
    ========================================================================== */
 'use strict';
 
@@ -116,7 +128,62 @@ function run(opts) {
   r.line(`${'кнопка с паузой 900 мс'.padEnd(38)} 3 тапа -> погашено ${slow}`);
   if (slow) r.fail('гасится даже редкий тап по кнопке');
 
+  /* Раздел 2. WebKit отдаёт целью касания текстовый узел, а у него нет closest —
+     и кнопка, состоящая из одного текста, переставала считаться нажимаемой. */
+  const txtBtn = () => ({ nodeType: 3, textContent: 'Ещё заезд', parentElement: btnPrim() });
+  const txtPad = () => ({ nodeType: 3, textContent: 'GAS', parentElement: el('div', 'kb gas') });
+  const txtKilled = series(s, txtBtn, 6, 150);
+  r.line(`${'текст внутри кнопки (цель WebKit)'.padEnd(38)} 6 тапов через 150 мс -> погашено ${txtKilled}`);
+  if (txtKilled) r.fail(`текст внутри кнопки: погашено ${txtKilled} тапов из 6 — «Ещё заезд» и «В меню» не нажмутся`);
+  const txtPadKilled = series(s, txtPad, 6, 150);
+  r.line(`${'текст внутри педали'.padEnd(38)} 6 тапов через 150 мс -> погашено ${txtPadKilled}`);
+  if (!txtPadKilled) r.fail('педаль вышла из-под гасителя через текстовый узел — вернётся залипание газа');
+
+  stuck(r, file);
   return r;
+}
+
+/* Раздел 3: кнопка руля обязана отпускаться, как только под ней нет пальца. */
+function stuck(r, file) {
+  const env = H.loadGame(file ? { file } : {});
+  const pads = env.evalIn('document')._pads;
+  const win = env.evalIn('this')._listeners || {};
+  const ctl = () => env.evalIn('controls');
+  const pad = c => pads.find(p => p.dataset.c === c);
+  const mid = c => { const q = pad(c).getBoundingClientRect(); return { x: (q.left + q.right) / 2, y: (q.top + q.bottom) / 2 }; };
+  const press = (c, id) => { const m = mid(c);
+    (pad(c)._listeners.pointerdown || []).forEach(fn => fn({ pointerId: id, clientX: m.x, clientY: m.y, preventDefault() {} })); };
+  const touches = list => ({ touches: list.map(c => { const m = mid(c); return { clientX: m.x, clientY: m.y }; }), preventDefault() {} });
+  const fire = (type, ev) => (win[type] || []).forEach(fn => fn(ev));
+  const held = () => ['left', 'right', 'gas', 'brake'].filter(c => ctl()[c]);
+
+  if (!(win.touchstart || []).length) r.line(`${'сверка с живыми пальцами'.padEnd(38)} окно не слушает touchstart`);
+
+  press('left', 7);                                   // палец лёг на руль
+  if (!ctl().left) { r.fail('нажатие кнопки руля не доходит до игры — стенд негоден'); return; }
+  fire('touchstart', touches(['left']));              // тот же палец подтверждён списком касаний
+  r.line(`${'палец на руле подтверждён списком'.padEnd(38)} держится: ${held().join(',') || '—'}`);
+  if (!ctl().left) r.fail('живое удержание руля снимается сверкой — руль будет обрываться посреди поворота');
+
+  fire('touchstart', touches(['left', 'gas']));        // второй палец на газ, руль всё ещё держат
+  press('gas', 8);
+  if (!(ctl().left && ctl().gas)) r.fail('два пальца одновременно не держатся');
+
+  // pointerup для руля ПОТЕРЯН (ровно то, что делает системный жест iPad): остался только газ
+  fire('touchmove', touches(['gas']));
+  r.line(`${'pointerup руля потерян, палец на газе'.padEnd(38)} держится: ${held().join(',') || '—'}`);
+  if (ctl().left) r.fail('кнопка руля осталась нажатой без пальца — руль перестанет слушаться, болид уедет в стену');
+  if (!ctl().gas) r.fail('сверка сняла газ, под которым палец есть');
+
+  fire('touchend', { touches: [], preventDefault() {} });
+  if (held().length) r.fail('после снятия всех пальцев кнопки остались нажатыми');
+
+  // тот же указатель не может держать две кнопки сразу
+  press('left', 9); press('right', 9);
+  r.line(`${'один указатель на двух кнопках'.padEnd(38)} держится: ${held().join(',') || '—'}`);
+  if (ctl().left && ctl().right) r.fail('повторный pointerdown с тем же id залипил прежнюю кнопку — руль зажат в обе стороны');
+  fire('touchend', { touches: [], preventDefault() {} });
+  if (held().length) r.fail('после снятия всех пальцев кнопки остались нажатыми');
 }
 
 if (require.main === module) R.main(run);

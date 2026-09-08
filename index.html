@@ -167,7 +167,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.15.72</div>
+    <div class="verstamp">v1.15.73</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -3111,7 +3111,8 @@ function clearScene(){if(!scene)return;
     scene.remove(o);disposeTree(o,keep);}
   cars=[];field=[];smokes=[];skyMesh=null;}
 
-function startWeekend(){AUDIO.init();AUDIO.resume();applyAccent(ROSTER[sel.roster].color);camMode=sel.view;initThree();clearScene();
+function startWeekend(){AUDIO.init();AUDIO.resume();releaseTouches();   // кнопка, залипшая на прошлом экране, не должна рулить в новом заезде
+  applyAccent(ROSTER[sel.roster].color);camMode=sel.view;initThree();clearScene();
   track=makeTrack(TRACKS[sel.track]);track.refLap=track.length/(MAXSPEED*0.85);
   document.getElementById('loading').classList.add('show');
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById('game').classList.add('active');fit();
@@ -3247,7 +3248,7 @@ function showQualiResult(grid){document.getElementById('game').classList.remove(
   document.getElementById('s-quali').classList.add('active');}
 
 /* ---------- RACE ---------- */
-function startRace(){document.getElementById('s-quali').classList.remove('active');document.getElementById('game').classList.add('active');
+function startRace(){document.getElementById('s-quali').classList.remove('active');document.getElementById('game').classList.add('active');releaseTouches();
   const grid=window.__grid;gridPos=grid.findIndex(g=>g.you);totalLaps=sel.laps;raceOver=false;phase='race';
   wallTouch=false;AUDIO.stopScrape();
   // player on grid (same geometry as the painted boxes)
@@ -3875,8 +3876,7 @@ function updateHUD(){const order=(raceOutro&&window.__raceOrder)?window.__raceOr
     :`<div class="p1">СКОРОСТЬ</div><div class="p2">${Math.round(Math.abs(player.speed)*3.6)}</div><div class="p1">км/ч</div>`;}
 
 /* ---------- finish ---------- */
-function releaseTouches(){controls={left:0,right:0,gas:0,brake:0};keys={left:0,right:0,gas:0,brake:0};
-  document.querySelectorAll('.kb').forEach(b=>b.classList.remove('hit'));}
+function releaseTouches(){clearControls();for(const k in keys)keys[k]=0;}
 function finishRace(){raceOver=true;releaseTouches();const order=[...cars].sort(rankCmp);window.__raceOrder=order;
   const yp=order.findIndex(c=>c.isPlayer)+1;const team=ROSTER[sel.roster].team;
   showRaceBanner(yp,player.name,team);raceOutro=true;AUDIO.beep(560,0.5,0.22);
@@ -3947,7 +3947,7 @@ function setPause(p){if(p&&phase==='')return;paused=p;
   else{clock.getDelta();AUDIO.resume();AUDIO.startEngine();}}
 function togglePause(){setPause(!paused);}
 function toggleCam(){camMode=camMode==='cockpit'?'chase':'cockpit';}
-function quitToMenu(){endLoop();phase='';qualiOutro=false;raceOutro=false;clearTimeout(qualiOutroTimer);clearTimeout(raceOutroTimer);hideQualiBanner();document.getElementById('game').classList.remove('active');controls={left:0,right:0,gas:0,brake:0};go('s-title');}
+function quitToMenu(){endLoop();phase='';qualiOutro=false;raceOutro=false;clearTimeout(qualiOutroTimer);clearTimeout(raceOutroTimer);hideQualiBanner();document.getElementById('game').classList.remove('active');releaseTouches();go('s-title');}
 function rematch(){document.getElementById('s-result').classList.remove('active');startWeekend();}
 
 /* ---------- input ---------- */
@@ -3958,15 +3958,39 @@ addEventListener('keydown',e=>{if(typing(e))return;const k=e.key.toLowerCase();
 addEventListener('keyup',e=>{if(typing(e))return;const k=e.key.toLowerCase();
   if(k==='arrowleft'||k==='a')keys.left=0;if(k==='arrowright'||k==='d')keys.right=0;if(k==='arrowup'||k==='w')keys.gas=0;if(k==='arrowdown'||k==='s')keys.brake=0;});
 const ptrMap={};
+const TOUCH_NEAR=64;                 // допуск сверки: полпальца, кнопка руля вчетверо шире
 function clearControls(){controls.left=controls.right=controls.gas=controls.brake=0;for(const k in ptrMap)delete ptrMap[k];document.querySelectorAll('.kb').forEach(b=>b.classList.remove('hit'));}
-function relId(id){const r=ptrMap[id];if(r){controls[r.c]=0;r.b.classList.remove('hit');delete ptrMap[id];}}
+function relId(id){const r=ptrMap[id];if(r){controls[r.c]=0;r.b.classList.remove('hit');delete ptrMap[id];
+  // захват снимаем сами: оставшись на скрытой кнопке, он уводит следующие касания в никуда — так умирали кнопки экрана итогов
+  try{if(r.b.hasPointerCapture&&r.b.hasPointerCapture(+id))r.b.releasePointerCapture(+id);}catch(err){}}}
 document.querySelectorAll('.kb').forEach(b=>{const c=b.dataset.c;
-  b.addEventListener('pointerdown',e=>{ptrMap[e.pointerId]={c,b};controls[c]=1;b.classList.add('hit');e.preventDefault();},{passive:false});});
+  b.addEventListener('pointerdown',e=>{relId(e.pointerId);                 // тот же id не может держать две кнопки: иначе прежняя залипает навсегда
+    ptrMap[e.pointerId]={c,b,x:e.clientX,y:e.clientY};controls[c]=1;b.classList.add('hit');e.preventDefault();},{passive:false});
+  b.addEventListener('lostpointercapture',e=>relId(e.pointerId));});       // палец потерян вместе с захватом — считаем отпущенным
 // release is handled at the window level so a lost/edge-interrupted touch can never stick a button on
 window.addEventListener('pointerup',e=>relId(e.pointerId),true);
 window.addEventListener('pointercancel',e=>relId(e.pointerId),true);
-window.addEventListener('touchend',e=>{if(!e.touches||e.touches.length===0)clearControls();},{passive:true});
-window.addEventListener('touchcancel',e=>{if(!e.touches||e.touches.length===0)clearControls();},{passive:true});
+window.addEventListener('pointermove',e=>{const r=ptrMap[e.pointerId];if(r){r.x=e.clientX;r.y=e.clientY;}},true);
+/* Сверка с настоящим списком пальцев. Парность pointerdown/pointerup — обещание, которое
+   WebKit держит не всегда: стоит потерять один pointerup (системный жест у нижней кромки,
+   прерывание, потеря захвата), и кнопка остаётся нажатой навсегда — руль перестаёт слушаться,
+   а болид едет в стену. Список `e.touches` приходит полным в КАЖДОМ touch-событии, поэтому
+   он и есть истина: кнопку держит только тот, под кем реально есть палец. Пальцем считается
+   касание рядом с последним положением указателя (он мог соскользнуть с кнопки и по правилу
+   захвата продолжает её держать) или внутри самой кнопки. */
+function syncTouches(e){const ts=e.touches?Array.prototype.slice.call(e.touches):[];
+  if(!ts.length){clearControls();return;}
+  const used=ts.map(()=>false),rest=[];
+  for(const id in ptrMap){const r=ptrMap[id];let best=-1,bd=Infinity;     // ближайший свободный палец — он и есть этот указатель
+    for(let i=0;i<ts.length;i++){if(used[i])continue;
+      const d=Math.max(Math.abs(ts[i].clientX-r.x),Math.abs(ts[i].clientY-r.y));if(d<bd){bd=d;best=i;}}
+    if(best>=0&&bd<=TOUCH_NEAR){used[best]=true;r.x=ts[best].clientX;r.y=ts[best].clientY;}   // координаты берём из СПИСКА: порядок pointermove и touchmove браузеры выдают по-разному
+    else rest.push(id);}
+  for(const id of rest){const r=ptrMap[id],q=r.b.getBoundingClientRect();let ok=-1;   // палец мог прыгнуть — но если он в своей кнопке, он её и держит
+    for(let i=0;i<ts.length;i++){if(used[i])continue;const t=ts[i];
+      if(t.clientX>=q.left&&t.clientX<=q.right&&t.clientY>=q.top&&t.clientY<=q.bottom){ok=i;break;}}
+    if(ok>=0){used[ok]=true;r.x=ts[ok].clientX;r.y=ts[ok].clientY;}else relId(id);}}
+['touchstart','touchmove','touchend','touchcancel'].forEach(t=>window.addEventListener(t,syncTouches,{capture:true,passive:true}));
 addEventListener('blur',clearControls);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)clearControls();else AUDIO.resume();});
 /* iPad: после блокировки экрана контекст оживает только в жесте пользователя, поэтому кроме
@@ -3988,7 +4012,8 @@ document.addEventListener('touchmove',e=>{if(e.touches&&e.touches.length>1)e.pre
    они работают на pointerdown/pointerup, клик им не нужен, и защита у них остаётся прежняя. */
 const TAPPABLE='button,input,select,textarea,a,label,.card,.drv,[onclick]';
 let _lastTap=0;document.addEventListener('touchend',e=>{const n=Date.now();
-  const t=e.target,pressable=!!(t&&t.closest&&t.closest(TAPPABLE));
+  let t=e.target;if(t&&t.nodeType===3)t=t.parentElement;   // WebKit отдаёт целью касания ТЕКСТОВЫЙ УЗЕЛ, а у него нет closest
+  const pressable=!t||!t.closest||!!t.closest(TAPPABLE);   // не смогли определить — НЕ гасим: съеденный тап дороже лишнего зума
   if(!pressable&&n-_lastTap<400)e.preventDefault();
   _lastTap=n;},{passive:false});
 function checkOrient(){const portrait=window.innerHeight>window.innerWidth;
