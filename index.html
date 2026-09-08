@@ -167,7 +167,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.15.68</div>
+    <div class="verstamp">v1.15.69</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -3273,10 +3273,21 @@ function update(dt){
   /* Спутная струя и грязный воздух у игрока — тем же законом, что у соперников.
      Струя поднимает потолок (меньше сопротивление), грязный воздух снимает
      сцепление в повороте (меньше прижимная сила), поэтому висеть вплотную
-     в связке невыгодно, а на прямой — выгодно. Под флагом выключено. */
+     в связке невыгодно, а на прямой — выгодно. Под флагом выключено.
+     ПРИБАВКУ НАДО КЛАСТЬ В ПОТОЛОК И В ТЯГУ, А НЕ В surfCap: у игрока surfCap —
+     это лишь порог, за которым включается сопротивление, тогда как разгон и жёсткий
+     предел скорости считаются от MAXSPEED*track.grip. В v1.15.67 прибавка легла только
+     в surfCap, и струя не давала игроку РОВНО НИЧЕГО (замер: 20 м за соперником,
+     полный газ — 309.4 км/ч и один, и в струе, до десятой), тогда как ИИ она
+     доставалась целиком. Итог был виден по гонке: на Профи соперники разгонялись
+     ВЫШЕ потолка игрока — Сильверстоун 321 против 317, Монреаль 320 против 310, —
+     то есть игрок платил грязным воздухом и не получал струю. Владелец увидел это
+     на устройстве раньше, чем пробники: он отставал на прямой от идущего впереди. */
+  let towMul=1;
   if(phase==='race'&&lights.go&&!neutralAt(pr.idx)&&!neutAhead(pr.idx,player.speed)){
     const tf=towFactor(player);
-    if(tf){surfCap*=1+TOW_GAIN*tf.tow;grip*=1-DIRTY_LOSS*tf.dirty;}}
+    if(tf){towMul=1+TOW_GAIN*tf.tow;surfCap*=towMul;grip*=1-DIRTY_LOSS*tf.dirty;}}
+  const playerTop=MAXSPEED*track.grip*towMul;   // потолок с учётом струи: его же читают тяга и жёсткий предел
   // VSC: one ceiling for everyone, the player included. Taking the LOWER of the two also
   // shuts the door that would otherwise open — cutting a slow corner across the grass,
   // where 22 m/s is allowed while the neutralised pace on the road is ~15.
@@ -3312,7 +3323,7 @@ function update(dt){
   if(kB&&!kG&&player.speed<=0.05&&!qualiOutro&&!raceOutro)player.revArm+=dt;else player.revArm=0;
   const rev=player.revArm>=REV_ARM&&player.revLeft>0;   // тормоз, держанный REV_ARM секунд на стоящем болиде
   if(player.speed<0)player.revLeft=Math.max(0,player.revLeft+player.speed*dt);
-  if(kG)player.speed+=(player.speed<0?50:14*Math.max(0.14,1-0.85*player.speed/(MAXSPEED*track.grip)))*dt;   // газ гасит задний ход тормозами
+  if(kG)player.speed+=(player.speed<0?50:14*Math.max(0.14,1-0.85*player.speed/playerTop))*dt;   // газ гасит задний ход тормозами
   else if(kB||outroBrake){
     if(player.speed>0)player.speed=Math.max(0,player.speed-50*dt);   // 5.1g: keeps the braking zone the same length as at 252 km/h
     else if(rev)player.speed=Math.max(-REV_MAX,player.speed-REV_ACC*dt);
@@ -3320,7 +3331,7 @@ function update(dt){
   else if(player.speed>0)player.speed-=(2.4+0.02*player.speed)*dt;   // engine braking + drag coast
   else player.speed=Math.min(0,player.speed+2.4*dt);
   if(player.speed>vmax)player.speed-=drag*dt;
-  player.speed=Math.max(-REV_MAX,Math.min(player.speed,MAXSPEED*track.grip));
+  player.speed=Math.max(-REV_MAX,Math.min(player.speed,playerTop));
   AUDIO.engine(Math.abs(player.speed),kG?1:0);
   // steering — smoothed; calmer at speed; right press turns right
   let steerInput=(qualiOutro||raceOutro)?outroSteer:(kR?1:0)-(kL?1:0);
