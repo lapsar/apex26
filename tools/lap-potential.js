@@ -85,9 +85,14 @@ function run() {
           t+=ds[i]/Math.max(v,5);}}
       var out={lap:t, len:+L.toFixed(0), diffs:{}};
       ['easy','normal','hard'].forEach(function(d){
-        var mul=DIFF_MUL[d], ck=DIFF_CORNERK[d];
+        var mul=DIFF_MUL[d], gf=DIFF_GRIP[d];
+        // ЕДИНЫЙ ЗАКОН СЦЕПЛЕНИЯ (v1.15.66): темп поля считается ровно теми же
+        // aiBase/aiGrip, что и в игре и в пробнике pole. Раньше здесь стояла старая
+        // формула (MAXSPEED*(0.5538+skill*0.32)*mul и DIFF_CORNERK), которую игра
+        // с v1.15.66 не читает вовсе, — справка печатала поул Монцы/Профи 1:15.563
+        // против настоящих 1:28.342 и объявляла непроходимыми все пять трасс.
         var rows=ROSTER.slice(0,22).map(function(q){
-          return estLapTime(MAXSPEED*(0.5538+q.skill*0.32)*mul,ck);}).sort(function(a,b){return a-b;});
+          return estLapTime(aiBase(q.skill,mul),aiGrip(q.skill,gf));}).sort(function(a,b){return a-b;});
         out.diffs[d]={p1:rows[0], p22:rows[21], pos:rows.filter(function(x){return x<t;}).length+1};});
       return out;})()`);
 
