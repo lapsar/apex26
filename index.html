@@ -167,7 +167,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.15.75</div>
+    <div class="verstamp">v1.15.76</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -546,10 +546,20 @@ const TOW_GAIN=0.06;                      // доля потолка, приба
    ЧАСТОТА привязана к силе пилота, и это обязательно: те же -50 % с РАВНОМЕРНОЙ частотой дают
    столько же перестановок, но иерархию «место-сила» 0.737 против 0.812 — ровные ошибки
    размывают результат, а «слабый ошибается чаще» его уточняет (0.808 против 0.786 у main). */
-const ERR_RATE=0.20;                      // ошибок на пилота за круг у СРЕДНЕГО по силе; вышло ~0.9 ошибки на пилота за трёхкруговую гонку
-const ERR_DEPTH=0.60;                     // доля темпа во время ошибки: круг с ошибкой медленнее своего чистого на 1.47 с — ровно масштаб ошибки игрока
-const ERR_DUR=4.0;                        // с: длительность. Короче и глубже пробовать нельзя вслепую — обвал скорости ловит FOLLOW_BRAKE, а не эта ветка
+const ERR_RATE=0.28;                      // ошибок на пилота за круг у СРЕДНЕГО по силе; ~1.2 ошибки на пилота за трёхкруговую гонку
+const ERR_DEPTH=0.70;                     // доля темпа в САМОЙ ГЛУБИНЕ ошибки (профиль нарастает и спадает, см. ERR_RAMP)
+const ERR_DUR=6.0;                        // с: длительность. Мельче и дольше выгоднее резкого провала — см. таблицу в CLAUDE.md §10 п.4
 const ERR_FLOOR=9;                        // м/с: ниже не опускаем. Порог вставшего NEUT_STOPPED=6, и провалившийся под него болид законно объезжается всем полем — ошибка не должна превращаться в это
+/* ОШИБКА ОБЯЗАНА БЫТЬ ВИДНА, и это требование владельца после заездов на v1.15.75:
+   там она читалась как «соперник резко затормозил», потому что темп падал ступенькой,
+   и игрок влетал ему в зад. Замер: замедление в первые 0.6 с — медиана 31 м/с²
+   при собственных тормозах болида 38, каждая четвёртая ошибка 51 и выше, худшая 101.
+   Теперь ошибка — ШИРОКИЙ ВЫХОД: болид уезжает наружу поворота, вплоть до выхода
+   за кромку, а время теряет и от этого, и от умеренного провала темпа.
+   Стало: медиана 15 м/с², четверть 24, худшая 74; уход с траектории 2.70 -> 3.75 м. */
+const ERR_RAMP=0.9;                       // с: за сколько ошибка нарастает и спадает. Ступенька и давала «стоп-кран»
+const ERR_WIDE=4.5;                       // м: насколько уводит НАРУЖУ поворота в глубине ошибки
+const ERR_LIM=1.02;                       // доля полуширины: предел полосы во время ошибки. 0.75 в обычной езде, здесь болид выпускается ЗА кромку — иначе увод упирается в потолок и ошибки не видно (замер: ERR_WIDE 3.5 и 5.0 давали один и тот же уход 2.9 м)
 const DIRTY_RANGE=18;                     // м: грязный воздух душит только вплотную, а не на всю длину струи
 const DIRTY_LOSS=0.05;                    // доля сцепления в повороте, теряемая вплотную за передним
 const TOW_LAT=6.0;                        // м поперёк: струя затухает к краю, а не обрывается — иначе она пропадает ровно в тот миг, когда болид вышел на обгон, и разгон из-за спины никогда не доводится до конца
@@ -3207,8 +3217,15 @@ function placeAI(c,dt){if(c.retired)return;const u=((c.u%1)+1)%1;const fi=u*trac
   // the heading, so the yaw is SUBTRACTED. Capped at ~5.7 deg and smoothed.
   const dtv=Math.max(dt||0.016,0.001);
   const vlat=(c.lane-(c.lanePrev===undefined?c.lane:c.lanePrev))/dtv;c.lanePrev=c.lane;
-  const crabT=Math.max(-0.10,Math.min(0.10,Math.atan2(vlat,Math.max(c.speed,8))));
-  c.crab+=(crabT-c.crab)*Math.min(1,dtv*8);
+  /* Потолок доворота 0.20 рад (11.5°) и постоянная 0.07 с — было 0.10 и 0.125 с.
+     Владелец видел в свалке Канады «телепортации»: настоящего телепорта там нет
+     (худший сдвиг 0.6 см за кадр), но болид ехал вбок под настоящим углом до 13°,
+     а кузов показывал не больше 5.7° и с запаздыванием — за короткий рывок доворот
+     не успевал появиться вовсе. Замер «немого сноса» (ход, не объяснённый доворотом)
+     на Монреале: 4.95 % кадров -> 2.60 %. Шире 0.20 смысла нет: 0.26 даёт те же 2.57 %,
+     зато кузов разворачивает на 14°. */
+  const crabT=Math.max(-0.20,Math.min(0.20,Math.atan2(vlat,Math.max(c.speed,8))));
+  c.crab+=(crabT-c.crab)*Math.min(1,dtv*14);
   const pos=p.addScaledVector(r,c.lane);c.mesh.position.copy(pos);c.mesh.rotation.set(0,Math.atan2(f.x,f.z)-c.crab,0);c.x=pos.x;c.z=pos.z;
   const fw=c.mesh.userData.frontWheels;          // visual front-wheel angle, same relation the player uses
   if(fw){const turn=1.7*Math.max(0.32,Math.min(1,12/(c.speed+4)));         // K[i] is exactly the heading change over 24 m
@@ -3481,11 +3498,17 @@ function update(dt){
        нейтрализации законно объезжается — ошибка дарила бы места под флагом. */
     let em=1;
     if(phase==='race'&&lights.go){
-      if(c.errT>0){c.errT-=dt;em=ERR_DEPTH;}
+      c.errPh=0;                                                        // доля ошибки 0..1: нарастает и спадает, поэтому темп не падает ступенькой
+      if(neutralAt(iu)||neutAhead(iu,c.speed))c.errT=0;                 // въехал под флаг — ошибка кончилась: под нейтрализацией болид обязан вернуться на линию и держать общий потолок
+      if(c.errT>0){c.errT-=dt;
+        c.errPh=Math.min(1,(ERR_DUR-c.errT)/ERR_RAMP,Math.max(0,c.errT)/ERR_RAMP);
+        em=1-(1-ERR_DEPTH)*c.errPh;}
       else if(!neutralAt(iu)&&!neutAhead(iu,c.speed)&&raceTime>c.react+3){
         const lapT=track.length/Math.max(20,c.base);                      // свой круг в секундах: частота задана НА КРУГ, а не на секунду, иначе длинные трассы ошибались бы чаще
         if(Math.random()<ERR_RATE*dt/lapT*(1.02-(c.skill||0.9))/0.13)     // слабый ошибается чаще: 0.81 даёт 1.6 от средней частоты, 0.98 — 0.31
-          {c.errT=ERR_DUR;em=ERR_DEPTH;}
+          {c.errT=ERR_DUR;
+           let kk=0;for(let q=0;q<10;q++)kk+=track.K[(iu+q)%track.M];
+           c.errSide=-Math.sign(kk)||(Math.random()<0.5?-1:1);}   // НАРУЖУ поворота: широкий выход читается как ошибка, срез внутрь — нет
       }
     }
     let free=aiTarget(iu,c.speed,c.base*em*(1+(tf?TOW_GAIN*tf.tow:0)),(c.cornerK||34)*em*(1-(tf?DIRTY_LOSS*tf.dirty:0)));   // pace if the road were clear
@@ -3587,6 +3610,7 @@ function update(dt){
     // lane: hold your grid slot off the line, then settle into a single file on the racing line
     c.settle=Math.min(1,c.settle+dt/18);
     let want=line+c.laneJit;
+    if(c.errPh)want+=(c.errSide||1)*ERR_WIDE*c.errPh;                    // ошибка: уезжаем с гоночной линии наружу
     if(c.ovLock){const o=c.ovLock;                                           // committed to passing a stopped car: hold the line until actually past it
       if(o.retired||o.speed>c.pace*0.5||c.dist>o.dist+3.0||o.dist-c.dist>20)c.ovLock=null;   // without this the car drifts back to the racing line the moment it clears the 2.3 m "same lane" window, gets caught again and crawls behind forever
       else want=o.lane+c.ovDir*3.4;}
@@ -3618,14 +3642,14 @@ function update(dt){
     let eff=c.settle;
     if((c.ovLock||(c.ahd&&c.gp<20&&c.free>c.ahd.speed+1.0&&c.ahd.speed<6))&&raceTime>c.react+2.0)eff=Math.max(eff,0.92); // rolling up on a near-stopped car (not the grid launch): pull out now
     const mix=c.gridLane+(want-c.gridLane)*eff;
-    let nl=c.lane+(mix-c.lane)*Math.min(1,dt*(0.5+eff*1.2));
+    let nl=c.lane+(mix-c.lane)*Math.min(1,dt*(0.5+eff*1.2+(c.errPh?2.2:0)));   // в ошибке уходим вбок быстрее: обычная постоянная 0.6 с не успевает за 6 с показать уход
     for(const o of __order){if(o===c||o.isPlayer)continue;           // keep bots off EACH OTHER; the player is handled by the contact oval, so bots never dodge the player
       if(Math.abs(o.dist-c.dist)<CAR_LEN&&Math.abs(nl-o.lane)<CAR_WID+0.13){   // push apart exactly while the hulls would overlap along the road; a settled queue sits at 6.3 m and is left alone
         const side=Math.sign(c.lane-o.lane)||(c.ovSide||1);
         const wantSep=o.lane+side*(CAR_WID+0.13);                      // 2.7 m: the hull is 2.57 across, so the old 2.4 left the wheels overlapping by 17 cm side by side
         nl+=(wantSep-nl)*Math.min(1,dt*6);}}
     const mlat=8*dt;nl=Math.max(c.lane-mlat,Math.min(c.lane+mlat,nl));   // no car crosses the road faster than 8 m/s sideways: the push-apart rule alone reached 18, and at 60 m/s forward that is a 17-degree crab — the car slid sideways instead of steering
-    const hard=hw*0.75;c.lane=Math.max(-hard,Math.min(hard,nl));}
+    const hard=hw*(0.75+(ERR_LIM-0.75)*(c.errPh||0));c.lane=Math.max(-hard,Math.min(hard,nl));}   // ошибающийся выпускается за кромку
   // smoke drift/fade
   for(let i=smokes.length-1;i>=0;i--){const gsm=smokes[i];const age=raceTime-gsm.userData.born;gsm.position.y+=dt*0.35;
     const op=Math.max(0,0.5*(1-age/6));gsm.children.forEach(s=>{s.material.opacity=op;});if(age>6){scene.remove(gsm);smokes.splice(i,1);}}
