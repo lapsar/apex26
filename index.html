@@ -167,7 +167,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.15.74</div>
+    <div class="verstamp">v1.15.75</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -531,6 +531,25 @@ const TOW_P=1.3;                          // показатель затухан
    Вплотную это 5.6 % против 7.2 % — ближе к настоящим 3-4 %, а рекорд поля на Монце
    342-346 км/ч против 346-347 у прежней сборки, то есть поле не поехало быстрее. */
 const TOW_GAIN=0.06;                      // доля потолка, прибавляемая вплотную за передним
+/* ОШИБКИ ПИЛОТОВ ИИ (v1.15.75). До неё темп соперника задавался один раз на решётке
+   и дальше не менялся вовсе: ни ошибок, ни износа, ни случайностей, — поэтому гонка была
+   сортировкой поля по заранее известному темпу и кончалась за минуту.
+   Взялись по жалобе владельца «на Профи в Канаде поул берётся, но после ошибки не догнать»,
+   и она оказалась структурной, а не про везение: игрок темпом поула быстрее ближайшего
+   соперника на 0.128 с/круг (Монреаль), значит на возврат двух секунд ему нужно 15.7 круга
+   при гонке в три. Своя ошибка при этом стоит 1-3 с (увод на 0.5 с даёт +1.32 с на Монреале,
+   до +5.08 на Монце) — то есть терять было чем, а отыгрывать нечем.
+   Разбор, таблица глубин и отвергнутые варианты — CLAUDE.md §10 п.4.
+   ГЛУБИНА подобрана замером, это НЕ вкус: -30 % даёт вдвое меньше перестановок, -50 % валит
+   `tower` на Монреале (5.5 при пороге 5, где сама main стоит на 4.7). Сорок процентов —
+   наибольшее, при котором чек-лист зелёный целиком.
+   ЧАСТОТА привязана к силе пилота, и это обязательно: те же -50 % с РАВНОМЕРНОЙ частотой дают
+   столько же перестановок, но иерархию «место-сила» 0.737 против 0.812 — ровные ошибки
+   размывают результат, а «слабый ошибается чаще» его уточняет (0.808 против 0.786 у main). */
+const ERR_RATE=0.20;                      // ошибок на пилота за круг у СРЕДНЕГО по силе; вышло ~0.9 ошибки на пилота за трёхкруговую гонку
+const ERR_DEPTH=0.60;                     // доля темпа во время ошибки: круг с ошибкой медленнее своего чистого на 1.47 с — ровно масштаб ошибки игрока
+const ERR_DUR=4.0;                        // с: длительность. Короче и глубже пробовать нельзя вслепую — обвал скорости ловит FOLLOW_BRAKE, а не эта ветка
+const ERR_FLOOR=9;                        // м/с: ниже не опускаем. Порог вставшего NEUT_STOPPED=6, и провалившийся под него болид законно объезжается всем полем — ошибка не должна превращаться в это
 const DIRTY_RANGE=18;                     // м: грязный воздух душит только вплотную, а не на всю длину струи
 const DIRTY_LOSS=0.05;                    // доля сцепления в повороте, теряемая вплотную за передним
 const TOW_LAT=6.0;                        // м поперёк: струя затухает к краю, а не обрывается — иначе она пропадает ровно в тот миг, когда болид вышел на обгон, и разгон из-за спины никогда не доводится до конца
@@ -3285,7 +3304,7 @@ function startRace(){document.getElementById('s-quali').classList.remove('active
     const cornerK=DIFF_GRIP[sel.diff];
     c.base=aiBase(gd.skill,diffMul)*(0.965+Math.random()*0.035);
     c.cornerK=aiGrip(gd.skill,cornerK)*(0.95+Math.random()*0.08);c.dist=-g.back;c.prevU=c.u;c.retired=false;c.retireAt=0;c.lapStart=undefined;
-    c.paceAvg=c.base;c.spdAvg=0;c.duel=null;c.duelT=0;      // сглаженный темп начинается со своего же, скорость — с нуля: на решётке все и правда стоят
+    c.skill=gd.skill;c.errT=0;c.paceAvg=c.base;c.spdAvg=0;c.duel=null;c.duelT=0;      // сглаженный темп начинается со своего же, скорость — с нуля: на решётке все и правда стоят
     scene.add(c.mesh);field.push(c);cars.push(c);});
   // reset race timing + fastest lap + smoke
   raceTime=0;fastestLap={time:Infinity,name:'',team:'',color:'',you:false,car:null};retireCount=0;
@@ -3457,7 +3476,20 @@ function update(dt){
        прибавку к прямолинейному потолку, грязный воздух снимает сцепление
        в повороте. Под нейтрализацией и на её подъезде выключено — см. TOW_RANGE. */
     const tf=(neutralAt(iu)||neutAhead(iu,c.speed))?null:towFactor(c);
-    const free=aiTarget(iu,c.speed,c.base*(1+(tf?TOW_GAIN*tf.tow:0)),(c.cornerK||34)*(1-(tf?DIRTY_LOSS*tf.dirty:0)));   // pace if the road were clear
+    /* Ошибка пилота — временная потеря темпа (ERR_RATE). Под нейтрализацией и на подъезде
+       к зоне выключена: там потолок и так один на всех, а провалившийся ниже темпа
+       нейтрализации законно объезжается — ошибка дарила бы места под флагом. */
+    let em=1;
+    if(phase==='race'&&lights.go){
+      if(c.errT>0){c.errT-=dt;em=ERR_DEPTH;}
+      else if(!neutralAt(iu)&&!neutAhead(iu,c.speed)&&raceTime>c.react+3){
+        const lapT=track.length/Math.max(20,c.base);                      // свой круг в секундах: частота задана НА КРУГ, а не на секунду, иначе длинные трассы ошибались бы чаще
+        if(Math.random()<ERR_RATE*dt/lapT*(1.02-(c.skill||0.9))/0.13)     // слабый ошибается чаще: 0.81 даёт 1.6 от средней частоты, 0.98 — 0.31
+          {c.errT=ERR_DUR;em=ERR_DEPTH;}
+      }
+    }
+    let free=aiTarget(iu,c.speed,c.base*em*(1+(tf?TOW_GAIN*tf.tow:0)),(c.cornerK||34)*em*(1-(tf?DIRTY_LOSS*tf.dirty:0)));   // pace if the road were clear
+    if(em<1&&free<ERR_FLOOR)free=Math.min(ERR_FLOOR,aiTarget(iu,c.speed,c.base,c.cornerK||34));   // в шпильке доля от малого темпа уходит под порог вставшего — там ошибка не действует
     let ahd=null,gp=1e9;                                             // nearest car ahead IN MY LANE, player included
     {const k=__oidx.get(c);
      for(let j=(k===undefined?0:k)-1;j>=0;j--){const o=__order[j];
