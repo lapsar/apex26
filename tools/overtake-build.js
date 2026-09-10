@@ -28,11 +28,14 @@
 const fs = require('fs'), path = require('path');
 const arg = (k, d) => { const a = process.argv.find(s => s.startsWith('--' + k + '=')); return a ? a.split('=')[1] : d; };
 const OUT = arg('out', null); if (!OUT) throw new Error('нужен --out=<файл>');
-const LOOK = +arg('look', 44);        // м/с²: с каким замедлением догоняющий готов гасить разницу до переднего
+const LOOK = arg('look', '44');       // м/с²: с каким замедлением догоняющий готов гасить разницу до переднего; 'off' — оставить прежнюю лестницу
 const ATKB = +arg('atkbrake', 1.0);   // во сколько раз позже тормозит тот, кто пошёл в атаку (duel)
 const ATKC = +arg('atkcost', 1.0);    // и во сколько раз хуже он при этом проходит апекс — плата за поздний тормоз
 const EDGE = arg('edge', 'speed');
-const DUEL = arg('duel', null);       // порог превосходства для захода на атаку (DUEL_EDGE), м/с    // 'pace' — право на атаку даётся по ПОТЕНЦИАЛУ цели, а не по тому, что она реально едет в трафике
+const DUEL = arg('duel', null);       // порог превосходства для захода на атаку (DUEL_EDGE), м/с
+const PLACE = arg('place', '0') === '1';   // атаку нельзя НАЧИНАТЬ после апекса — только на прямой, на подходе и в торможении
+const INSIDE = arg('inside', '0') === '1'; // и заходить в повороте следует ВНУТРЬ, а не туда, где просторнее
+const STUCK = arg('stuck', null);     // доля своего потенциала, ниже которой цель считается ЗАСТРЯВШЕЙ и обгоняется независимо от потенциала    // 'pace' — право на атаку даётся по ПОТЕНЦИАЛУ цели, а не по тому, что она реально едет в трафике
 
 let src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 function sub(re, to) { if (!re.test(src)) throw new Error('не найдено: ' + re); src = src.replace(re, to); }
@@ -45,8 +48,8 @@ function sub(re, to) { if (!re.test(src)) throw new Error('не найдено: 
       тормозить РАНЬШЕ. Замер поймал это сразу.
    ПОД ФЛАГОМ правило остаётся прежним: там сближение держит NEUT_GAP, а правка, которая
       ускоряет в трафике только ИИ, дважды молча ломала равенство под флагами (§13). */
-sub(/      else if\(gp<15\.1\)target=Math\.max\(shuffle,Math\.min\(target,ahd\.speed\+\(gp-7\.6\)\*0\.6\)\);\}/,
-`      else if(gp<15.1)target=Math.max(shuffle,Math.min(target,(nz||na)?ahd.speed+(gp-7.6)*0.6:Math.sqrt(ahd.speed*ahd.speed+2*${LOOK}*(gp-7.6))));}`);
+if (LOOK !== 'off') sub(/      else if\(gp<15\.1\)target=Math\.max\(shuffle,Math\.min\(target,ahd\.speed\+\(gp-7\.6\)\*0\.6\)\);\}/,
+`      else if(gp<15.1)target=Math.max(shuffle,Math.min(target,(nz||na)?ahd.speed+(gp-7.6)*0.6:Math.sqrt(ahd.speed*ahd.speed+2*${+LOOK}*(gp-7.6))));}`);
 
 /* 2. САМ ПРИЁМ: тот, кто защёлкнул атаку (`duel`), тормозит позже и платит за это апексом.
       Без платы это был бы просто более быстрый болид, а не размен: залез глубже — вышел хуже,
@@ -64,7 +67,14 @@ if (ATKB !== 1.0 || ATKC !== 1.0) {
       у всех и почти всегда. Замер (09.2026): атака активна 39-45 % кадро-машин, то есть это
       не событие, а фон, и любой выданный ей приём достаётся всем сразу. `pace` сравнивает
       потенциал с потенциалом: атакует тот, кто действительно быстрее. */
-if (EDGE === 'pace' || EDGE === 'pace2') sub(/&&c\.paceAvg>c\.ahd\.spdAvg\+DUEL_EDGE\)\{/, '&&c.paceAvg>c.ahd.paceAvg+DUEL_EDGE){');
+/* Право по потенциалу само по себе сгущает поле: соперники перестают объезжать тех, кто
+   МЕДЛЕННЕЕ НЕ ПО СВОЕЙ ВИНЕ (застрял в трафике), и очередь не рассасывается — замер
+   (09.2026): Монца/Норма «рядом с игроком» 29.1 -> 39.9 %. Оговорка `stuck` возвращает
+   право обгонять того, кто едет заметно ниже собственного потенциала; порог 6 м/с
+   у `crawler`/`ovLock` для этого слишком низкий — он про буквально вставшего. */
+const STUCK_CLAUSE = STUCK === null ? '' : '||c.ahd.spdAvg<c.ahd.paceAvg*' + (+STUCK);
+if (EDGE === 'pace' || EDGE === 'pace2') sub(/&&c\.paceAvg>c\.ahd\.spdAvg\+DUEL_EDGE\)\{/,
+  '&&(c.paceAvg>c.ahd.paceAvg+DUEL_EDGE' + STUCK_CLAUSE + ')){');
 /* 4. И ТА ЖЕ МЕРКА ВО ВТОРОЙ ВЕТКЕ. Право НАЧАТЬ смещение (`c.pace>c.ahd.speed+1.0`) живёт
       отдельно от защёлки `duel`, которая смещение ДОВОДИТ. Ужесточить одну и оставить другую
       значит вернуть дефект v1.15.45: начинают многие, доводит мало, болид метается вбок-назад.
@@ -77,7 +87,38 @@ if (EDGE === 'pace2') sub(/if\(c\.ahd&&c\.gp<20&&c\.pace>c\.ahd\.speed\+1\.0&&\(
 
 if (DUEL !== null) sub(/const DUEL_EDGE=[\d.]+;/, 'const DUEL_EDGE=' + (+DUEL) + ';');
 
-sub(/<div class="verstamp">[^<]*<\/div>/, `<div class="verstamp">LOOK ${LOOK} ATK ${ATKB}/${ATKC} ${EDGE}</div>`);
+/* 5. ПРИВЯЗКА МАНЁВРА К МЕСТУ. Сейчас смещаться вбок можно где угодно, и отсюда замер
+      §10 п.16-bis: треть обгонов случается в апексе медленного поворота. В жизни там
+      обгон не НАЧИНАЮТ — его туда доводят. Фаза считается по кривизне: если впереди
+      (в пределах 40 м) кривизна уже не растёт, апекс пройден. До апекса, в торможении
+      и на прямой — всё как было; после апекса начинать нельзя, а начатое доводится
+      (защёлка `duel`, объезд вставшего и `ovLock` из-под запрета выведены).
+      ЭТО НЕ «зоны атаки» из v1.15.68, которые запрещали обгон ВНЕ зон торможения и были
+      забракованы (быстрый болид оставался в очереди): здесь прямые не трогаются вовсе. */
+if (PLACE || INSIDE) {
+  sub(/    let kA=0;for\(let a=0;a<10;a\+\+\)kA\+=track\.K\[\(iu\+a\)%track\.M\];kA\/=10;/,
+`    let kA=0;for(let a=0;a<10;a++)kA+=track.K[(iu+a)%track.M];kA/=10;
+    let kNow=Math.abs(track.K[iu]),kMaxA=0,kSgnA=0;
+    for(let a=1;a<=10;a++){const kk=Math.abs(track.K[(iu+a)%track.M]);
+      if(kk>kMaxA){kMaxA=kk;kSgnA=Math.sign(track.K[(iu+a)%track.M]);}}
+    const afterApex=kNow>0.03&&kNow>=kMaxA;`);
+}
+if (PLACE) {
+  sub(/    if\(!c\.duel&&!c\.ovLock&&!na&&!crawler&&c\.ahd&&c\.gp<20&&raceTime>c\.react\+2\.0/,
+      '    if(!c.duel&&!c.ovLock&&!na&&!crawler&&!afterApex&&c.ahd&&c.gp<20&&raceTime>c.react+2.0');
+  sub(/if\(c\.ahd&&c\.gp<20&&c\.pace>c\.ahd\.speed\+1\.0&&\(!na\|\|slowAhd\)\)\{/,
+      'if(c.ahd&&c.gp<20&&c.pace>c.ahd.speed+1.0&&(!na||slowAhd)&&(!afterApex||crawler||c.ovLock||c.duel===c.ahd)){');
+}
+/* 6. СТОРОНА ЗАХОДА. `freeSide` выбирает, где просторнее, — а в жизни ныряют ВНУТРЬ,
+      потому что там короче путь и туда обороняющемуся не дадут вернуться. Внутренняя
+      сторона — это -sign(K) того поворота, к которому идёт подход (тот же знак, по которому
+      строится гоночная линия). Если поворота впереди нет, сторона выбирается как прежде. */
+if (INSIDE) {
+  sub(/c\.duel=c\.ahd;c\.duelT=DUEL_TIME;c\.duelDir=freeSide\(c,c\.ahd\.lane,c\.ovSide,hw\);/,
+      'c.duel=c.ahd;c.duelT=DUEL_TIME;c.duelDir=kMaxA>0.03?(-kSgnA||freeSide(c,c.ahd.lane,c.ovSide,hw)):freeSide(c,c.ahd.lane,c.ovSide,hw);');
+}
+
+sub(/<div class="verstamp">[^<]*<\/div>/, `<div class="verstamp">LOOK ${LOOK} ATK ${ATKB}/${ATKC} ${EDGE}${PLACE ? ' place' : ''}${INSIDE ? ' inside' : ''}</div>`);
 
 fs.writeFileSync(OUT, src);
 console.log('опытная сборка: упреждение ' + LOOK + ', атака ' + ATKB + '/' + ATKC + ', право по ' + EDGE + ' -> ' + OUT);

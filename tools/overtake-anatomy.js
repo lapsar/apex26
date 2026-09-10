@@ -29,7 +29,7 @@ for (const T of H.tracks(true)) {
     H.lightsOut(env);
     H.noRetirements(env);
     const out = env.evalIn(`(function(){
-      var dt=1/60, N=field.length, st={}, since={}, brk={}, pv=[], ev=[];
+      var dt=1/60, N=field.length, st={}, since={}, brk={}, startK={}, pv=[], ev=[];
       function key(a,b){return a+'|'+b;}
       for(var a=0;a<N;a++)for(var b=a+1;b<N;b++){
         var k=key(a,b); st[k]=field[a].dist-field[b].dist>0?1:-1; since[k]=-1; brk[k]=0; }
@@ -38,7 +38,14 @@ for (const T of H.tracks(true)) {
         for(var i=0;i<N;i++){ hard[i] = pv[i]!==undefined && (pv[i]-field[i].speed)/dt > 8; }
         for(var a=0;a<N;a++)for(var b=a+1;b<N;b++){
           var k=key(a,b), d=field[a].dist-field[b].dist, ad=Math.abs(d);
-          if(ad<6.04 && since[k]<0){ since[k]=raceTime; brk[k]=0; }   // пара сошлась в пределах корпуса
+          if(ad<6.04 && since[k]<0){ since[k]=raceTime; brk[k]=0;
+            /* МЕСТО НАЧАЛА манёвра, а не его развязки. Первая версия справки брала точку,
+               где обгон ЗАСЧИТАН (корпус удержан 3 с), и показывала треть обгонов
+               «в медленном повороте» — но обгон, начатый в торможении, честно там
+               и завершается. Это была ошибка чтения, а не игры (09.2026). */
+            var bk = d>0 ? b : a;                              // кто в этой паре сзади
+            var bi = Math.floor(((field[bk].u%1)+1)%1*track.M)%track.M;
+            startK[k] = Math.abs(track.K[bi]); }
           if(ad>6.04 && (st[k]>0)===(d>0)){ since[k]=-1; brk[k]=0; }  // разъехались, не поменявшись
           /* «Тормозил ли обгоняющий» надо смотреть за ВЕСЬ манёвр: у самой развязки он уже
              разгоняется, и первая версия мерки (полсекунды до защёлки) видела торможение
@@ -49,7 +56,8 @@ for (const T of H.tracks(true)) {
             var w = d>0 ? a : b;                                // кто вышел вперёд
             var c = field[w];
             var iu = Math.floor(((c.u%1)+1)%1*track.M)%track.M;
-            ev.push({K:Math.abs(track.K[iu]), brake: !!(brk[k] & (w===a?1:2)), t:raceTime,
+            ev.push({K: startK[k]!==undefined ? startK[k] : Math.abs(track.K[iu]),
+                     endK: Math.abs(track.K[iu]), brake: !!(brk[k] & (w===a?1:2)), t:raceTime,
                      dur: since[k]>=0 ? raceTime-since[k] : -1});
             st[k] = d>0 ? 1 : -1; since[k]=-1; brk[k]=0;
           }
@@ -67,7 +75,7 @@ for (const T of H.tracks(true)) {
   }
   const med = a => a.length ? a.slice().sort((x, y) => x - y)[Math.floor(a.length / 2)] : NaN;
   console.log(T.name.padEnd(12) + ' обгонов ' + String(per.total).padStart(4) +
-    '  на прямой ' + (100 * per.straight / per.total).toFixed(0) + '%' +
+    '  НАЧАТ: на прямой ' + (100 * per.straight / per.total).toFixed(0) + '%' +
     '  в быстром ' + (100 * per.fast / per.total).toFixed(0) + '%' +
     '  в медленном ' + (100 * per.slow / per.total).toFixed(0) + '%' +
     '  |  обгоняющий тормозил ' + (100 * per.braking / per.total).toFixed(0) + '%' +
