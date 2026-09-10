@@ -23,9 +23,28 @@ const E = +arg('easy', 0.90), N = +arg('normal', 0.95), Hd = +arg('hard', 0.975)
 const K = +arg('k', 0.35), SC = arg('scale', '1') === '1';
 const F = SC ? '(cornerK)' : '1';                       // множитель тормозов и разгона
 
+const MODE = arg('mode', 'uni');   // uni — вся схема; grip — только §10 п.19 (а); brake — только (б); gripbrake — оба куска
+
 let src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 let hits = 0;
 function sub(re, to) { const n = (src.match(re) || []).length; if (!n) throw new Error('не найдено: ' + re); src = src.replace(re, to); hits += n; }
+
+/* (а) track.grip больше не множит радиус в законе поворота ИИ: у игрока в законе руля
+   сцепление на асфальте равно 1, а track.grip достаётся ему только через потолок скорости.
+   Потолок min(..., MAXSPEED*GR) остаётся — он у игрока тоже есть. */
+function onlyGrip() { sub(/GR\*Rr/g, 'Rr'); }
+/* (б) тормоза ИИ — доля тех же 50 м/с², что у игрока, по сцеплению режима и пилота:
+   торможение это то же сцепление шин, только продольное. Было жёсткое 44 на всех режимах. */
+function onlyBrake() { sub(/2\*AIBRAKE\*a\*seg/, '2*(50*cornerK)*a*seg'); }
+
+if (MODE !== 'uni') {
+  if (MODE === 'grip' || MODE === 'gripbrake') onlyGrip();
+  if (MODE === 'brake' || MODE === 'gripbrake') onlyBrake();
+  sub(/<div class="verstamp">[^<]*<\/div>/, `<div class="verstamp">${MODE}</div>`);
+  fs.writeFileSync(OUT, src);
+  console.log('опытная сборка (' + MODE + '): ' + OUT + '  (правок применено: ' + hits + ')');
+  process.exit(0);
+}
 
 sub(/const DIFF_MUL=\{easy:[\d.]+,normal:[\d.]+,hard:[\d.]+\};/,
   `const DIFF_MUL={easy:${E},normal:${N},hard:${Hd}};`);
