@@ -167,7 +167,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.15.76</div>
+    <div class="verstamp">v1.15.77</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -291,7 +291,7 @@ const sel={track:null,roster:null,custom:"",laps:3,view:"cockpit",diff:"easy"};
    до 6 м впереди занимал 0.74 с на Монце даже на Профи).
    Теперь обе доли считаются от возможностей ИГРОКА на этой трассе. */
 const DIFF_MUL={easy:0.85,normal:0.90,hard:1.00};        // доля от ПОТОЛКА игрока (MAXSPEED*track.grip) у сильнейшего пилота
-const DIFF_GRIP={easy:0.80,normal:0.90,hard:0.95};       // доля от СЦЕПЛЕНИЯ игрока на том же радиусе
+const DIFF_GRIP={easy:0.90,normal:0.98,hard:1.00};       // доля от СЦЕПЛЕНИЯ игрока на том же радиусе. Подняты в v1.15.77 вместе с починкой aiTarget: доли остаются <=1, то есть соперник не цепче игрока
 /* Сила пилота обязана влиять и на ПОВОРОТ, иначе на равных потолках поле
    схлопывается: чем выше потолок, тем меньше круга болид проводит, упершись
    в него, и различать пилотов становится нечем. Замер без этой строки, разброс
@@ -3249,7 +3249,7 @@ function beginQuali(){phase='quali';raceOver=false;cars=[player];towerOrd=null;f
   qualiOutro=false;clearTimeout(qualiOutroTimer);hideQualiBanner();
   showGantry(false);big("КВАЛИФИКАЦИЯ","Прогревочный круг",2200);qualiLapsLeft=1;startLoop();}
 var ESTFUDGE=1.0;
-const AIBRAKE=38;                       // m/s^2 the AI is willing to shed. НЕ равен тормозам игрока (50) намеренно: это оставленный игроку запас, 1.8-2.5 с на круге
+const AIBRAKE=44;                       // m/s^2 the AI is willing to shed. НЕ равен тормозам игрока (50) намеренно: это оставленный игроку запас. 38 -> 44 в v1.15.77: починенный aiTarget тормозит раньше, и прежние 38 отнимали ещё секунду сверх платы за починку
 /* Возможности болида в повороте — ОДНА функция на игрока и на ИИ.
    Это закон руля игрока (turn в update), решённый относительно скорости:
    выше 33.5 м/с угловая скорость постоянна (0.544 рад/с), значит v=0.544*R;
@@ -3262,8 +3262,11 @@ function aiTarget(iu,speed,base,cornerK){const M=track.M,seg=track.length/M;
   // Don't crawl the whole straight because a corner sits somewhere ahead: carry speed
   // and brake as it arrives. For each corner in view, ask what speed still lets me slow in time.
   let t=base;const ah=6+Math.round(speed*0.6);
-  for(let a=1;a<ah;a++){const K=Math.abs(track.K[(iu+a)%M]);if(K<0.03)continue;
-    const vc=aiCornerV(24/K)*cornerK;if(vc>=t)continue;   // cornerK здесь — ДОЛЯ от сцепления игрока на радиусе R=24/K, а не боковое ускорение
+  // a=0 обязателен: поворот, в котором болид СЕЙЧАС, тоже его ограничивает. Без него
+  // ИИ проходил апексы быстрее собственного предела (Монреаль: 46 % кадров выше него).
+  // Радиус — по ТРАЕКТОРИИ, как у игрока: болид едет смещённой линией (line=hw*0.42).
+  for(let a=0;a<ah;a++){const j=(iu+a)%M,K=Math.abs(track.K[j]);if(K<0.03)continue;
+    const vc=aiCornerV(24/K+halfAt(j)*0.8)*cornerK;if(vc>=t)continue;   // cornerK здесь — ДОЛЯ от сцепления игрока на этом радиусе, а не боковое ускорение
     const v=Math.sqrt(vc*vc+2*AIBRAKE*a*seg);if(v<t)t=v;}
   return t;}
 function estLapTime(base,cornerK){const M=track.M;let v=base*0.5,t=0;
