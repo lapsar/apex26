@@ -29,28 +29,32 @@ for (const T of H.tracks(true)) {
     H.lightsOut(env);
     H.noRetirements(env);
     const out = env.evalIn(`(function(){
-      var dt=1/60, N=field.length, st={}, side={}, since={}, prev={}, ev=[];
+      var dt=1/60, N=field.length, st={}, since={}, brk={}, pv=[], ev=[];
       function key(a,b){return a+'|'+b;}
       for(var a=0;a<N;a++)for(var b=a+1;b<N;b++){
-        var k=key(a,b); st[k]=field[a].dist-field[b].dist>0?1:-1; since[k]=-1; }
+        var k=key(a,b); st[k]=field[a].dist-field[b].dist>0?1:-1; since[k]=-1; brk[k]=0; }
       __drive(Math.round(${600 * LAPS}/dt),dt,'auto',function(){
-        for(var i=0;i<N;i++){ var c=field[i]; if(!prev[i])prev[i]=[];
-          prev[i].push(c.speed); if(prev[i].length>30)prev[i].shift(); }
+        var hard=[];                                            // кто в этом кадре тормозил всерьёз
+        for(var i=0;i<N;i++){ hard[i] = pv[i]!==undefined && (pv[i]-field[i].speed)/dt > 8; }
         for(var a=0;a<N;a++)for(var b=a+1;b<N;b++){
           var k=key(a,b), d=field[a].dist-field[b].dist, ad=Math.abs(d);
-          if(ad<6.04 && since[k]<0) since[k]=raceTime;          // пара сошлась в пределах корпуса
-          if(ad>6.04 && (st[k]>0)===(d>0)) since[k]=-1;         // разъехались, не поменявшись
+          if(ad<6.04 && since[k]<0){ since[k]=raceTime; brk[k]=0; }   // пара сошлась в пределах корпуса
+          if(ad>6.04 && (st[k]>0)===(d>0)){ since[k]=-1; brk[k]=0; }  // разъехались, не поменявшись
+          /* «Тормозил ли обгоняющий» надо смотреть за ВЕСЬ манёвр: у самой развязки он уже
+             разгоняется, и первая версия мерки (полсекунды до защёлки) видела торможение
+             лишь в 12 % обгонов просто потому, что смотрела не в тот момент. */
+          if(since[k]>=0){ if(hard[a]) brk[k]|=1; if(hard[b]) brk[k]|=2; }
           var flip = (st[k]>0 && d<-6.04) || (st[k]<0 && d>6.04);
           if(flip){
             var w = d>0 ? a : b;                                // кто вышел вперёд
             var c = field[w];
             var iu = Math.floor(((c.u%1)+1)%1*track.M)%track.M;
-            var K = Math.abs(track.K[iu]);
-            var h = prev[w], drop = h.length>1 ? h[0]-c.speed : 0;
-            ev.push({K:K, brake:drop>3, t:raceTime, dur: since[k]>=0 ? raceTime-since[k] : -1});
-            st[k] = d>0 ? 1 : -1; since[k]=-1;
+            ev.push({K:Math.abs(track.K[iu]), brake: !!(brk[k] & (w===a?1:2)), t:raceTime,
+                     dur: since[k]>=0 ? raceTime-since[k] : -1});
+            st[k] = d>0 ? 1 : -1; since[k]=-1; brk[k]=0;
           }
         }
+        for(var i=0;i<N;i++) pv[i]=field[i].speed;
         return !(phase===''||raceOver);});
       return ev;})()`);
     for (const e of out) {
@@ -73,6 +77,65 @@ for (const T of H.tracks(true)) {
   for (const k of ['straight', 'fast', 'slow', 'braking', 'total', 'early']) acc[k] += per[k];
   acc.dur = acc.dur.concat(per.dur);
 }
+/* ---------- второй раздел: ЖИЗНЬ В ОЧЕРЕДИ ----------
+   Догоняющий ограничен ТЕКУЩЕЙ скоростью переднего (`ahd.speed+(gp-7.6)*0.6`), а не
+   возможностью до неё замедлиться. Значит в зоне торможения он обязан тормозить вместе
+   с передним, даже когда до него ещё 15 м. Здесь меряется, сколько это стоит:
+   сколько времени болид проводит в очереди, как часто при этом теряет против своего
+   свободного темпа и насколько, и как часто он тормозит, хотя САМ бы ещё не тормозил. */
+function queue() {
+  console.log('\n########  ЖИЗНЬ В ОЧЕРЕДИ (ограничен передним, а не поворотом)  ########');
+  for (const T of H.tracks(true)) {
+    const rows = [];
+    for (const seed of SEEDS) {
+      const env = H.loadGame({ seed });
+      H.setupWeekend(env, { trackIdx: T.idx, diff: DIFF, laps: LAPS });
+      H.startRaceAt(env, 11);
+      H.lightsOut(env);
+      H.noRetirements(env);
+      rows.push(env.evalIn(`(function(){
+        var dt=1/60, all=0, inq=0, lose=0, sum=0, early=0, worst=0, dly=[];
+        __drive(Math.round(${600 * LAPS}/dt),dt,'auto',function(){
+          if(raceTime<3) return true;                 // стартовую свалку в счёт не берём
+          for(var i=0;i<field.length;i++){ var c=field[i]; if(c.retired||!c.free) continue;
+            all++;
+            var g = c.ahd ? c.gp : 1e9;
+            if(g>15.1) continue;                      // вне окна подтягивания
+            inq++;
+            var d = c.free - c.speed;                 // сколько недобирает против свободного темпа
+            if(d>0.5){ lose++; sum+=d; if(d>worst) worst=d; }
+            /* КТО НАЧИНАЕТ ТОРМОЗИТЬ ПЕРВЫМ. В настоящей гонке атакующий тормозит ПОЗЖЕ
+               обороняющегося — этим обгон и делается. Здесь ловится момент, когда каждый
+               из пары сбросил больше 5 м/с² за кадр-другой, и считается, кто был первым. */
+            var a = c.ahd;
+            if(a && !a.retired){
+              var was = c.__pv===undefined ? c.speed : c.__pv, wasA = a.__pv===undefined ? a.speed : a.__pv;
+              var brC = (was - c.speed)/dt > 5, brA = (wasA - a.speed)/dt > 5;
+              if(brA && !c.__brk){ c.__brk = raceTime; }            // передний начал тормозить
+              if(brC && c.__brk!==undefined && c.__brkDone!==c.__brk){
+                dly.push(raceTime - c.__brk); c.__brkDone = c.__brk; early++; }
+            }
+          }
+          for(var i=0;i<field.length;i++) field[i].__pv = field[i].speed;
+          return !(phase===''||raceOver);});
+        return {all:all, inq:inq, lose:lose, sum:sum, early:early, worst:worst, dly:dly};})()`));
+    }
+    const S = k => rows.reduce((a, x) => a + x[k], 0);
+    const all = S('all'), inq = S('inq'), lose = S('lose');
+    console.log('  ' + T.name.padEnd(12) +
+      ' в очереди ' + (100 * inq / all).toFixed(1) + ' % кадро-машин' +
+      ' · из них теряет темп ' + (100 * lose / Math.max(1, inq)).toFixed(0) + ' %' +
+      ' · средняя потеря ' + (S('sum') / Math.max(1, lose)).toFixed(2) + ' м/с' +
+      ' (худшая ' + Math.max(...rows.map(x => x.worst)).toFixed(1) + ')');
+    const dly = rows.reduce((a, x) => a.concat(x.dly), []).sort((x, y) => x - y);
+    const q = f => dly.length ? dly[Math.min(dly.length - 1, Math.floor(dly.length * f))] : NaN;
+    console.log('               догоняющий тормозит ПОСЛЕ переднего на ' + q(0.5).toFixed(2) + ' с (медиана), ' +
+      'четверть случаев позже ' + q(0.75).toFixed(2) + ' с; событий ' + dly.length +
+      ', «тормозит одновременно или раньше» ' + (100 * dly.filter(x => x <= 0.05).length / Math.max(1, dly.length)).toFixed(0) + ' %');
+  }
+}
+queue();
+
 const med = a => a.length ? a.slice().sort((x, y) => x - y)[Math.floor(a.length / 2)] : NaN;
 console.log('\nвсего ' + acc.total + ': на прямой ' + (100 * acc.straight / acc.total).toFixed(0) +
   '%, в быстром повороте ' + (100 * acc.fast / acc.total).toFixed(0) +
