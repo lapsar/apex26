@@ -33,6 +33,10 @@ const OUT = arg('out', null); if (!OUT) throw new Error('нужен --out=<фа�
 const LINES = arg('lines', null); if (!LINES) throw new Error('нужен --lines=<json>');
 const SCALE = +arg('scale', '1.0');
 const LIM = +arg('lim', '0.62');
+const NOLINE = arg('line', '') === 'off';        // линию НЕ подменять: проверка, что правка штрафа сама по себе ничего не меняет
+const CLAMP = process.argv.includes('--clamp');   // штраф считать от ДОСТИЖИМОЙ линии, а не от идеальной
+const COST = arg('cost', null);                   // величина OFFLINE_COST
+const DEAD = +arg('dead', '0');                   // мёртвая зона: мелкий промах мимо линии не штрафуется
 
 const tbl = JSON.parse(fs.readFileSync(LINES, 'utf8'));
 const lanes = {};
@@ -47,11 +51,29 @@ sub(/const AIBRAKE=44;/,
   `function aiLaneAt(i){const t=AI_LANE_TBL[track.spec.key];return t?t[i%t.length]*AI_LANE_SCALE:null;}`);
 
 /* сама полоса */
-sub(/const line=-Math\.sign\(kA\)\*Math\.min\(1,Math\.abs\(kA\)\/0\.06\)\*hw\*0\.42;/,
+if (!NOLINE) sub(/const line=-Math\.sign\(kA\)\*Math\.min\(1,Math\.abs\(kA\)\/0\.06\)\*hw\*0\.42;/,
   `const __rl=aiLaneAt(iu);\n    const line=__rl!==null?__rl:-Math.sign(kA)*Math.min(1,Math.abs(kA)/0.06)*hw*0.42;`);
 
 /* потолок полосы */
 if (LIM !== 0.62) sub(/const lim=hw\*0\.62;/, `const lim=hw*${LIM};`);
 
+/* Штраф за съезд с линии — от той линии, которую болид МОЖЕТ занять.
+   Полоса жёстко обрезана коридором (lim), а штраф считался от невыполнимой цели,
+   поэтому при настоящей линии болид платил его постоянно и по всему кругу.
+   На прежней формуле (0.42 полуширины при коридоре 0.62) обрезка не срабатывала
+   никогда, поэтому для нетронутой игры правка не меняет ничего — это проверяется. */
+if (CLAMP || DEAD) sub(/const dev=Math\.min\(1,Math\.abs\(c\.lane-line\)\/Math\.max\(1,hw\)\);/,
+  (CLAMP ? 'const __lim=hw*' + LIM + ',__ref=Math.max(-__lim,Math.min(__lim,line));'
+         : 'const __ref=line;')
+  /* мёртвая зона: настоящая линия виляет сильнее прежней формулы, и болид за ней
+     физически не успевает (замер: отход 0.25 полуширины против 0.16). Без зоны
+     этот неизбежный промах штрафуется постоянно и по всему кругу. */
+  + `const __d0=Math.min(1,Math.abs(c.lane-__ref)/Math.max(1,hw));`
+  + `const dev=${DEAD ? `Math.max(0,__d0-${DEAD})/${(1 - DEAD).toFixed(3)}` : '__d0'};`);
+
+if (COST !== null) sub(/const OFFLINE_COST=0\.14;/, `const OFFLINE_COST=${COST};`);
+
 fs.writeFileSync(OUT, src);
-console.error(`опытная сборка: ${OUT}  (scale=${SCALE}, lim=${LIM}, трасс в таблице ${Object.keys(lanes).length})`);
+console.error(`опытная сборка: ${OUT}  (scale=${SCALE}, lim=${LIM}`
+  + (CLAMP ? ', штраф от достижимой линии' : '') + (COST !== null ? `, cost=${COST}` : '')
+  + `, трасс в таблице ${Object.keys(lanes).length})`);
