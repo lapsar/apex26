@@ -43,11 +43,21 @@ const PROBE = `(function(){
   var N=field.length, ep={}, out=[], t=0;
   var offLine=0, frames=0, carFrames=0, abreastFrames=0, abreastCorner=0;
   var groups={2:0,3:0,4:0,5:0}, lapBuckets={};
+  /* ЗНАК ЗДЕСЬ БЫЛ ПЕРЕВЁРНУТ, и строка «вне гоночной линии» врала (найдено 09.2026).
+     Справка написана в v1.15.59, а знак линии в игре исправили только в v1.15.71 —
+     справку тогда не поправили, и она считала отход от ЗЕРКАЛЬНОЙ линии, то есть
+     завышала его вдвое. Числа «41 % -> 32 %» в шапке сняты этой кривой меркой.
+     Остальные строки (пары, эпизоды, группы) от линии НЕ зависят — они считаются
+     по полосам и дистанции, и потому целы.
+     Плюс: если сборка везёт соперников по настоящей линии, берём её у игры. */
   function lineAt(c){
     var iu=Math.floor(((c.u%1)+1)%1*track.M)%track.M;
     var kA=0;for(var a=0;a<10;a++)kA+=track.K[(iu+a)%track.M];kA/=10;
     var hw=halfAt(iu);
-    return {line:Math.sign(kA)*Math.min(1,Math.abs(kA)/0.06)*hw*0.42, k:Math.abs(kA)};
+    var ln=(typeof aiLaneAt==='function'&&aiLaneAt(iu)!==null)?aiLaneAt(iu)
+           :-Math.sign(kA)*Math.min(1,Math.abs(kA)/0.06)*hw*0.42;
+    var lim=hw*0.62;
+    return {line:Math.max(-lim,Math.min(lim,ln)), k:Math.abs(kA)};
   }
   __drive(Math.round(1200/dt),dt,'auto',function(){
     t+=dt; frames++;
