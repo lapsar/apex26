@@ -108,8 +108,11 @@ if (ATKB !== 1 || ATKC !== 1) {
   sub(/const v=Math\.sqrt\(vc\*vc\+2\*AIBRAKE\*a\*seg\);/, 'const v=Math.sqrt(vc*vc+2*(brk||AIBRAKE)*a*seg);');
   sub(/    let free=aiTarget\(iu,c\.speed,c\.base\*em\*\(1\+\(tf\?TOW_GAIN\*tf\.tow:0\)\),\(c\.cornerK\|\|34\)\*em\*\(1-\(tf\?DIRTY_LOSS\*tf\.dirty:0\)\)\);/,
 `    let free=aiTarget(iu,c.speed,c.__ab=c.base*em*(1+(tf?TOW_GAIN*tf.tow:0)),c.__ak=(c.cornerK||34)*em*(1-(tf?DIRTY_LOSS*tf.dirty:0)));`);
-  sub(/    let target=free;/,
-`    let target=(c.duel&&!nz&&!na)?aiTarget(iu,c.speed,c.__ab,c.__ak*${ATKC},AIBRAKE*${ATKB}):free;`);
+  /* ВСТАВЛЯТЬ НАДО ПОСЛЕ nz/na, а не на строке `let target=free`: там они ещё
+     не объявлены, и сборка падает с ReferenceError на первом же кадре. */
+  sub(/    const na=neutAhead\(iu,c\.speed\);/,
+`    const na=neutAhead(iu,c.speed);
+    if(c.duel&&!nz&&!na)target=aiTarget(iu,c.speed,c.__ab,c.__ak*${ATKC},AIBRAKE*${ATKB});`);
 }
 
 fs.writeFileSync(OUT, src);
