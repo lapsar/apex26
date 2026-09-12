@@ -49,6 +49,8 @@ const SIDE = arg('side', '') === 'inside';
 const HOLD = +arg('hold', '0');
 const SNAP = +arg('snap', '0');
 const HOLDALL = arg('holdall', '0') === '1';
+const REACH = +arg('reach', '0');       // на подходе к повороту атака защёлкивается с большего зазора, чем обычные 20 м
+const REACHWIN = +arg('reachwin', '200');// ...если вход в поворот ближе этого
 const ATKB = +arg('atkbrake', '1');     // во сколько раз позже тормозит тот, кто пошёл в атаку
 const ATKC = +arg('atkcost', '1');      // и во сколько раз хуже он при этом проходит апекс — плата за поздний тормоз
 const KC = +arg('kc', '0.04');          // |K| входа в поворот; порог сверен — 17/26/24 поворота на Монце/Сильверстоуне/Монреале
@@ -73,6 +75,16 @@ sub(/    const crawler=!!c\.ahd&&c\.ahd\.speed<c\.pace\*0\.5;/,
 `    const __eA=entryAheadPts(iu), __eD=__eA>0?__eA*(track.length/track.M):(__eA===-1?0:1e9);
     const __eS=__eA>0?-Math.sign(track.K[(iu+__eA)%track.M]):0;
     const crawler=!!c.ahd&&c.ahd.speed<c.pace*0.5;`);
+
+/* 0. ЗАХОДИТЬ РАНЬШЕ. Замер: защёлка случается за 48 м до входа, а внутренняя сторона
+      к этому моменту занята гоночной линией самого обороняющегося — ограничитель полосы
+      (hw*0.62) пускает атакующего внутрь лишь на 1.4 м вместо 2.6. Внутреннюю надо брать
+      ПОКА ОНА СВОБОДНА, то есть на прямой: там гоночная линия проходит по осевой.
+      Поэтому на подходе к торможению право на атаку даётся с большего зазора. */
+if (REACH > 0) {
+  sub(/    if\(!c\.duel&&!c\.ovLock&&!na&&!crawler&&!afterApex&&c\.ahd&&c\.gp<20&&raceTime>c\.react\+2\.0/,
+`    if(!c.duel&&!c.ovLock&&!na&&!crawler&&!afterApex&&c.ahd&&c.gp<((__eA>0&&__eD<${REACHWIN})?${REACH}:20)&&raceTime>c.react+2.0`);
+}
 
 /* 1. сторона атаки */
 if (SIDE) {

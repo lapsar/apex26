@@ -87,15 +87,20 @@ for (const T of H.tracks(true)) {
   const inside = ev.filter(e => e.side === e.ins).length;
   const along = ev.filter(e => Math.abs(e.dd) < 6.04).length;
   const wide = ev.filter(e => Math.abs(e.dl) > 1.5).length;
+  /* «занял позицию» — мягкая мерка, и она ближе к жизни, чем «сбоку»: в настоящей
+     гонке атакующий ко входу обычно ещё чуть позади, но УЖЕ на внутренней и уже
+     разведён вбок; довершает он обгон в апексе и на выходе. */
+  const got = ev.filter(e => e.side === e.ins && Math.abs(e.dl) > 1.5 && Math.abs(e.dd) < 12).length;
   const e0 = ev.map(e => e.e0);
   console.log(`${T.name.padEnd(12)} защёлок, доживших до входа в поворот: ${ev.length}`);
   console.log(`   до входа в момент захода: медиана ${med(e0)} м (четверть ниже ${med(e0.slice().sort((a,b)=>a-b).slice(0,Math.max(1,e0.length>>1)))} м)`);
   console.log(`   НА ВХОДЕ: сбоку (корпуса перекрываются) ${along} = ${pct(along, ev.length)} · отошёл вбок >1.5 м ${wide} = ${pct(wide, ev.length)}`);
   console.log(`   сторона ВНУТРЕННЯЯ для этого поворота: ${inside} = ${pct(inside, ev.length)}`);
+  console.log(`   ЗАНЯЛ ПОЗИЦИЮ к входу (внутри, разведён вбок, отстаёт меньше 2 корпусов): ${got} = ${pct(got, ev.length)}`);
   console.log(`   атака вдали от любого торможения (>150 м): ${pct(far, duel)} кадро-машин из ${duel}`);
   console.log(`   поперечный ход ПОД АТАКОЙ: вдали от торможения ${farLat.toFixed(0)} м, на подходе и в повороте ${nearLat.toFixed(0)} м`);
   console.log('');
-  TOT.ev += ev.length; TOT.inside += inside; TOT.alongside += along; TOT.wide += wide; TOT.far += far; TOT.duel += duel; TOT.farLat = (TOT.farLat||0)+farLat; TOT.nearLat = (TOT.nearLat||0)+nearLat; TOT.e0 = TOT.e0.concat(e0);
+  TOT.ev += ev.length; TOT.inside += inside; TOT.alongside += along; TOT.wide += wide; TOT.got = (TOT.got||0)+got; TOT.far += far; TOT.duel += duel; TOT.farLat = (TOT.farLat||0)+farLat; TOT.nearLat = (TOT.nearLat||0)+nearLat; TOT.e0 = TOT.e0.concat(e0);
 }
 console.log(`ИТОГО: защёлок ${TOT.ev} · до входа медиана ${med(TOT.e0)} м · сбоку на входе ${pct(TOT.alongside, TOT.ev)}`
   + ` · вбок >1.5 м ${pct(TOT.wide, TOT.ev)} · внутренняя сторона ${pct(TOT.inside, TOT.ev)} · вдали от торможения ${pct(TOT.far, TOT.duel)}`);
