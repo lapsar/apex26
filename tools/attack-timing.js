@@ -29,7 +29,7 @@ const ONLY = arg('track', '');
 
 const PROBE = `(function(){
   var dt=1/60, M=track.M, seg=track.length/M, KC=0.04, FAR=150;
-  var live={}, done=[], farFrames=0, duelFrames=0;
+  var live={}, done=[], farFrames=0, duelFrames=0, farLat=0, nearLat=0;
   function idx(c){return Math.floor(((c.u%1)+1)%1*M)%M;}
   /* метры до ближайшего входа в поворот; отрицательное — я уже в повороте */
   function toEntry(i){
@@ -48,7 +48,9 @@ const PROBE = `(function(){
       if(c.duel){
         duelFrames++;
         var i=idx(c), e=toEntry(i);
-        if(e>FAR)farFrames++;
+        var mv=(c.__lp===undefined)?0:Math.abs(c.lane-c.__lp);
+        if(e>FAR){farFrames++;farLat+=mv;} else nearLat+=mv;
+        if(e>FAR)0;
         if(!st||st.tgt!==c.duel){ // новая защёлка
           st=live[key]={tgt:c.duel, e0:e, dir:c.duelDir, k:entryK(i), armed:e>1, done:false};
         }
@@ -61,10 +63,11 @@ const PROBE = `(function(){
             side:st.dir, ins:(st.k>0?-1:1), inCorner:false});
         }
       } else if(st){ delete live[key]; }
+      c.__lp=c.lane;
     }
     return !(phase===''||raceOver);
   });
-  return {ev:done, farFrames:farFrames, duelFrames:duelFrames};
+  return {ev:done, farFrames:farFrames, duelFrames:duelFrames, farLat:farLat, nearLat:nearLat};
 })()`;
 
 function pct(a, b) { return (100 * a / Math.max(1, b)).toFixed(0) + ' %'; }
@@ -73,13 +76,13 @@ function med(a) { if (!a.length) return null; const s = a.slice().sort((x, y) =>
 let TOT = { ev: 0, inside: 0, alongside: 0, wide: 0, far: 0, duel: 0, e0: [] };
 for (const T of H.tracks(true)) {
   if (ONLY && T.name !== ONLY) continue;
-  let ev = [], far = 0, duel = 0;
+  let ev = [], far = 0, duel = 0, farLat = 0, nearLat = 0;
   for (const seed of SEEDS) {
     const env = H.loadGame({ seed });
     H.setupWeekend(env, { trackIdx: T.idx, diff: DIFF, laps: LAPS });
     H.startRaceAt(env, 11); H.lightsOut(env); H.noRetirements(env);
     const r = env.evalIn(PROBE);
-    ev = ev.concat(r.ev); far += r.farFrames; duel += r.duelFrames;
+    ev = ev.concat(r.ev); far += r.farFrames; duel += r.duelFrames; farLat += r.farLat; nearLat += r.nearLat;
   }
   const inside = ev.filter(e => e.side === e.ins).length;
   const along = ev.filter(e => Math.abs(e.dd) < 6.04).length;
@@ -90,8 +93,9 @@ for (const T of H.tracks(true)) {
   console.log(`   НА ВХОДЕ: сбоку (корпуса перекрываются) ${along} = ${pct(along, ev.length)} · отошёл вбок >1.5 м ${wide} = ${pct(wide, ev.length)}`);
   console.log(`   сторона ВНУТРЕННЯЯ для этого поворота: ${inside} = ${pct(inside, ev.length)}`);
   console.log(`   атака вдали от любого торможения (>150 м): ${pct(far, duel)} кадро-машин из ${duel}`);
+  console.log(`   поперечный ход ПОД АТАКОЙ: вдали от торможения ${farLat.toFixed(0)} м, на подходе и в повороте ${nearLat.toFixed(0)} м`);
   console.log('');
-  TOT.ev += ev.length; TOT.inside += inside; TOT.alongside += along; TOT.wide += wide; TOT.far += far; TOT.duel += duel; TOT.e0 = TOT.e0.concat(e0);
+  TOT.ev += ev.length; TOT.inside += inside; TOT.alongside += along; TOT.wide += wide; TOT.far += far; TOT.duel += duel; TOT.farLat = (TOT.farLat||0)+farLat; TOT.nearLat = (TOT.nearLat||0)+nearLat; TOT.e0 = TOT.e0.concat(e0);
 }
 console.log(`ИТОГО: защёлок ${TOT.ev} · до входа медиана ${med(TOT.e0)} м · сбоку на входе ${pct(TOT.alongside, TOT.ev)}`
   + ` · вбок >1.5 м ${pct(TOT.wide, TOT.ev)} · внутренняя сторона ${pct(TOT.inside, TOT.ev)} · вдали от торможения ${pct(TOT.far, TOT.duel)}`);

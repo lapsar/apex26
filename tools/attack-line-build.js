@@ -49,6 +49,8 @@ const SIDE = arg('side', '') === 'inside';
 const HOLD = +arg('hold', '0');
 const SNAP = +arg('snap', '0');
 const HOLDALL = arg('holdall', '0') === '1';
+const ATKB = +arg('atkbrake', '1');     // во сколько раз позже тормозит тот, кто пошёл в атаку
+const ATKC = +arg('atkcost', '1');      // и во сколько раз хуже он при этом проходит апекс — плата за поздний тормоз
 const KC = +arg('kc', '0.04');          // |K| входа в поворот; порог сверен — 17/26/24 поворота на Монце/Сильверстоуне/Монреале
 const LOOK = +arg('look', '60');        // на сколько точек вперёд искать вход (60 x 4 м = 240 м)
 
@@ -96,5 +98,19 @@ if (SNAP > 0) {
     let nl=c.lane+(mix-c.lane)*Math.min(1,dt*Math.max(__snap,0.5+eff*1.2+(c.errPh?2.2:0)));`);
 }
 
+/* 4. САМ ПРИЁМ: атакующий тормозит позже и платит за это апексом.
+      Без платы это просто более быстрый болид, а не размен. Приём уже был написан
+      в v1.15.78 (`overtake-build.js --atkbrake`), но на фоне из 40 % атак его не было
+      видно вовсе; теперь атака редка (22-30 %), и мерить его надо заново — так и
+      записано в §10 п.16. Под флагом не действует: там обгон закрыт правилом дистанции. */
+if (ATKB !== 1 || ATKC !== 1) {
+  sub(/function aiTarget\(iu,speed,base,cornerK\)\{/, 'function aiTarget(iu,speed,base,cornerK,brk){');
+  sub(/const v=Math\.sqrt\(vc\*vc\+2\*AIBRAKE\*a\*seg\);/, 'const v=Math.sqrt(vc*vc+2*(brk||AIBRAKE)*a*seg);');
+  sub(/    let free=aiTarget\(iu,c\.speed,c\.base\*em\*\(1\+\(tf\?TOW_GAIN\*tf\.tow:0\)\),\(c\.cornerK\|\|34\)\*em\*\(1-\(tf\?DIRTY_LOSS\*tf\.dirty:0\)\)\);/,
+`    let free=aiTarget(iu,c.speed,c.__ab=c.base*em*(1+(tf?TOW_GAIN*tf.tow:0)),c.__ak=(c.cornerK||34)*em*(1-(tf?DIRTY_LOSS*tf.dirty:0)));`);
+  sub(/    let target=free;/,
+`    let target=(c.duel&&!nz&&!na)?aiTarget(iu,c.speed,c.__ab,c.__ak*${ATKC},AIBRAKE*${ATKB}):free;`);
+}
+
 fs.writeFileSync(OUT, src);
-console.error(`опытная сборка: ${OUT} (сторона ${SIDE ? 'ВНУТРЬ' : 'как есть'}, строй ${HOLD || 'нет'}${HOLDALL ? ' + незащёлкнутые' : ''}, подтяг ${SNAP || 'нет'})`);
+console.error(`опытная сборка: ${OUT} (сторона ${SIDE ? 'ВНУТРЬ' : 'как есть'}, строй ${HOLD || 'нет'}${HOLDALL ? ' + незащёлкнутые' : ''}, подтяг ${SNAP || 'нет'}, тормоз x${ATKB}, апекс x${ATKC})`);
