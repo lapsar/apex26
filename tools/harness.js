@@ -123,7 +123,10 @@ function makeDocument() {
       return el;
     },
     querySelector: sel => (/^meta\b/.test(sel) ? makeElement(doc, 'meta') : null),
-    querySelectorAll: () => [],
+    // Педали и кнопки руля выдаются настоящим списком: игра вешает на них разбор касаний,
+    // и без них пробник не может проверить ни нажатие, ни сверку с живыми пальцами.
+    // Прямоугольники — как на ландшафтном экране: две кнопки слева внизу, две справа.
+    querySelectorAll: sel => (/\.kb\b/.test(String(sel)) ? doc._pads : []),
     // слушатели документа ЗАПОМИНАЮТСЯ: игра вешает на них разбор касаний, и пробнику
     // нужно уметь подать туда событие. Само по себе это ничего не меняет — раньше здесь
     // стояла пустышка, а дёргать их некому, кроме пробника.
@@ -132,6 +135,17 @@ function makeDocument() {
     _listeners: docLsn,
     _byId: byId,
   };
+  const PADS = [                                 // c, left, top (ширина/высота 128, как var(--kb) на iPad)
+    ['left', 14, 660], ['right', 156, 660], ['brake', 936, 660], ['gas', 1078, 660]];
+  doc._pads = PADS.map(([c, x, y]) => {
+    const el = makeElement(doc, 'div');
+    el.dataset.c = c; el._classes.add('kb'); if (c === 'gas') el._classes.add('gas');
+    const lsn = {};
+    el.addEventListener = (type, fn) => { (lsn[type] || (lsn[type] = [])).push(fn); };
+    el._listeners = lsn;
+    el.getBoundingClientRect = () => ({ left: x, top: y, right: x + 128, bottom: y + 128, width: 128, height: 128 });
+    return el;
+  });
   doc.documentElement = makeElement(doc, 'html');
   doc.body = makeElement(doc, 'body');
   doc.head = makeElement(doc, 'head');
@@ -200,6 +214,7 @@ function loadGame(opts) {
   const clearTimeoutStub = id => { timeouts.pending.delete(id); };
 
   let vclock = 0;                               // виртуальные часы: performance.now()
+  const winLsn = {};                            // слушатели окна: см. addEventListener ниже
 
   const sandbox = {
     THREE,
@@ -209,7 +224,12 @@ function loadGame(opts) {
     requestAnimationFrame, cancelAnimationFrame,
     setTimeout: setTimeoutStub, clearTimeout: clearTimeoutStub,
     setInterval: () => 0, clearInterval: noop,          // мигание фонарей в меню игре не нужно
-    addEventListener: noop, removeEventListener: noop, dispatchEvent: () => true,
+    // Слушатели ОКНА тоже запоминаются: на них висит освобождение кнопок (pointerup,
+    // pointercancel и сверка с живыми пальцами), и пробнику надо уметь подать туда событие.
+    addEventListener(type, fn) { (winLsn[type] || (winLsn[type] = [])).push(fn); },
+    removeEventListener(type, fn) { const a = winLsn[type]; if (a) { const i = a.indexOf(fn); if (i >= 0) a.splice(i, 1); } },
+    _listeners: winLsn,
+    dispatchEvent: () => true,
     scrollTo: noop, alert: noop,
     innerWidth: opts.width || 1280,
     innerHeight: opts.height || 800,

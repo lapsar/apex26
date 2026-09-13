@@ -167,7 +167,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.15.80</div>
+    <div class="verstamp">v1.15.79</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -441,18 +441,6 @@ const FOLLOW_BRAKE=50;                    // м/с²: быстрее собст�
 const DUEL_EDGE=1.0;                      // м/с устойчивого преимущества, с которого болид решается идти на обгон
 const DUEL_STUCK=0.75;                    // доля своего потенциала, ниже которой цель считается застрявшей в трафике и обгоняется независимо от потенциала
 const FOLLOW_LOOK=44;                     // м/с²: с каким замедлением догоняющий готов гасить разницу до переднего (см. подтягивание в очереди)
-/* Манёвр привязан к точке торможения (09.2026). Сторона атаки выбирается не «где
-   просторнее вообще», а ВНУТРЕННЯЯ для поворота, к которому подъезжаем: замер показал,
-   что до правки сторона оказывалась внутренней в 52 % заходов — то есть подбрасыванием
-   монеты. ATK_LIM обязателен вместе с этим: обороняющийся стоит на своей линии в
-   hw*0.42, общий ограничитель полосы — hw*0.62, значит внутри него остаётся 0.20
-   полуширины (1.4 м на Монреале) при нужных для расхождения 2.6 — внутрь физически
-   некуда влезть, и одной сменой стороны ничего не чинится. Коридор раздвигается ТОЛЬКО
-   защёлкнувшему атаку и только пока она жива; под нейтрализацией защёлка снимается,
-   поэтому под флагом раздвинутый коридор никому не достаётся. */
-const ATK_ENTRY_K=0.04;                   // кривизна, с которой участок считается поворотом: по ней ищется точка входа впереди
-const ATK_ENTRY_LOOK=60;                  // точек вперёд (240 м): дальше искать вход бессмысленно — до него ещё целая прямая
-const ATK_LIM=0.68;                       // доля полуширины: коридор атакующему. 0.72 даёт ту же позицию вдвое дороже по трафику, 0.75 не добавляет ничего
 const DUEL_TIME=5.0;                      // с: не прошёл за это время — вернулся в строй и попробует в другом месте. Было 9: подбор (§11) показал, что длинная попытка держит болида за безнадёжным обгоном, а 5 с — и по замеру лучше, и совпадает с тем, сколько атака длится в жизни
 /* Съезд с гоночной траектории обязан СТОИТЬ ВРЕМЕНИ, иначе борьба бок о бок ничем
    не кончается. До 09.2026 полоса на скорость не влияла вовсе: `aiTarget` считает темп
@@ -3658,8 +3646,6 @@ function update(dt){
     if(c.ovLock){const o=c.ovLock;                                           // committed to passing a stopped car: hold the line until actually past it
       if(o.retired||o.speed>c.pace*0.5||c.dist>o.dist+3.0||o.dist-c.dist>20)c.ovLock=null;   // without this the car drifts back to the racing line the moment it clears the 2.3 m "same lane" window, gets caught again and crawls behind forever
       else want=o.lane+c.ovDir*3.4;}
-    const entA=entryAhead(iu);                                               // точка входа в ближайший поворот впереди
-    const entSide=entA>0?-Math.sign(track.K[(iu+entA)%track.M]):0;            // внутренняя сторона этого поворота: K>0 — левый, значит внутри это -1
     const crawler=!!c.ahd&&c.ahd.speed<c.pace*0.5;                           // stopped or barely moving
     const slowAhd=nz&&c.ahd?c.ahd.speed<NEUT_STOPPED:false;                  // ...и порог абсолютный, а не доля темпа: см. NEUT_STOPPED
     /* Начатый обгон доводится до конца — см. DUEL_EDGE наверху. Держится ЦЕЛЬ, а не «кто
@@ -3680,8 +3666,7 @@ function update(dt){
           (Монца/Норма «рядом с игроком» 29.1 -> 39.9 %). Порог 6 м/с у ovLock для этого
           слишком низкий — он про буквально вставшего. */
        &&(c.paceAvg>c.ahd.paceAvg+DUEL_EDGE||c.ahd.spdAvg<c.ahd.paceAvg*DUEL_STUCK)){                                  // вставший — не сюда: им занимается ovLock со своими правилами
-      c.duel=c.ahd;c.duelT=DUEL_TIME;c.duelDir=freeSide(c,c.ahd.lane,entSide||c.ovSide,hw);}   // сторона — внутренняя для поворота впереди; freeSide оставлен сторожем: занятую внутреннюю он по-прежнему обходит снаружи
-    else if(c.duel&&entSide&&Math.abs(c.lane-line)<1.0)c.duelDir=freeSide(c,c.duel.lane,entSide,hw);   // защёлка жива, а болид ещё не тронулся вбок — можно перецелиться на следующий поворот, не мечась на полпути
+      c.duel=c.ahd;c.duelT=DUEL_TIME;c.duelDir=freeSide(c,c.ahd.lane,c.ovSide,hw);}   // сторону выбираем один раз и там, где просторнее: иначе двое лезут в одну щель
     if(c.ahd&&c.gp<20&&c.pace>c.ahd.speed+1.0&&(!na||slowAhd)&&(!afterApex||crawler||c.ovLock||c.duel===c.ahd)){              // faster potential -> go around. Under yellow/VSC only a car that cannot hold the pace may be passed — that is the rule, and without it a queue would crawl behind a stopped car for ever (v1.15.26)
       let ov=c.ovSide, off=2.6;
       if(crawler){                                                           // ahead much slower/stopped: take the open side (toward centre) and clear fully
@@ -3692,7 +3677,7 @@ function update(dt){
       else if(c.duel===c.ahd)ov=c.duelDir;                                   // сторона выбрана при заходе — не менять её на полпути
       want=c.ahd.lane+ov*off;}
     else if(c.duel&&!c.ovLock)want=c.duel.lane+c.duelDir*2.6;                // цель ушла из моей полосы — значит я уже сбоку; держим линию, пока не проехали
-    const lim=hw*((c.duel&&!c.ovLock)?ATK_LIM:0.62);want=Math.max(-lim,Math.min(lim,want));   // атакующему шире: внутри обороняющегося обычного коридора не хватает на корпус — см. ATK_LIM
+    const lim=hw*0.62;want=Math.max(-lim,Math.min(lim,want));
     let eff=c.settle;
     if((c.ovLock||(c.ahd&&c.gp<20&&c.free>c.ahd.speed+1.0&&c.ahd.speed<6))&&raceTime>c.react+2.0)eff=Math.max(eff,0.92); // rolling up on a near-stopped car (not the grid launch): pull out now
     const mix=c.gridLane+(want-c.gridLane)*eff;
@@ -3904,13 +3889,6 @@ function laneRoom(c,lane){let r=99;
     if(Math.abs(o.dist-c.dist)>CAR_LEN*1.5)continue;
     const g=Math.abs(o.lane-lane);if(g<r)r=g;}
   return r;}
-/* Точка входа в ближайший поворот впереди: сколько до неё точек разбивки и в какую
-   сторону он загибается. Возвращает -1, если болид уже В повороте (тогда занимать
-   позицию поздно), и -2, если впереди до горизонта чистая прямая. */
-function entryAhead(i){const M=track.M;
-  if(Math.abs(track.K[i])>ATK_ENTRY_K)return -1;
-  for(let a=1;a<=ATK_ENTRY_LOOK;a++){if(Math.abs(track.K[(i+a)%M])>ATK_ENTRY_K)return a;}
-  return -2;}
 /* Сторона объезда вставшего. Все, кто едет за ним, читают ОДНУ И ТУ ЖЕ полосу вставшего,
    выбирают одну и ту же сторону и запирают друг друга: замер 08.2026 — очередь из шести
    стояла за вставшим болидом и не объезжала его ни за 25 с. Держимся выбранной стороны,
