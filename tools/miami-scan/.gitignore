@@ -10,3 +10,4 @@ tilecache/
 unrolled_*
 centerline.json
 *.log
+cyan_zones.json
