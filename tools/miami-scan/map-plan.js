@@ -49,13 +49,6 @@ const CORNERS = [[1,378,'правый'],[2,496,'левый'],[3,590,'правы�
   [10,2489,'левый'],[11,3129,'левый'],[12,3257,'правый'],[13,3395,'левый'],[14,3477,'левый'],
   [15,3497,'правый'],[16,3596,'левый'],[17,4921,'левый'],[18,5061,'левый'],[19,5275,'правый']];
 
-// --- Hard Rock Stadium, контур из OSM (way 171419981) — ориентир для сверки со схемой.
-//     Стоит СНАРУЖИ петли: «ближе к стадиону» и «внутренняя сторона» — разные вещи (§7).
-const STADIUM = [[25.958954,-80.238949],[25.959128,-80.238411],[25.959444,-80.238040],[25.959861,-80.237867],
-  [25.960284,-80.237906],[25.960650,-80.238140],[25.960892,-80.238536],[25.960975,-80.239020],[25.960975,-80.240300],
-  [25.960892,-80.240784],[25.960650,-80.241180],[25.960284,-80.241414],[25.959861,-80.241453],[25.959444,-80.241280],
-  [25.959128,-80.240909],[25.958954,-80.240371]];
-
 // ---------------------------------------------------------------- игра
 const env = H.loadGame();
 const idx = H.tracks().findIndex(t => t.key === 'Miami');
@@ -74,6 +67,7 @@ const OBJ = JSON.parse(env.evalIn(`(function(){
     var r={kind:o.kind,name:o.name,side:o.side,off:o.off,d:o.d,w:o.w,h:o.h,shape:o.shape};
     if(o.fromLatLon&&o.toLatLon){r.a=scenIndexAt(h,o.fromLatLon,o.fromS);r.b=scenIndexAt(h,o.toLatLon,o.toS);}
     if(o.latLon){r.at=scenIndexAt(h,o.latLon,o.atS);var q=h.toXZ(o.latLon[0],o.latLon[1]);r.x=q[0];r.z=q[1];}
+    if(o.faceLatLon){var f=h.toXZ(o.faceLatLon[0],o.faceLatLon[1]);r.fx=f[0];r.fz=f[1];}
     out.push(r);});
   return JSON.stringify(out);})()`));
 
@@ -105,14 +99,13 @@ const radius = i => { let r = Infinity;                             // крут�
   for (let d = -6; d <= 6; d++) r = Math.min(r, radGeo(((i + d) % M + M) % M, 5)); return r; };
 
 // -------------------------------------------------------------- масштаб
-const pts = [].concat(P, P.map((_, i) => at(i, HW, 'R')), P.map((_, i) => at(i, HW, 'L')),
-                      STADIUM.map(q => ll2(q[0], q[1])));
+const pts = [].concat(P, P.map((_, i) => at(i, HW, 'R')), P.map((_, i) => at(i, HW, 'L')));
 const minE = Math.min(...pts.map(p => p[0])), maxE = Math.max(...pts.map(p => p[0]));
 const minN = Math.min(...pts.map(p => p[1])), maxN = Math.max(...pts.map(p => p[1]));
 const PAD = 130, SC = 1.18;                                        // 1 м -> SC px, PAD — поле под метки
 const W = Math.round((maxE - minE) * SC) + PAD * 2;
 const HMAP = Math.round((maxN - minN) * SC) + PAD * 2;
-const LEG = MAPONLY ? 0 : 330;                                                   // полоса легенды снизу
+const LEG = MAPONLY ? 0 : 390;                                                   // полоса легенды снизу
 const px = p => [(p[0] - minE) * SC + PAD, (maxN - p[1]) * SC + PAD];
 const fmtP = p => { const q = px(p); return q[0].toFixed(1) + ',' + q[1].toFixed(1); };
 
@@ -122,8 +115,6 @@ const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
 out.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${HMAP + LEG}" viewBox="0 0 ${W} ${HMAP + LEG}" font-family="Helvetica, Arial, sans-serif">`);
 out.push(`<rect width="${W}" height="${HMAP + LEG}" fill="#f7f6f3"/>`);
 
-// стадион
-out.push(`<polygon points="${STADIUM.map(q => fmtP(ll2(q[0], q[1]))).join(' ')}" fill="#e2ded6" stroke="#c9c3b8" stroke-width="1.5"/>`);
 // полотно
 const edgeR = [], edgeL = [];
 for (let i = 0; i < M; i++) { edgeR.push(at(i, HW, 'R')); edgeL.push(at(i, HW, 'L')); }
@@ -166,8 +157,13 @@ for (const o of OBJ) {
     const mid = (o.a + (span >> 1)) % M;
     stands.push({ o, mid, anchor: at(mid, o.off + o.d, o.side), fromS: S[o.a], toS: S[o.b % M], inside: (o.side === 'L') });
   } else {                                                          // прямой объект: коробка w x d вдоль трассы
-    const t = tang(o.at), n = [t[1], -t[0]], sg = o.side === 'R' ? 1 : -1;
+    let t = tang(o.at), n = [t[1], -t[0]];
+    let sg = o.side === 'R' ? 1 : -1;
     const c = [-o.x, o.z], hw2 = o.w / 2, hd = o.d / 2;
+    if (o.fx != null) {                                             // угол задан точкой взгляда — как в игре
+      let outv = [c[0] - (-o.fx), c[1] - o.fz]; const l = Math.hypot(outv[0], outv[1]) || 1;
+      outv = [outv[0] / l, outv[1] / l];
+      t = [-outv[1], outv[0]]; n = outv; sg = 1; }
     const q = [[c[0] - t[0]*hw2 - n[0]*sg*hd, c[1] - t[1]*hw2 - n[1]*sg*hd],
                [c[0] + t[0]*hw2 - n[0]*sg*hd, c[1] + t[1]*hw2 - n[1]*sg*hd],
                [c[0] + t[0]*hw2 + n[0]*sg*hd, c[1] + t[1]*hw2 + n[1]*sg*hd],
@@ -175,9 +171,17 @@ for (const o of OBJ) {
     out.push(`<polygon points="${q.map(fmtP).join(' ')}" fill="#9aa0a6" stroke="#6b7076" stroke-width="1.5"/>`);
     for (let f = 0; f <= 1.0001; f += 0.05)                         // занятое место вдоль всей коробки
       busy.push([c[0] + t[0] * (f - 0.5) * o.w, c[1] + t[1] * (f - 0.5) * o.w, o.d / 2]);
-    later.push(() => { const dir = [n[0] * sg, n[1] * sg];
-      const cc = place([c[0] + dir[0] * hd, c[1] + dir[1] * hd], dir, 42, 9, 14, 8, 14);
-      out.push(label(cc, 'боксы и паддок', 15, '#5f6368')); });
+    const cap = o.kind === 'pit' ? 'боксы и паддок' : (o.name || 'здание');
+    if (o.w > 150 && o.d > 150) {                                   // большая коробка — подпись внутри неё
+      later.push(() => out.push(label([c[0] + n[0] * sg * o.d * 0.5, c[1] + n[1] * sg * o.d * 0.5], cap, 15, '#4a5056')));
+    } else later.push(() => { const dir = [n[0] * sg, n[1] * sg];
+      const anchor = [c[0] + dir[0] * hd, c[1] + dir[1] * hd];
+      const cc = place(anchor, dir, cap.length * 4.2, 9, 14, 8, 14);
+      busy.push([cc[0], cc[1], Math.max(cap.length * 4.2, 12)]);
+      const a = px(anchor), b = px(cc);
+      if (Math.hypot(a[0] - b[0], a[1] - b[1]) > 34)
+        out.push(`<line x1="${a[0].toFixed(1)}" y1="${a[1].toFixed(1)}" x2="${b[0].toFixed(1)}" y2="${b[1].toFixed(1)}" stroke="#6b7076" stroke-width="1" opacity="0.5"/>`);
+      out.push(label(cc, cap, 13, '#5f6368')); });
   }
 }
 
@@ -224,21 +228,6 @@ for (const st of stands) {
 // подпись боксов — после всего, чтобы знать занятые места
 later.forEach(f => f());
 
-// подпись стадиона — в самой свободной точке его контура
-{ const poly = STADIUM.map(q => ll2(q[0], q[1]));
-  const bx = [Math.min(...poly.map(p => p[0])), Math.max(...poly.map(p => p[0]))];
-  const by = [Math.min(...poly.map(p => p[1])), Math.max(...poly.map(p => p[1]))];
-  const LW = 78, LH = 24;                                           // полуразмеры двухстрочной подписи, метры
-  let best = null, bd = -1;
-  for (let x = bx[0]; x < bx[1]; x += 6) for (let y = by[0]; y < by[1]; y += 6) {
-    let d = 1e9; for (const [ox, oy, orad] of busy) {
-      const dx = Math.max(Math.abs(ox - x) - LW, 0), dy = Math.max(Math.abs(oy - y) - LH, 0);
-      d = Math.min(d, Math.hypot(dx, dy) - orad); }
-    if (d > bd) { bd = d; best = [x, y]; } }
-  if (bd < 0) best = [(bx[0] + bx[1]) / 2, by[0] - 40];             // внутри не влезло — кладём под стадион
-  out.push(label(best, 'Hard Rock Stadium', 15, '#8d8579'));
-  out.push(label([best[0], best[1] - 18], '(ориентир, в игре не построен)', 12, '#a39b8f')); }
-
 // север
 out.push(`<g transform="translate(${W - 70},80)"><line x1="0" y1="26" x2="0" y2="-20" stroke="#1a1a1a" stroke-width="2"/><polygon points="0,-28 -7,-12 7,-12" fill="#1a1a1a"/><text x="0" y="46" font-size="15" text-anchor="middle" fill="#1a1a1a">С</text></g>`);
 
@@ -265,7 +254,7 @@ out.push(`<text x="${col}" y="${y0 + 56 + 10 * 20 + 10}" font-size="13" fill="#5
 out.push(`<text x="${col}" y="${y0 + 56 + 10 * 20 + 28}" font-size="13" fill="#5f6368">к концу круга на ~65 м меньше наших (у нас S идёт по осевой).</text>`);
 
 col = PAD + 570;
-out.push(`<text x="${col}" y="${y0 + 30}" font-size="17" font-weight="bold" fill="#1a1a1a">Трибуны (6) — оранжевым</text>`);
+out.push(`<text x="${col}" y="${y0 + 30}" font-size="17" font-weight="bold" fill="#1a1a1a">Трибуны (${stands.length}) — оранжевым</text>`);
 stands.forEach((st, k) => { const y = y0 + 56 + k * 20;
   out.push(`<text x="${col}" y="${y}" font-size="14" fill="#3c4043">${esc(st.o.name)} · ${st.inside ? 'слева по ходу, внутри круга' : 'справа по ходу, снаружи'} · S ${Math.round(st.fromS)}–${Math.round(st.toS)} м</text>`); });
 { const y = y0 + 56 + stands.length * 20;
@@ -275,12 +264,15 @@ stands.forEach((st, k) => { const y = y0 + 56 + k * 20;
   out.push(`<text x="${col}" y="${y + 72}" font-size="13" fill="#5f6368">проверить её может только заезд на устройстве.</text>`); }
 
 col = PAD + 1180;
-const notes = ['Серая коробка через линию старта — боксы и паддок',
-  '(контур из OSM, 284 × 27 м, справа по ходу).',
+const notes = ['Серым — то, что построено коробками: боксы и паддок через линию',
+  'старта, Hard Rock Stadium (274 × 260 м, контур из OSM) и восемь',
+  'гостевых зданий — клубы, ложи и виллы вдоль трассы. Трибунами',
+  'их не называют, но смотрят гонку и с них.',
   '',
-  'Светло-серый контур — Hard Rock Stadium: он стоит СНАРУЖИ',
-  'петли, в игре его нет. На главной прямой внутренняя сторона —',
-  'ЛЕВАЯ, а паддок, боксы и стадион остаются снаружи.',
+  'Стадион стоит СНАРУЖИ петли: проверка точкой говорит, что его',
+  'центр вне контура, а точка в 30 м СЛЕВА от стартовой прямой —',
+  'внутри. Значит на главной прямой внутренняя сторона ЛЕВАЯ,',
+  'а паддок, боксы и стадион остаются снаружи.',
   '',
   'Барьер и зоны вылета у Майами пока ОБОБЩЁННЫЕ: снимков трассы',
   'в гоночной конфигурации не существует, мерить их нечем.',
