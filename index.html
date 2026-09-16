@@ -3279,11 +3279,13 @@ function buildMappedScenery(sc){
     const a=scenIndexAt(h,z.fromLatLon,z.fromS),b=scenIndexAt(h,z.toLatLon,z.toS);
     const arr=zone[z.side==='R'?1:0];let span=(b-a+M)%M;if(span>M/2)return;
     for(let t=0;t<=span;t++)arr[(a+t)%M]={type:z.type,width:z.width};});
-  const surf={gravel:gravelTex(),asphalt:runoffAsphaltTex(),grass:grassTex(),paint:paintTex()};
+  const texOf={gravel:gravelTex,asphalt:runoffAsphaltTex,grass:grassTex,paint:paintTex},surf={};
+  const surfTex=t=>surf[t]||(surf[t]=texOf[t]());   // только для типов, что есть в разметке: текстуры рисуются шумом, и лишняя сдвигает поток случайных чисел всей гонки
   for(const sideSign of [-1,1]){
     const arr=zone[sideSign>0?1:0];
     for(const type of ['gravel','asphalt','grass','paint']){
-      const mat=new THREE.MeshLambertMaterial({map:surf[type],side:THREE.DoubleSide});   // left-side ribbons wind the other way: front-face-only made every LEFT zone invisible
+      if(!arr.some(z=>z&&z.type===type))continue;                  // такого покрытия на трассе нет — не трогаем ни текстуру, ни генератор
+      const mat=new THREE.MeshLambertMaterial({map:surfTex(type),side:THREE.DoubleSide});   // left-side ribbons wind the other way: front-face-only made every LEFT zone invisible
       const wall=i=>(sideSign>0?track.WR[i]:track.WL[i]);
       const kerb=i=>!!(sideSign>0?track.kerbR:track.kerbL)[i];
       const inner=i=>track.HW[i]+(kerb(i)?0.85:-0.05);        // under the kerb where there is one (a hairline gap reads as dark flecks),
