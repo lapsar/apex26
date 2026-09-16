@@ -21,6 +21,7 @@ const PROBES = [
   { key: 'startsync', mod: './probe-start-sync.js' },
   { key: 'grid',      mod: './probe-grid.js' },
   { key: 'wall',      mod: './probe-wall-kinks.js' },
+  { key: 'solid',     mod: './probe-wall-solid.js' },
   { key: 'materials', mod: './probe-materials.js' },
   { key: 'load',      mod: './probe-scene-load.js' },
   { key: 'print',     mod: './probe-track-fingerprint.js' },
