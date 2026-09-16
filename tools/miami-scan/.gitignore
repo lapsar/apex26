@@ -1,0 +1,13 @@
+# кэш тайлов и промежуточные выгрузки: качаются заново, в репозиторий не кладутся
+t_*.jpg
+*.png
+__pycache__/
+real_kerbs.json
+miami_pts.json
+edges.json
+us-2022.geojson
+tilecache/
+unrolled_*
+centerline.json
+*.log
+cyan_zones.json
