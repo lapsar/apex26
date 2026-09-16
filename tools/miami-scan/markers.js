@@ -6,6 +6,9 @@
    ОБОБЩЁННЫЙ: сдвинешь `runoff` в spec — и все девять щитов надо пересчитать.
    Тогда достаточно снова запустить этот скрипт и вставить его вывод.
 
+   Барьер берётся ТОТ ЖЕ, что строит игра: если у трассы есть разметка `rail`,
+   профиль считает wallFromRail, иначе обобщённый buildWallProfile.
+
    ПРАВИЛО ПОСАДКИ (то же, что у Монреаля, v1.15.24): latLon задаёт СТОЙКУ,
    она стоит на 0.30 м ЗА отбойником, полотно свешивается от неё к трассе.
    Сторона — ВНЕШНЯЯ по отношению к повороту, к которому щит ведёт (проверено
@@ -34,7 +37,9 @@ const BEHIND=0.30;                       // на столько стойка у�
 
 const env=H.loadGame();
 const idx=H.tracks().findIndex(t=>t.key==='Miami');
-env.evalIn(`track=makeTrack(TRACKS[${idx}]);buildWidth();track.wallOff=track.roadHalf+Math.min(track.runoff,14);buildWallProfile();0`);
+env.evalIn(`track=makeTrack(TRACKS[${idx}]);buildWidth();
+  var sc=SCENERY_BY_KEY[track.spec.key];
+  if(!(sc&&sc.rail&&wallFromRail(sc))){track.wallOff=track.roadHalf+Math.min(track.runoff,14);buildWallProfile();}0`);
 const D=JSON.parse(env.evalIn(`(function(){
   var o={M:track.M,len:track.length,S:Array.from(track.S),HW:Array.from(track.HW),
          WL:Array.from(track.WL),WR:Array.from(track.WR),P:[],R:[]};
