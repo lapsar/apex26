@@ -167,7 +167,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.15.96</div>
+    <div class="verstamp">v1.15.94</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -800,10 +800,8 @@ function grassTex(){return cvtex(64,64,(x,w,h)=>{x.fillStyle='#2f7d3a';x.fillRec
   for(let i=0;i<520;i++){x.fillStyle=`rgba(${25+Math.random()*40|0},${100+Math.random()*80|0},${45+Math.random()*40|0},.6)`;x.fillRect(Math.random()*w,Math.random()*h,2,3);}},60,60);}
 function gravelTex(){return cvtex(64,64,(x,w,h)=>{x.fillStyle='#b7a279';x.fillRect(0,0,w,h);
   for(let i=0;i<600;i++){const g=150+Math.random()*70|0;x.fillStyle=`rgba(${g},${g-20},${g-70},.6)`;x.fillRect(Math.random()*w,Math.random()*h,2,2);}},30,30);}
-function paintTex(){return cvtex(64,64,(x,w,h)=>{x.fillStyle='#17b5c8';x.fillRect(0,0,w,h);   // бирюзовая краска зон вылета: у Майами ею покрыта вся зона.
-  // Цвет выбрал владелец (v1.15.96): было #46b4c8. Зерно строится тем же числом бросков
-  // (300), поэтому поток случайных чисел не сдвигается и ни один пробник этого не видит.
-  for(let i=0;i<300;i++){const g=Math.random()*26|0;x.fillStyle=`rgba(${11+g},${171+g},${190+g},.5)`;x.fillRect(Math.random()*w,Math.random()*h,2,2);}},1,60);}
+function paintTex(){return cvtex(64,64,(x,w,h)=>{x.fillStyle='#46b4c8';x.fillRect(0,0,w,h);   // бирюзовая краска зон вылета: у Майами ею покрыта вся зона
+  for(let i=0;i<300;i++){const g=Math.random()*26|0;x.fillStyle=`rgba(${58+g},${170+g},${190+g},.5)`;x.fillRect(Math.random()*w,Math.random()*h,2,2);}},1,60);}
 function lotTex(){return cvtex(64,64,(x,w,h)=>{x.fillStyle='#5b6067';x.fillRect(0,0,w,h);        // парковки вокруг Майами: там не газон, а сплошной асфальт
   for(let i=0;i<420;i++){const g=74+Math.random()*26|0;x.fillStyle=`rgba(${g},${g+2},${g+6},.5)`;x.fillRect(Math.random()*w,Math.random()*h,2,2);}},30,30);}
 function crowdTex(){return cvtex(128,64,(x,w,h)=>{x.fillStyle='#20242c';x.fillRect(0,0,w,h);
@@ -2707,19 +2705,7 @@ const SCENERY_MIAMI = {
     // и сверена с тем, где на снимке вообще есть место.
     // Turn 1: снаружи правого поворота 1, то есть СЛЕВА. На снимке там стоит каркас
     // трибуны — единственная из четырёх, чьё место подтверждено.
-    // СПЛОШНАЯ трибуна поворотов 1-2-3 (v1.15.95, решение владельца): официальный сайт
-    // и называет её «Turn 1 North 1, 2, 3», а у нас она покрывала один первый поворот.
-    // Дугой она держится до 440 м (излом 15.8°), дальше складывается, поэтому хвост
-    // до 524 идёт отдельной лентой вплотную; её выпрямляет STRAIGHTEN_STANDS.
-    {kind:'grandstand', shape:'arc', name:'Turn 1', fromS:300, toS:440, side:'L', off:25, h:12, d:24, fromLatLon:[25.958394,-80.236063], toLatLon:[25.957570,-80.235496]},
-    // Продолжение той же полосы, вплотную: вместе они дают сплошную трибуну 300..524.
-    // Одной лентой их не сделать — замер: хорда выпрямленной трибуны длиннее 120 м
-    // перерезает полотно в петле (при 224 м подходит к осевой на 0.5 м).
-    // Хвост стоит ВРОВЕНЬ с Turn 1 (off 25, h 12, d 24) — v1.15.96. Прежде он был
-    // на 5 м ближе к трассе и на 6 м ниже, и с места водителя его ближний угол
-    // залезал на хвост Turn 1: в плане ленты расходятся на 12.9 м, а в кадре
-    // накладывались. Владелец увидел это на устройстве.
-    {kind:'grandstand', shape:'arc', name:'Villas at East Campus', fromS:448, toS:524, side:'L', off:25, h:12, d:24, fromLatLon:[25.957529,-80.235562], toLatLon:[25.957007,-80.235978]},
+    {kind:'grandstand', shape:'arc', name:'Turn 1', fromS:300, toS:400, side:'L', off:25, h:12, d:30, fromLatLon:[25.958393,-80.236063], toLatLon:[25.957857,-80.235285]},
     // Marina: снаружи тройного левого 6-7-8, то есть СПРАВА. Внутри петли песчаная
     // площадка («пляж»), снаружи парковка — место есть только снаружи.
     // Ловушка: голубая полоса вдоль трассы на снимке — это ПОКРАШЕННАЯ зона вылета,
@@ -2755,28 +2741,14 @@ const SCENERY_MIAMI = {
     // УГОЛ У КАЖДОГО ЗАДАН ЯВНО (`faceLatLon`), и это не украшение: без него строитель
     // ставит коробку по ХОРДЕ участка, и в связке 2-3 длинное здание срезало поворот —
     // ребро вылезало в 0.3 м от осевой. Поймал пробник `clear`.
-    // ГОСТЕВЫЕ ПОСТРОЙКИ — ТРИБУНЫ, а не коробки (v1.15.95, решение владельца):
-    // «раз уж они выполняют роль трибун». Прежде стояли зданиями (v1.15.86) и глухой
-    // серой стеной сливались с бортом. Villas at East Campus влилась в сплошную Turn 1.
-    // Глубины у двух урезаны против коробок: Vista 43->22, иначе лента дотягивается
-    // до соседнего витка петли (замер: 0.5 м до Sunrise Key A).
-    {kind:'grandstand', shape:'arc', name:'Vista at Turn 1', fromS:288, toS:376, side:'R', off:32, h:10, d:22, fromLatLon:[25.958449,-80.236166], toLatLon:[25.958024,-80.235423]},
-    // Две виллы Sunrise Key слиты в одну ленту: раздельными лентами они пересекались
-    // (замер: 0.2 м друг до друга — на экране одна сложенная куча).
-    {kind:'grandstand', shape:'arc', name:'Villas at Sunrise Key', fromS:472, toS:568, side:'R', off:17, h:6, d:14, fromLatLon:[25.957406,-80.235759], toLatLon:[25.956613,-80.235940]},
-    {kind:'grandstand', shape:'arc', name:'Veranda Club', fromS:660, toS:748, side:'L', off:21, h:9, d:16, fromLatLon:[25.955972,-80.236457], toLatLon:[25.955756,-80.237298]},
-    {kind:'grandstand', shape:'arc', name:'Concourse Club', fromS:700, toS:732, side:'R', off:15, h:9, d:24, fromLatLon:[25.955846,-80.236830], toLatLon:[25.955774,-80.237140]},
-    // The 72 Club (S 952..1000) и The Palm Club (S 1028..1076) УБРАНЫ в v1.15.96
-    // по решению владельца: по 44 м длиной, они стояли вплотную к стадиону и рядом
-    // с ним читались обрезками. Самая маленькая из оставшихся — Concourse Club (28 м),
-    // но она стоит за 300 м до стадиона и в одном кадре с ним не оказывается.
-
-
-
-
-
-
-
+    {kind:'building', name:'Vista at Turn 1', atS:332, side:'R', off:32, w:89, h:10, d:43, latLon:[25.958002,-80.235966], faceLatLon:[25.958553,-80.234933]},
+    {kind:'building', name:'Villas at East Campus', atS:480, side:'L', off:34, w:79, h:6, d:32, latLon:[25.957112,-80.235612], faceLatLon:[25.957734,-80.236594]},
+    {kind:'building', name:'Villas at Sunrise Key A', atS:496, side:'R', off:13, w:50, h:6, d:11, latLon:[25.957327,-80.236030], faceLatLon:[25.956736,-80.235025]},
+    {kind:'building', name:'Villas at Sunrise Key B', atS:540, side:'R', off:20, w:53, h:6, d:14, latLon:[25.956813,-80.236146], faceLatLon:[25.957103,-80.234991]},
+    {kind:'building', name:'Veranda Club', atS:704, side:'L', off:21, w:86, h:9, d:24, latLon:[25.955660,-80.236802], faceLatLon:[25.956745,-80.236793]},
+    {kind:'building', name:'Concourse Club', atS:716, side:'R', off:15, w:35, h:9, d:24, latLon:[25.955937,-80.237034], faceLatLon:[25.954894,-80.236703]},
+    {kind:'building', name:'The 72 Club', atS:976, side:'R', off:21, w:46, h:9, d:18, latLon:[25.956658,-80.239277], faceLatLon:[25.955737,-80.239912]},
+    {kind:'building', name:'The Palm Club', atS:1052, side:'R', off:21, w:47, h:9, d:18, latLon:[25.957013,-80.239916], faceLatLon:[25.956093,-80.240552]},
 
     // ---- HARD ROCK STADIUM — одна коробка (09.2026, решение владельца «вставить просто
     // как коробку»). Контур из OSM (way 171419981, 40 точек), от него взят минимальный
@@ -2786,21 +2758,13 @@ const SCENERY_MIAMI = {
     // Высота 45 м — ОЦЕНКА (обмерить нечем).
     // `faceLatLon` здесь не «куда смотрят зрители», а способ задать УГОЛ: стадион повёрнут
     // к трассе под 45°, и без него коробку развернуло бы по хорде трассы.
-    // Цвет стадиона — просьба владельца. v1.15.95: серо-бежевые стены вместо серо-синих
-    // и светлая полоса «остекления» вместо почти чёрной. v1.15.96: стены ещё светлее,
-    // остекление — синее стекло вместо серого. Причина, по которой серый там не работает:
-    // полусферический свет мира светит снизу оливковым (#5b6b4a), и любая нейтральная
-    // поверхность на вертикальной стене уезжает в зелёный. Стекло поэтому берётся
-    // заведомо синим, а стена — светлее, чем «бежевый» на палитре.
-    // Цена: остекление перестало совпадать с материалом каркаса трибун и стоит
-    // +1 меш и +1 вызов отрисовки (44 -> 45 мешей, 493 -> 494 при потолке 495).
-    {kind:'building', name:'Hard Rock Stadium', atS:1012, side:'R', off:34, w:274, h:45, d:260, wallColor:0xece4d6, glassColor:0x86c3ea, latLon:[25.956920,-80.239515], faceLatLon:[25.955763,-80.240298]},
+    {kind:'building', name:'Hard Rock Stadium', atS:1012, side:'R', off:34, w:274, h:45, d:260, latLon:[25.956920,-80.239515], faceLatLon:[25.955763,-80.240298]},
 
   ],
 };
 
 const SCENERY_BY_KEY={Silverstone:SCENERY_SILVERSTONE,Monza:SCENERY_MONZA,Montreal:SCENERY_MONTREAL,Miami:SCENERY_MIAMI};
-const STRAIGHTEN_STANDS={Monza:true,Silverstone:['Becketts'],Miami:true};   // true = every folding stand; a list = only those (Silverstone's others were fine as arcs). Montreal has none: the one stand that folded (Podium Club) turned out to be a hospitality box, not a grandstand, and was dropped
+const STRAIGHTEN_STANDS={Monza:true,Silverstone:['Becketts']};   // true = every folding stand; a list = only those (Silverstone's others were fine as arcs). Montreal has none: the one stand that folded (Podium Club) turned out to be a hospitality box, not a grandstand, and was dropped
 const SCEN_ORIGIN={                                            // contour means, exactly as mktracks.py computes them
   Silverstone:{lat0:52.071772149,lon0:-1.016357694,mlon:68425.496628},
   Monza:{lat0:45.623420669,lon0:9.286587806,mlon:77854.005173},
@@ -3342,21 +3306,8 @@ function makeDistanceBoards(THREE,mk,mats,helpers){
 
 function makeBuilding(THREE,o,mats){
   const g=new THREE.Group(), w=o.w,h=o.h,d=o.d;
-  /* Цвета по умолчанию ОБЩИЕ для всех зданий игры (пит-билдинги четырёх трасс),
-     менять их глобально нельзя. Ключи wallColor/glassColor правят ОДНО здание:
-     у стадиона Майами владелец попросил светлые стены и СТЕКЛЯННОЕ остекление
-     вместо почти чёрного. Цена — по одному мешу на каждый новый материал,
-     поэтому ключи ставятся точечно, а не всем подряд.
-     Полоса остекления — общая пропорция всех зданий игры (42 % высоты, от 3 %
-     до 45 %); сузить её у одного стадиона значило бы завести ещё один ключ. */
-  const pick=(c,def)=>{ if(!c)return def;
-    for(const k in mats){const m=mats[k];                      // тот же цвет уже есть — берём его,
-      if(m&&m.isMaterial&&!m.map&&m.color&&m.color.getHex()===c)return m;}   // иначе это лишний меш и лишний вызов отрисовки
-    if(!mats['c'+c])mats['c'+c]=new THREE.MeshLambertMaterial({color:c});
-    return mats['c'+c];};
-  const bm=pick(o.wallColor,mats.build), gm=pick(o.glassColor,mats.glass);
-  const body=new THREE.Mesh(new THREE.BoxGeometry(w,h,d), bm); body.position.set(0,h/2,d/2); g.add(body);
-  const gl=new THREE.Mesh(new THREE.BoxGeometry(w*0.98,h*0.42,0.5), gm); gl.position.set(0,h*0.24,-0.02); g.add(gl);
+  const body=new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mats.build); body.position.set(0,h/2,d/2); g.add(body);
+  const gl=new THREE.Mesh(new THREE.BoxGeometry(w*0.98,h*0.42,0.5), mats.glass); gl.position.set(0,h*0.24,-0.02); g.add(gl);
   return g;
 }
 

@@ -167,7 +167,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.15.96</div>
+    <div class="verstamp">v1.15.95</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -800,10 +800,8 @@ function grassTex(){return cvtex(64,64,(x,w,h)=>{x.fillStyle='#2f7d3a';x.fillRec
   for(let i=0;i<520;i++){x.fillStyle=`rgba(${25+Math.random()*40|0},${100+Math.random()*80|0},${45+Math.random()*40|0},.6)`;x.fillRect(Math.random()*w,Math.random()*h,2,3);}},60,60);}
 function gravelTex(){return cvtex(64,64,(x,w,h)=>{x.fillStyle='#b7a279';x.fillRect(0,0,w,h);
   for(let i=0;i<600;i++){const g=150+Math.random()*70|0;x.fillStyle=`rgba(${g},${g-20},${g-70},.6)`;x.fillRect(Math.random()*w,Math.random()*h,2,2);}},30,30);}
-function paintTex(){return cvtex(64,64,(x,w,h)=>{x.fillStyle='#17b5c8';x.fillRect(0,0,w,h);   // бирюзовая краска зон вылета: у Майами ею покрыта вся зона.
-  // Цвет выбрал владелец (v1.15.96): было #46b4c8. Зерно строится тем же числом бросков
-  // (300), поэтому поток случайных чисел не сдвигается и ни один пробник этого не видит.
-  for(let i=0;i<300;i++){const g=Math.random()*26|0;x.fillStyle=`rgba(${11+g},${171+g},${190+g},.5)`;x.fillRect(Math.random()*w,Math.random()*h,2,2);}},1,60);}
+function paintTex(){return cvtex(64,64,(x,w,h)=>{x.fillStyle='#46b4c8';x.fillRect(0,0,w,h);   // бирюзовая краска зон вылета: у Майами ею покрыта вся зона
+  for(let i=0;i<300;i++){const g=Math.random()*26|0;x.fillStyle=`rgba(${58+g},${170+g},${190+g},.5)`;x.fillRect(Math.random()*w,Math.random()*h,2,2);}},1,60);}
 function lotTex(){return cvtex(64,64,(x,w,h)=>{x.fillStyle='#5b6067';x.fillRect(0,0,w,h);        // парковки вокруг Майами: там не газон, а сплошной асфальт
   for(let i=0;i<420;i++){const g=74+Math.random()*26|0;x.fillStyle=`rgba(${g},${g+2},${g+6},.5)`;x.fillRect(Math.random()*w,Math.random()*h,2,2);}},30,30);}
 function crowdTex(){return cvtex(128,64,(x,w,h)=>{x.fillStyle='#20242c';x.fillRect(0,0,w,h);
@@ -2715,11 +2713,7 @@ const SCENERY_MIAMI = {
     // Продолжение той же полосы, вплотную: вместе они дают сплошную трибуну 300..524.
     // Одной лентой их не сделать — замер: хорда выпрямленной трибуны длиннее 120 м
     // перерезает полотно в петле (при 224 м подходит к осевой на 0.5 м).
-    // Хвост стоит ВРОВЕНЬ с Turn 1 (off 25, h 12, d 24) — v1.15.96. Прежде он был
-    // на 5 м ближе к трассе и на 6 м ниже, и с места водителя его ближний угол
-    // залезал на хвост Turn 1: в плане ленты расходятся на 12.9 м, а в кадре
-    // накладывались. Владелец увидел это на устройстве.
-    {kind:'grandstand', shape:'arc', name:'Villas at East Campus', fromS:448, toS:524, side:'L', off:25, h:12, d:24, fromLatLon:[25.957529,-80.235562], toLatLon:[25.957007,-80.235978]},
+    {kind:'grandstand', shape:'arc', name:'Villas at East Campus', fromS:448, toS:524, side:'L', off:20, h:6, d:18, fromLatLon:[25.957529,-80.235562], toLatLon:[25.957007,-80.235978]},
     // Marina: снаружи тройного левого 6-7-8, то есть СПРАВА. Внутри петли песчаная
     // площадка («пляж»), снаружи парковка — место есть только снаружи.
     // Ловушка: голубая полоса вдоль трассы на снимке — это ПОКРАШЕННАЯ зона вылета,
@@ -2766,10 +2760,8 @@ const SCENERY_MIAMI = {
     {kind:'grandstand', shape:'arc', name:'Villas at Sunrise Key', fromS:472, toS:568, side:'R', off:17, h:6, d:14, fromLatLon:[25.957406,-80.235759], toLatLon:[25.956613,-80.235940]},
     {kind:'grandstand', shape:'arc', name:'Veranda Club', fromS:660, toS:748, side:'L', off:21, h:9, d:16, fromLatLon:[25.955972,-80.236457], toLatLon:[25.955756,-80.237298]},
     {kind:'grandstand', shape:'arc', name:'Concourse Club', fromS:700, toS:732, side:'R', off:15, h:9, d:24, fromLatLon:[25.955846,-80.236830], toLatLon:[25.955774,-80.237140]},
-    // The 72 Club (S 952..1000) и The Palm Club (S 1028..1076) УБРАНЫ в v1.15.96
-    // по решению владельца: по 44 м длиной, они стояли вплотную к стадиону и рядом
-    // с ним читались обрезками. Самая маленькая из оставшихся — Concourse Club (28 м),
-    // но она стоит за 300 м до стадиона и в одном кадре с ним не оказывается.
+    {kind:'grandstand', shape:'arc', name:'The 72 Club', fromS:952, toS:1000, side:'R', off:21, h:9, d:18, fromLatLon:[25.956378,-80.239171], toLatLon:[25.956602,-80.239581]},
+    {kind:'grandstand', shape:'arc', name:'The Palm Club', fromS:1028, toS:1076, side:'R', off:21, h:9, d:18, fromLatLon:[25.956734,-80.239820], toLatLon:[25.956960,-80.240230]},
 
 
 
@@ -2786,15 +2778,9 @@ const SCENERY_MIAMI = {
     // Высота 45 м — ОЦЕНКА (обмерить нечем).
     // `faceLatLon` здесь не «куда смотрят зрители», а способ задать УГОЛ: стадион повёрнут
     // к трассе под 45°, и без него коробку развернуло бы по хорде трассы.
-    // Цвет стадиона — просьба владельца. v1.15.95: серо-бежевые стены вместо серо-синих
-    // и светлая полоса «остекления» вместо почти чёрной. v1.15.96: стены ещё светлее,
-    // остекление — синее стекло вместо серого. Причина, по которой серый там не работает:
-    // полусферический свет мира светит снизу оливковым (#5b6b4a), и любая нейтральная
-    // поверхность на вертикальной стене уезжает в зелёный. Стекло поэтому берётся
-    // заведомо синим, а стена — светлее, чем «бежевый» на палитре.
-    // Цена: остекление перестало совпадать с материалом каркаса трибун и стоит
-    // +1 меш и +1 вызов отрисовки (44 -> 45 мешей, 493 -> 494 при потолке 495).
-    {kind:'building', name:'Hard Rock Stadium', atS:1012, side:'R', off:34, w:274, h:45, d:260, wallColor:0xece4d6, glassColor:0x86c3ea, latLon:[25.956920,-80.239515], faceLatLon:[25.955763,-80.240298]},
+    // Цвет стадиона — просьба владельца (v1.15.95): серо-бежевые стены вместо
+    // серо-синих и серо-голубое «остекление» вместо почти чёрной полосы внизу.
+    {kind:'building', name:'Hard Rock Stadium', atS:1012, side:'R', off:34, w:274, h:45, d:260, wallColor:0xc9c3b4, glassColor:0x9aa0a6, latLon:[25.956920,-80.239515], faceLatLon:[25.955763,-80.240298]},
 
   ],
 };
@@ -3344,11 +3330,9 @@ function makeBuilding(THREE,o,mats){
   const g=new THREE.Group(), w=o.w,h=o.h,d=o.d;
   /* Цвета по умолчанию ОБЩИЕ для всех зданий игры (пит-билдинги четырёх трасс),
      менять их глобально нельзя. Ключи wallColor/glassColor правят ОДНО здание:
-     у стадиона Майами владелец попросил светлые стены и СТЕКЛЯННОЕ остекление
-     вместо почти чёрного. Цена — по одному мешу на каждый новый материал,
-     поэтому ключи ставятся точечно, а не всем подряд.
-     Полоса остекления — общая пропорция всех зданий игры (42 % высоты, от 3 %
-     до 45 %); сузить её у одного стадиона значило бы завести ещё один ключ. */
+     у стадиона Майами владелец попросил серо-бежевые стены и серо-голубое
+     остекление вместо почти чёрного. Цена — по одному мешу на каждый новый
+     материал, поэтому ключи ставятся точечно, а не всем подряд. */
   const pick=(c,def)=>{ if(!c)return def;
     for(const k in mats){const m=mats[k];                      // тот же цвет уже есть — берём его,
       if(m&&m.isMaterial&&!m.map&&m.color&&m.color.getHex()===c)return m;}   // иначе это лишний меш и лишний вызов отрисовки

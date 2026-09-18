@@ -167,7 +167,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.15.96</div>
+    <div class="verstamp">v1.15.90</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -800,10 +800,8 @@ function grassTex(){return cvtex(64,64,(x,w,h)=>{x.fillStyle='#2f7d3a';x.fillRec
   for(let i=0;i<520;i++){x.fillStyle=`rgba(${25+Math.random()*40|0},${100+Math.random()*80|0},${45+Math.random()*40|0},.6)`;x.fillRect(Math.random()*w,Math.random()*h,2,3);}},60,60);}
 function gravelTex(){return cvtex(64,64,(x,w,h)=>{x.fillStyle='#b7a279';x.fillRect(0,0,w,h);
   for(let i=0;i<600;i++){const g=150+Math.random()*70|0;x.fillStyle=`rgba(${g},${g-20},${g-70},.6)`;x.fillRect(Math.random()*w,Math.random()*h,2,2);}},30,30);}
-function paintTex(){return cvtex(64,64,(x,w,h)=>{x.fillStyle='#17b5c8';x.fillRect(0,0,w,h);   // бирюзовая краска зон вылета: у Майами ею покрыта вся зона.
-  // Цвет выбрал владелец (v1.15.96): было #46b4c8. Зерно строится тем же числом бросков
-  // (300), поэтому поток случайных чисел не сдвигается и ни один пробник этого не видит.
-  for(let i=0;i<300;i++){const g=Math.random()*26|0;x.fillStyle=`rgba(${11+g},${171+g},${190+g},.5)`;x.fillRect(Math.random()*w,Math.random()*h,2,2);}},1,60);}
+function paintTex(){return cvtex(64,64,(x,w,h)=>{x.fillStyle='#46b4c8';x.fillRect(0,0,w,h);   // бирюзовая краска зон вылета: у Майами ею покрыта вся зона
+  for(let i=0;i<300;i++){const g=Math.random()*26|0;x.fillStyle=`rgba(${58+g},${170+g},${190+g},.5)`;x.fillRect(Math.random()*w,Math.random()*h,2,2);}},1,60);}
 function lotTex(){return cvtex(64,64,(x,w,h)=>{x.fillStyle='#5b6067';x.fillRect(0,0,w,h);        // парковки вокруг Майами: там не газон, а сплошной асфальт
   for(let i=0;i<420;i++){const g=74+Math.random()*26|0;x.fillStyle=`rgba(${g},${g+2},${g+6},.5)`;x.fillRect(Math.random()*w,Math.random()*h,2,2);}},30,30);}
 function crowdTex(){return cvtex(128,64,(x,w,h)=>{x.fillStyle='#20242c';x.fillRect(0,0,w,h);
@@ -1050,7 +1048,6 @@ function wallRibbonClipped(off,height,mat){const M=track.M,pos=[],uv=[],idx=[];l
 //     Мы поребрики и разметку НЕ размечали — это шаг «дорога/линии» движка.
 // ---------------------------------------------------------------------------
 const SCENERY_SILVERSTONE = {
-  kerbSeam: true,          // закрыть шов голого асфальта на въезде в поребрик (4 места)
   // ЗОНЫ ВЫЛЕТА: лента на внешней стороне поворота. type: gravel|asphalt|grass
   runoff: [
     {fromS:295,toS:431,side:'L',type:'asphalt',width:35, fromLatLon:[52.070951,-1.020103], toLatLon:[52.071297,-1.018355], refLatLon:[52.071467,-1.019401]}, // Abbey
@@ -1414,7 +1411,6 @@ const SCENERY_SILVERSTONE = {
 ============================================================================ */
 
 const SCENERY_MONZA = {
-  kerbSeam: true,          // закрыть шов голого асфальта на въезде в поребрик (2 места)
   // БРОВКА: непрерывная травяная кайма вдоль всей кромки, обе стороны.
   verge: {offInner:8, offOuter:18, type:'grass'},
 
@@ -1438,10 +1434,7 @@ const SCENERY_MONZA = {
   // НЕПРЕРЫВНОЕ ОГРАЖДЕНИЕ. Замкнутые ломаные [lat,lon]; L — внешняя
   // граница круга, R — внутренняя. Отдельных барьеров нет.
   // Отступ переменный: 9.3…49.7 м от осевой. Изломы ≤35°, шаг точек ~6 м.
-  rail: { height:1.15, hug:6.0,   // скругление перемычки в первой шикане (v1.15.94):
-    // прямая хорда уходила в траву острым клином. Шесть метров — наибольшее значение,
-    // при котором клин исчезает: стена подходит к трассе на 8.1 м ближе вместо 13.6
-    // при hug 2. Решение владельца по картинке «было-будет».
+  rail: { height:1.15,
     L: [
       [45.616085,9.280513],[45.616139,9.280521],[45.616193,9.280529],[45.616246,9.280536],[45.6163,9.280544],[45.616354,9.280552],[45.616407,9.28056],[45.616461,9.280568],
       [45.616514,9.280575],[45.616568,9.280583],[45.616622,9.280591],[45.616675,9.280599],[45.616729,9.280606],[45.616783,9.280614],[45.616836,9.280622],[45.61689,9.28063],
@@ -1751,7 +1744,6 @@ const SCENERY_MONZA = {
    строителем трибун-заглушек.
    ========================================================================== */
 const SCENERY_MONTREAL = {
-  kerbSeam: true,          // закрыть шов голого асфальта на въезде в поребрик (12 мест)
   // ЗОНЫ ВЫЛЕТА. Кладётся ТОЛЬКО асфальт: трава — это голая земля (у мира и так
   // травяное основание с той же текстурой, лишняя лента дала бы те же пиксели
   // за меш и вызов отрисовки), а гравия у настоящего Монреаля нет вовсе —
@@ -2271,7 +2263,6 @@ const SCENERY_MONTREAL = {
    не читает вовсе — это запись замера.
    =========================================================================== */
 const SCENERY_MIAMI = {
-  kerbSeam: true,          // закрыть шов голого асфальта на въезде в поребрик (см. buildMappedScenery)
   // БАРЬЕР — обмер по ОНБОАРДУ (13 стоп-кадров круга Ферстаппена, квалификация 2025,
   // поул 1:26.204). Снимки вне уик-энда его не показывают вовсе: барьеры Майами
   // временные, и на спутнике их нет ни на одном из четырёх источников (§8). Поэтому
@@ -2285,7 +2276,7 @@ const SCENERY_MIAMI = {
   // части кадра широкая зона не помещается — её срезает рамка. Мерить надо в строке,
   // где виден БОРТ: тогда зона видна целиком. По нижним строкам первый поворот давал
   // 3-4 м, по строкам с бортом — 11.7.
-  rail: { height:1.0, radius:12, hug:2.0,
+  rail: { height:1.0,
     L: [
       [25.959884,-80.238570],[25.959865,-80.238535],[25.959846,-80.238501],[25.959827,-80.238467],[25.959808,-80.238433],[25.959789,-80.238399],[25.959769,-80.238365],[25.959750,-80.238331],
       [25.959731,-80.238297],[25.959711,-80.238263],[25.959692,-80.238229],[25.959672,-80.238196],[25.959653,-80.238162],[25.959633,-80.238128],[25.959614,-80.238094],[25.959594,-80.238061],
@@ -2707,19 +2698,7 @@ const SCENERY_MIAMI = {
     // и сверена с тем, где на снимке вообще есть место.
     // Turn 1: снаружи правого поворота 1, то есть СЛЕВА. На снимке там стоит каркас
     // трибуны — единственная из четырёх, чьё место подтверждено.
-    // СПЛОШНАЯ трибуна поворотов 1-2-3 (v1.15.95, решение владельца): официальный сайт
-    // и называет её «Turn 1 North 1, 2, 3», а у нас она покрывала один первый поворот.
-    // Дугой она держится до 440 м (излом 15.8°), дальше складывается, поэтому хвост
-    // до 524 идёт отдельной лентой вплотную; её выпрямляет STRAIGHTEN_STANDS.
-    {kind:'grandstand', shape:'arc', name:'Turn 1', fromS:300, toS:440, side:'L', off:25, h:12, d:24, fromLatLon:[25.958394,-80.236063], toLatLon:[25.957570,-80.235496]},
-    // Продолжение той же полосы, вплотную: вместе они дают сплошную трибуну 300..524.
-    // Одной лентой их не сделать — замер: хорда выпрямленной трибуны длиннее 120 м
-    // перерезает полотно в петле (при 224 м подходит к осевой на 0.5 м).
-    // Хвост стоит ВРОВЕНЬ с Turn 1 (off 25, h 12, d 24) — v1.15.96. Прежде он был
-    // на 5 м ближе к трассе и на 6 м ниже, и с места водителя его ближний угол
-    // залезал на хвост Turn 1: в плане ленты расходятся на 12.9 м, а в кадре
-    // накладывались. Владелец увидел это на устройстве.
-    {kind:'grandstand', shape:'arc', name:'Villas at East Campus', fromS:448, toS:524, side:'L', off:25, h:12, d:24, fromLatLon:[25.957529,-80.235562], toLatLon:[25.957007,-80.235978]},
+    {kind:'grandstand', shape:'arc', name:'Turn 1', fromS:300, toS:400, side:'L', off:25, h:12, d:30, fromLatLon:[25.958393,-80.236063], toLatLon:[25.957857,-80.235285]},
     // Marina: снаружи тройного левого 6-7-8, то есть СПРАВА. Внутри петли песчаная
     // площадка («пляж»), снаружи парковка — место есть только снаружи.
     // Ловушка: голубая полоса вдоль трассы на снимке — это ПОКРАШЕННАЯ зона вылета,
@@ -2755,28 +2734,14 @@ const SCENERY_MIAMI = {
     // УГОЛ У КАЖДОГО ЗАДАН ЯВНО (`faceLatLon`), и это не украшение: без него строитель
     // ставит коробку по ХОРДЕ участка, и в связке 2-3 длинное здание срезало поворот —
     // ребро вылезало в 0.3 м от осевой. Поймал пробник `clear`.
-    // ГОСТЕВЫЕ ПОСТРОЙКИ — ТРИБУНЫ, а не коробки (v1.15.95, решение владельца):
-    // «раз уж они выполняют роль трибун». Прежде стояли зданиями (v1.15.86) и глухой
-    // серой стеной сливались с бортом. Villas at East Campus влилась в сплошную Turn 1.
-    // Глубины у двух урезаны против коробок: Vista 43->22, иначе лента дотягивается
-    // до соседнего витка петли (замер: 0.5 м до Sunrise Key A).
-    {kind:'grandstand', shape:'arc', name:'Vista at Turn 1', fromS:288, toS:376, side:'R', off:32, h:10, d:22, fromLatLon:[25.958449,-80.236166], toLatLon:[25.958024,-80.235423]},
-    // Две виллы Sunrise Key слиты в одну ленту: раздельными лентами они пересекались
-    // (замер: 0.2 м друг до друга — на экране одна сложенная куча).
-    {kind:'grandstand', shape:'arc', name:'Villas at Sunrise Key', fromS:472, toS:568, side:'R', off:17, h:6, d:14, fromLatLon:[25.957406,-80.235759], toLatLon:[25.956613,-80.235940]},
-    {kind:'grandstand', shape:'arc', name:'Veranda Club', fromS:660, toS:748, side:'L', off:21, h:9, d:16, fromLatLon:[25.955972,-80.236457], toLatLon:[25.955756,-80.237298]},
-    {kind:'grandstand', shape:'arc', name:'Concourse Club', fromS:700, toS:732, side:'R', off:15, h:9, d:24, fromLatLon:[25.955846,-80.236830], toLatLon:[25.955774,-80.237140]},
-    // The 72 Club (S 952..1000) и The Palm Club (S 1028..1076) УБРАНЫ в v1.15.96
-    // по решению владельца: по 44 м длиной, они стояли вплотную к стадиону и рядом
-    // с ним читались обрезками. Самая маленькая из оставшихся — Concourse Club (28 м),
-    // но она стоит за 300 м до стадиона и в одном кадре с ним не оказывается.
-
-
-
-
-
-
-
+    {kind:'building', name:'Vista at Turn 1', atS:332, side:'R', off:32, w:89, h:10, d:43, latLon:[25.958002,-80.235966], faceLatLon:[25.958553,-80.234933]},
+    {kind:'building', name:'Villas at East Campus', atS:480, side:'L', off:34, w:79, h:6, d:32, latLon:[25.957112,-80.235612], faceLatLon:[25.957734,-80.236594]},
+    {kind:'building', name:'Villas at Sunrise Key A', atS:496, side:'R', off:13, w:50, h:6, d:11, latLon:[25.957327,-80.236030], faceLatLon:[25.956736,-80.235025]},
+    {kind:'building', name:'Villas at Sunrise Key B', atS:540, side:'R', off:20, w:53, h:6, d:14, latLon:[25.956813,-80.236146], faceLatLon:[25.957103,-80.234991]},
+    {kind:'building', name:'Veranda Club', atS:704, side:'L', off:21, w:86, h:9, d:24, latLon:[25.955660,-80.236802], faceLatLon:[25.956745,-80.236793]},
+    {kind:'building', name:'Concourse Club', atS:716, side:'R', off:15, w:35, h:9, d:24, latLon:[25.955937,-80.237034], faceLatLon:[25.954894,-80.236703]},
+    {kind:'building', name:'The 72 Club', atS:976, side:'R', off:21, w:46, h:9, d:18, latLon:[25.956658,-80.239277], faceLatLon:[25.955737,-80.239912]},
+    {kind:'building', name:'The Palm Club', atS:1052, side:'R', off:21, w:47, h:9, d:18, latLon:[25.957013,-80.239916], faceLatLon:[25.956093,-80.240552]},
 
     // ---- HARD ROCK STADIUM — одна коробка (09.2026, решение владельца «вставить просто
     // как коробку»). Контур из OSM (way 171419981, 40 точек), от него взят минимальный
@@ -2786,21 +2751,13 @@ const SCENERY_MIAMI = {
     // Высота 45 м — ОЦЕНКА (обмерить нечем).
     // `faceLatLon` здесь не «куда смотрят зрители», а способ задать УГОЛ: стадион повёрнут
     // к трассе под 45°, и без него коробку развернуло бы по хорде трассы.
-    // Цвет стадиона — просьба владельца. v1.15.95: серо-бежевые стены вместо серо-синих
-    // и светлая полоса «остекления» вместо почти чёрной. v1.15.96: стены ещё светлее,
-    // остекление — синее стекло вместо серого. Причина, по которой серый там не работает:
-    // полусферический свет мира светит снизу оливковым (#5b6b4a), и любая нейтральная
-    // поверхность на вертикальной стене уезжает в зелёный. Стекло поэтому берётся
-    // заведомо синим, а стена — светлее, чем «бежевый» на палитре.
-    // Цена: остекление перестало совпадать с материалом каркаса трибун и стоит
-    // +1 меш и +1 вызов отрисовки (44 -> 45 мешей, 493 -> 494 при потолке 495).
-    {kind:'building', name:'Hard Rock Stadium', atS:1012, side:'R', off:34, w:274, h:45, d:260, wallColor:0xece4d6, glassColor:0x86c3ea, latLon:[25.956920,-80.239515], faceLatLon:[25.955763,-80.240298]},
+    {kind:'building', name:'Hard Rock Stadium', atS:1012, side:'R', off:34, w:274, h:45, d:260, latLon:[25.956920,-80.239515], faceLatLon:[25.955763,-80.240298]},
 
   ],
 };
 
 const SCENERY_BY_KEY={Silverstone:SCENERY_SILVERSTONE,Monza:SCENERY_MONZA,Montreal:SCENERY_MONTREAL,Miami:SCENERY_MIAMI};
-const STRAIGHTEN_STANDS={Monza:true,Silverstone:['Becketts'],Miami:true};   // true = every folding stand; a list = only those (Silverstone's others were fine as arcs). Montreal has none: the one stand that folded (Podium Club) turned out to be a hospitality box, not a grandstand, and was dropped
+const STRAIGHTEN_STANDS={Monza:true,Silverstone:['Becketts']};   // true = every folding stand; a list = only those (Silverstone's others were fine as arcs). Montreal has none: the one stand that folded (Podium Club) turned out to be a hospitality box, not a grandstand, and was dropped
 const SCEN_ORIGIN={                                            // contour means, exactly as mktracks.py computes them
   Silverstone:{lat0:52.071772149,lon0:-1.016357694,mlon:68425.496628},
   Monza:{lat0:45.623420669,lon0:9.286587806,mlon:77854.005173},
@@ -2836,62 +2793,17 @@ function wallSpanFill(){
       if(V[i]||!V[(i-1+M)%M])continue;                          // начало спрятанного участка
       let len=0; while(len<M&&!V[(i+len)%M])len++;
       const p0=(i-1+M)%M,p1=(i+len)%M;
-      const path=spanPath(sign,W,i,len), cap=Math.max(W[p0],W[p1])+60;
+      const ax=P[p0].x+R[p0].x*sign*W[p0], az=P[p0].z+R[p0].z*sign*W[p0];
+      const bx=P[p1].x+R[p1].x*sign*W[p1], bz=P[p1].z+R[p1].z*sign*W[p1];
+      const dx=bx-ax, dz=bz-az, cap=Math.max(W[p0],W[p1])+60;
       for(let t=0;t<len;t++){
         const j=(i+t)%M, rx=R[j].x*sign, rz=R[j].z*sign;
-        let best=null;                                           // ближайшее пересечение луча с ПУТЁМ перемычки
-        for(let k=0;k+1<path.length;k++){
-          const ax=path[k][0],az=path[k][1],dx=path[k+1][0]-ax,dz=path[k+1][1]-az;
-          const den=rx*dz-rz*dx; if(Math.abs(den)<1e-9)continue;
-          const u=((ax-P[j].x)*dz-(az-P[j].z)*dx)/den;
-          const px=P[j].x+rx*u, pz=P[j].z+rz*u;
-          const q=((px-ax)*dx+(pz-az)*dz)/(dx*dx+dz*dz);
-          if(q<-0.001||q>1.001)continue;                         // луч уходит мимо этого куска
-          if(u>0&&(best===null||u<best))best=u;}
-        if(best===null)continue;                                 // стену тут ставить не по чему
-        W[j]=Math.max(track.HW[j]+0.4,Math.min(best,cap));}}}}   // РОВНО там, где нарисовано
-/* ПУТЬ БАРЬЕРА ЧЕРЕЗ РАЗРЫВ. По умолчанию это прямая хорда — как настоящий барьер,
-   идущий мимо шиканы прямым куском. Но в тесном апексе прямая срезает угол и встаёт
-   поперёк зоны вылета: едешь вдоль борта, обгибаешь поворот, а стена идёт прямо,
-   и ты въезжаешь в неё под 11-14° — панель видна с торца, то есть никак (владелец
-   на устройстве, v1.15.92).
-   Ключ rail.hug (метры за кромкой) вместо прямой строит СКРУГЛЁННЫЙ путь, прижатый
-   к полотну: берём точки у самой кромки, сглаживаем их, чтобы угол не заворачивался,
-   и следим, чтобы путь не заходил на полотно. Лентой на отступе этот угол не пройти
-   в принципе — в той вершине контур поворачивает на 60° за 4 м, и любой отступ больше
-   ~3.8 м выворачивается наизнанку, а полуширина полотна уже 7 м. Поэтому скругляется
-   именно перемычка, а не лента. */
-function spanPath(sign,W,i,len){
-  const M=track.M,P=track.P,R=track.R,HW=track.HW;
-  const p0=(i-1+M)%M,p1=(i+len)%M;
-  const A=[P[p0].x+R[p0].x*sign*W[p0],P[p0].z+R[p0].z*sign*W[p0]];
-  const B=[P[p1].x+R[p1].x*sign*W[p1],P[p1].z+R[p1].z*sign*W[p1]];
-  const hug=track.railHug;
-  if(!hug)return [A,B];                                        // прежнее поведение: прямая
-  const pts=[A];
-  for(let t=0;t<len;t++){const j=(i+t)%M;
-    pts.push([P[j].x+R[j].x*sign*(HW[j]+hug),P[j].z+R[j].z*sign*(HW[j]+hug)]);}
-  pts.push(B);
-  for(let pass=0;pass<6;pass++){                               // скругляем угол, концы держим
-    const q=pts.map(p=>p.slice());
-    for(let k=1;k<pts.length-1;k++){
-      q[k][0]=(pts[k-1][0]+2*pts[k][0]+pts[k+1][0])/4;
-      q[k][1]=(pts[k-1][1]+2*pts[k][1]+pts[k+1][1])/4;}
-    /* Два предела, и второй появился в v1.15.94. Внутрь — чтобы лента не заехала
-       на полотно. НАРУЖУ — не дальше прямой хорды между концами: без этого
-       скруглённая перемычка отходила от трассы ДАЛЬШЕ ленты, с которой стыкуется
-       (Майами: концы 8.65/8.44, перемычка 9.21 — шаг вбок 0.55 м), а краска идёт
-       следом за стеной, и в стыке вылезал клин. Владелец увидел его на устройстве. */
-    for(let k=1;k<pts.length-1;k++){
-      const j=(i+k-1)%M, rx=R[j].x*sign, rz=R[j].z*sign;
-      let off=(q[k][0]-P[j].x)*rx+(q[k][1]-P[j].z)*rz;
-      const t=k/(pts.length-1), cap=W[p0]+(W[p1]-W[p0])*t;
-      const lim=Math.max(HW[j]+0.8,Math.min(HW[j]+hug*0.5,cap));
-      if(off<lim){q[k][0]+=rx*(lim-off);q[k][1]+=rz*(lim-off);off=lim;}
-      if(off>cap&&cap>=lim){q[k][0]-=rx*(off-cap);q[k][1]-=rz*(off-cap);}}
-    for(let k=1;k<pts.length-1;k++)pts[k]=q[k];}
-  return pts;}
-
+        const den=rx*dz-rz*dx; if(Math.abs(den)<1e-9)continue;   // нормаль вдоль хорды: пересечения нет
+        const u=((ax-P[j].x)*dz-(az-P[j].z)*dx)/den;
+        const px=P[j].x+rx*u, pz=P[j].z+rz*u;                    // точка пересечения на прямой хорды
+        const q=((px-ax)*dx+(pz-az)*dz)/(dx*dx+dz*dz);           // где она ВДОЛЬ перемычки: 0..1 — на нарисованном куске
+        if(q<-0.001||q>1.001)continue;                           // нормаль уходит мимо панели — стену там ставить не по чему
+        W[j]=Math.max(track.HW[j]+0.4,Math.min(u,cap));}}}}      // РОВНО хорда, а не «только внутрь»
 function wallBridges(height,mat){                              // a gap in the ribbon is where an offset barrier cannot exist; span it with a straight piece, end to end
   const M=track.M,P=track.P,R=track.R,pos=[],uv=[],idx=[];let vi=0;
   for(const [sign,W,V] of [[-1,track.WL,track.VL],[1,track.WR,track.VR]]){
@@ -2899,16 +2811,13 @@ function wallBridges(height,mat){                              // a gap in the r
     for(let i=0;i<M;i++){
       if(V[i]||!V[(i-1+M)%M])continue;                          // start of a hidden run
       let len=0; while(len<M&&!V[(i+len)%M])len++;
-      const path=spanPath(sign,W,i,len);
-      let tot=0; for(let k=0;k+1<path.length;k++)tot+=Math.hypot(path[k+1][0]-path[k][0],path[k+1][1]-path[k][1]);
-      if(tot<0.5||tot>140)continue;
-      let run=0;
-      for(let k=0;k+1<path.length;k++){
-        const a=path[k],b=path[k+1];
-        const d=Math.hypot(b[0]-a[0],b[1]-a[1]); if(d<1e-4)continue;
-        pos.push(a[0],0,a[1], a[0],height,a[1], b[0],0,b[1], b[0],height,b[1]);
-        uv.push(run/6,0, run/6,1, (run+d)/6,0, (run+d)/6,1);
-        idx.push(vi,vi+1,vi+2, vi+1,vi+3,vi+2); vi+=4; run+=d;}}}
+      const p0=(i-1+M)%M,p1=(i+len)%M;
+      const ax=P[p0].x+R[p0].x*sign*W[p0],az=P[p0].z+R[p0].z*sign*W[p0];
+      const bx=P[p1].x+R[p1].x*sign*W[p1],bz=P[p1].z+R[p1].z*sign*W[p1];
+      const d=Math.hypot(bx-ax,bz-az); if(d<0.5||d>140)continue;
+      pos.push(ax,0,az, ax,height,az, bx,0,bz, bx,height,bz);
+      uv.push(0,0, 0,1, d/6,0, d/6,1);
+      idx.push(vi,vi+1,vi+2, vi+1,vi+3,vi+2); vi+=4;}}
   if(!pos.length)return null;
   const g=new THREE.BufferGeometry();
   g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
@@ -2939,24 +2848,14 @@ function zoneSpanFill(sideSign,innerF,outerF,has,mat){
     if(V[i]||!V[(i-1+M)%M])continue;                             // начало спрятанного участка
     let len=0; while(len<M&&!V[(i+len)%M])len++;
     const p0=(i-1+M)%M,p1=(i+len)%M;
-    /* Внешний край идёт ПО ТОМУ ЖЕ ПУТИ, что и стена (v1.15.93). Пока перемычка была
-       прямой, хватало отрезка из конца в конец; со скруглённой перемычкой прямая
-       оставляла между краской и стеной серый клин — владелец увидел его на устройстве. */
-    const path=spanPath(sign,sign>0?track.WR:track.WL,i,len);
-    const seg=[]; let tot=0;
-    for(let k=0;k+1<path.length;k++){const d=Math.hypot(path[k+1][0]-path[k][0],path[k+1][1]-path[k][1]);seg.push(d);tot+=d;}
-    const along=t=>{ if(tot<1e-6)return path[0].slice();
-      let want=Math.max(0,Math.min(1,t))*tot;
-      for(let k=0;k<seg.length;k++){ if(want<=seg[k]||k===seg.length-1){
-        const f=seg[k]>1e-9?want/seg[k]:0;
-        return [path[k][0]+(path[k+1][0]-path[k][0])*f,path[k][1]+(path[k+1][1]-path[k][1])*f];}
-        want-=seg[k];}
-      return path[path.length-1].slice(); };
+    const A=pt(p0,outerF(p0)),B=pt(p1,outerF(p1));               // концы берём У САМОЙ ЛЕНТЫ: шва на стыке не будет
     const n=len+1;
     for(let k=0;k<n;k++){
       const j=(p0+k)%M,j2=(p0+k+1)%M;
       if(!has(j)&&!has(j2))continue;                             // покрытия этого типа здесь нет
-      const b=along(k/n), c=along((k+1)/n);
+      const t0=k/n,t1=(k+1)/n;
+      const b=[A[0]+(B[0]-A[0])*t0,A[1]+(B[1]-A[1])*t0],
+            c=[A[0]+(B[0]-A[0])*t1,A[1]+(B[1]-A[1])*t1];
       const a=pt(j,innerF(j)),d=pt(j2,innerF(j2));
       pos.push(a[0],0.016,a[1], b[0],0.016,b[1], c[0],0.016,c[1], d[0],0.016,d[1]);
       uv.push(0,track.S[j]/2, 1,track.S[j]/2, 1,track.S[j2]/2, 0,track.S[j2]/2);
@@ -2992,32 +2891,8 @@ function wallFromRail(sc){                                     // physical wall 
         for(let k=-2;k<=2;k++){const q=3-Math.abs(k);a+=src[(i+k+M)%M]*q;wt+=q;}
         dst[i]=a/wt;}
       sm=dst;}
-    /* МЕСТНЫЙ РАДИУС. По умолчанию — угол при вершине на шаге 4 м, как было всегда.
-       Ключ rail.radius задаёт базу в метрах: радиус берётся окружностью через точки
-       на ней. Зачем (v1.15.91): угол при вершине меряет ОДИН стык контура, а контуры
-       у нас редкие (у Майами медиана отрезка 27 м и худший излом 60°), поэтому на
-       одиночной вершине радиус занижается в разы. Из-за одной такой вершины правило
-       ниже помечало «тесно» весь участок, ленту прятали, и вместо неё шла ПРЯМАЯ
-       ХОРДА через угол. Владелец на устройстве: едешь вдоль борта, обгибаешь поворот
-       и упираешься в невидимое — потому что хорда стоит под 11-14° к взгляду (панель
-       видна с торца), а касание стоит 10 % скорости за КАЖДЫЙ кадр: Монца 215 -> 8 км/ч
-       за секунду, Майами 226 -> 44. Замер: при базе 20 м «тесных» точек не остаётся
-       ни одной ни на одной трассе — то есть пряталки держались на шуме, а не на
-       геометрии. Ключ, а не общая правка, ровно по образцу rail.smooth Монреаля:
-       у Монреаля этот прижим сейчас связывает 3 точки (до 1.40 м), и общий переход
-       сдвинул бы откатанную трассу. Сильверстоун не двигается ни при каком раскладе
-       (прижим там не связывает ни одной точки). */
-    const rl=new Float64Array(M);
-    if(sc.rail.radius){
-      const n=Math.max(1,Math.round(sc.rail.radius/(track.length/M)));
-      for(let i=0;i<M;i++){
-        const a=P[(i-n+M)%M],b=P[i],c=P[(i+n)%M];
-        const d=2*(a.x*(b.z-c.z)+b.x*(c.z-a.z)+c.x*(a.z-b.z));
-        if(Math.abs(d)<1e-9){rl[i]=1e9;continue;}
-        const ux=((a.x*a.x+a.z*a.z)*(b.z-c.z)+(b.x*b.x+b.z*b.z)*(c.z-a.z)+(c.x*c.x+c.z*c.z)*(a.z-b.z))/d;
-        const uz=((a.x*a.x+a.z*a.z)*(c.x-b.x)+(b.x*b.x+b.z*b.z)*(a.x-c.x)+(c.x*c.x+c.z*c.z)*(b.x-a.x))/d;
-        rl[i]=Math.hypot(b.x-ux,b.z-uz);}
-    } else for(let i=0;i<M;i++){                                // угол при вершине: прежнее поведение, ключа нет — ничего не меняется
+    const rl=new Float64Array(M);                              // true local radius from the vertex angle (24/|K| averages over 24 m and overstates it at an apex)
+    for(let i=0;i<M;i++){
       const a=(i-1+M)%M,b=(i+1)%M;
       const v1x=P[i].x-P[a].x,v1z=P[i].z-P[a].z,v2x=P[b].x-P[i].x,v2z=P[b].z-P[i].z;
       const l1=Math.hypot(v1x,v1z),l2=Math.hypot(v2x,v2z);
@@ -3069,7 +2944,7 @@ function wallFromRail(sc){                                     // physical wall 
     return {W:sm,V};};
   const L=side(sc.rail.L,-1),Rr=side(sc.rail.R,1);
   if(!L||!Rr)return false;
-  track.WL=L.W;track.WR=Rr.W;track.VL=L.V;track.VR=Rr.V;track.railHug=sc.rail.hug||0;
+  track.WL=L.W;track.WR=Rr.W;track.VL=L.V;track.VR=Rr.V;
   let sum=0;for(let i=0;i<M;i++)sum+=(L.W[i]+Rr.W[i])/2;
   track.wallOff=sum/M;                                          // representative distance for props that still want a single number
   return true;}
@@ -3342,21 +3217,8 @@ function makeDistanceBoards(THREE,mk,mats,helpers){
 
 function makeBuilding(THREE,o,mats){
   const g=new THREE.Group(), w=o.w,h=o.h,d=o.d;
-  /* Цвета по умолчанию ОБЩИЕ для всех зданий игры (пит-билдинги четырёх трасс),
-     менять их глобально нельзя. Ключи wallColor/glassColor правят ОДНО здание:
-     у стадиона Майами владелец попросил светлые стены и СТЕКЛЯННОЕ остекление
-     вместо почти чёрного. Цена — по одному мешу на каждый новый материал,
-     поэтому ключи ставятся точечно, а не всем подряд.
-     Полоса остекления — общая пропорция всех зданий игры (42 % высоты, от 3 %
-     до 45 %); сузить её у одного стадиона значило бы завести ещё один ключ. */
-  const pick=(c,def)=>{ if(!c)return def;
-    for(const k in mats){const m=mats[k];                      // тот же цвет уже есть — берём его,
-      if(m&&m.isMaterial&&!m.map&&m.color&&m.color.getHex()===c)return m;}   // иначе это лишний меш и лишний вызов отрисовки
-    if(!mats['c'+c])mats['c'+c]=new THREE.MeshLambertMaterial({color:c});
-    return mats['c'+c];};
-  const bm=pick(o.wallColor,mats.build), gm=pick(o.glassColor,mats.glass);
-  const body=new THREE.Mesh(new THREE.BoxGeometry(w,h,d), bm); body.position.set(0,h/2,d/2); g.add(body);
-  const gl=new THREE.Mesh(new THREE.BoxGeometry(w*0.98,h*0.42,0.5), gm); gl.position.set(0,h*0.24,-0.02); g.add(gl);
+  const body=new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mats.build); body.position.set(0,h/2,d/2); g.add(body);
+  const gl=new THREE.Mesh(new THREE.BoxGeometry(w*0.98,h*0.42,0.5), mats.glass); gl.position.set(0,h*0.24,-0.02); g.add(gl);
   return g;
 }
 
@@ -3460,10 +3322,7 @@ function arcStandFallback(o,h,mats){                            // an arc stand 
   const h2=Object.assign({},h,{track:Object.assign({},T,{P:P2,R:R2})});
   return makeGrandstandArc(THREE,o,mats,h2);}
 
-const SCEN_BEHIND_WALL=3.0;   // на столько КОРОБКА обязана уйти за линию барьера.
-// Было 0.5 по v1.15.93: здание в полуметре за метровым бортом сливается с ним,
-// борт перестаёт читаться отдельным предметом, а болид подъезжает колесом
-// вплотную к стене здания. Владелец увидел на устройстве, тройка — его решение.
+const SCEN_BEHIND_WALL=0.5;   // на столько КОРОБКА обязана уйти за линию барьера
 /* ЗДАНИЕ НЕ ДОЛЖНО ТОРЧАТЬ ИЗ-ЗА ОГРАЖДЕНИЯ (v1.15.90).
    Трибуна с fromLatLon/toLatLon свой зазор до барьера получает выше (+2 м), а КОРОБКА
    (building/pit) ставится по latLon, и строитель её `off` не читает вовсе — это только
@@ -3522,17 +3381,7 @@ function buildMappedScenery(sc){
       const mat=new THREE.MeshLambertMaterial({map:surfTex(type),side:THREE.DoubleSide});   // left-side ribbons wind the other way: front-face-only made every LEFT zone invisible
       const wall=i=>(sideSign>0?track.WR[i]:track.WL[i]);
       const kerb=i=>!!(sideSign>0?track.kerbR:track.kerbL)[i];
-      /* ШОВ НА ВЪЕЗДЕ В ПОРЕБРИК (ключ kerbSeam, v1.15.93). Краска уходит на 0.85 м
-         от кромки там, где стоит поребрик, а сам поребрик рисуется кусками по точкам
-         разбиения и начинается СО СЛЕДУЮЩЕЙ. На въезде в каждый кусок между полотном
-         и краской остаётся треугольник голого асфальта 0.85 x 4 м — владелец увидел
-         его на устройстве. С ключом отступ берётся, только когда поребрик есть и здесь,
-         и в предыдущей точке, то есть краска подлезает под кромку на один отрезок
-         дольше. Двигается ТОЛЬКО внутрь и только на этих стыках; под полотном краски
-         не видно (зона лежит на 0.016, полотно на 0.02). Дефект общий для всех
-         размеченных трасс (Монца 14 мест, Сильверстоун 19, Монреаль 21, Майами 17),
-         поэтому ключ: включать его на откатанных трассах — отдельное решение владельца. */
-      const inner=i=>track.HW[i]+((kerb(i)&&(!sc.kerbSeam||kerb((i-1+M)%M)))?0.85:-0.05);   // under the kerb where there is one (a hairline gap reads as dark flecks),
+      const inner=i=>track.HW[i]+(kerb(i)?0.85:-0.05);        // under the kerb where there is one (a hairline gap reads as dark flecks),
       const widAt=i=>{ if(arr[i])return arr[i].width;         // otherwise right up to the road: the 0.85 m of bare grass there read as a stripe of rubbish
         const p=arr[(i-1+M)%M]; if(p)return p.width;          // the closing quad reads its far edge one index PAST the zone: without this it tapers to a thin wedge
         const n=arr[(i+1)%M]; if(n)return n.width; return 0; };
