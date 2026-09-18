@@ -138,44 +138,53 @@ const MARKERS = `(function(){
 // одна на другую: они стояли по разные стороны узкой полосы между ногами петли,
 // и их дальние края встретились. Мешевые пробники это не ловят — после склейки
 // по материалам обе трибуны становятся одним мешем, и «пересечение с собой»
-// уже не видно. Поэтому считаем по ДАННЫМ разметки, до всякой геометрии.
+// уже не видно. Поэтому трибуны меряются поимённо, до склейки.
+//
+// КАЖДАЯ трибуна строится НАСТОЯЩИМ строителем, а не повторением его формул,
+// и это правило выросло из двух поломок подряд:
+//   • v1.15.34 — прямая трибуна: buildScenery ПЕРЕСЧИТЫВАЕТ atS из latLon (защита
+//     «трибуна не должна уехать на 100 м»), а пробник читал atS из данных и мерил
+//     футпринт трибуны, развёрнутой на 90° от настоящей;
+//   • v1.15.96 — ДУГОВАЯ: пробник раскладывал её по формуле «отступ от осевой»,
+//     а STRAIGHTEN_STANDS подменяет складывающуюся дугу ХОРДОЙ уже после этого.
+//     Хвост трибуны первого поворота Майами по данным стоял в 8.5 м от соседней
+//     ленты, а построенный — в 0.90 м и под углом к ней. Владелец увидел это
+//     на устройстве, пробник молчал.
+// Отсюда и барьерная поправка `off` ниже: buildMappedScenery отодвигает ленту
+// от отбойника перед постройкой, и без этого мерился бы не тот отступ.
 const STANDS = `(function(){
   var key=track.spec.key, sc=(typeof SCENERY_BY_KEY!=='undefined')?SCENERY_BY_KEY[key]:null;
   if(!sc||!sc.objects)return {list:[]};
   var h=scenHelpers(), M=track.M, LEN=track.length;
-  function idxAtS(s){ s=((s%LEN)+LEN)%LEN; var bi=0,bd=1e18;
-    for(var k=0;k<M;k++){ var dd=Math.abs(((track.S[k]-s+LEN/2)%LEN)-LEN/2); if(dd<bd){bd=dd;bi=k;} } return bi; }
   var out=[];
   for(var n=0;n<sc.objects.length;n++){
     var o=sc.objects[n]; if(o.kind!=='grandstand')continue;
-    var sgn=(o.side==='R')?1:-1, pts=[];
-    if(o.shape==='arc'){
+    var ob={}; for(var kk in o)ob[kk]=o[kk];
+    var g=null, mm=new THREE.MeshBasicMaterial(), mats={crowd:mm,struct:mm,glass:mm};
+    if(o.shape==='arc'&&o.fromLatLon&&o.toLatLon){
       var a=scenIndexAt(h,o.fromLatLon,o.fromS), b=scenIndexAt(h,o.toLatLon,o.toS);
       var span=(b-a+M)%M; if(span>M/2)continue;
-      for(var t=0;t<=span;t++){ var i=(a+t)%M, P=track.P[i], R=track.R[i];
-        for(var q=0;q<=1;q+=0.25){ var off=o.off+o.d*q;
-          pts.push([P.x+R.x*sgn*off, P.z+R.z*sgn*off]); } }
+      ob.fromS=track.S[a]; ob.toS=track.S[b];
+      var need=0;                                          // та же поправка на отбойник, что в buildMappedScenery
+      for(var t=0;t<=span;t++){ var i=(a+t)%M, w=(o.side==='R')?track.WR[i]:track.WL[i];
+        need=Math.max(need,w+2-ob.off); }
+      if(need>0)ob.off+=need;
+      g=arcStandFallback(ob,h,mats)||makeGrandstandArc(THREE,ob,mats,h);   // выпрямление тоже считается
     } else {
-      // ПРЯМАЯ трибуна строится настоящим строителем, а не повторением его
-      // формул. Повторение уже соврало: buildScenery ПЕРЕСЧИТЫВАЕТ atS из latLon
-      // (защита «трибуна не должна уехать на 100 м»), а пробник читал atS
-      // из данных — и мерил футпринт трибуны, развёрнутой на 90° от настоящей.
-      // Заодно так учитывается любой будущий ключ ориентации (faceLatLon).
-      var ob={}; for(var kk in o)ob[kk]=o[kk];
       if(o.latLon)ob.atS=track.S[scenIndexAt(h,o.latLon,o.atS)];
-      var mm=new THREE.MeshBasicMaterial();
-      var g=buildSceneryObject(THREE,ob,{crowd:mm,struct:mm,glass:mm},h);
-      if(!g)continue;
-      g.updateMatrixWorld(true);
-      var v3=new THREE.Vector3();
-      g.traverse(function(ch){
-        if(!ch.isMesh||!ch.geometry||!ch.geometry.attributes.position)return;
-        var pa=ch.geometry.attributes.position;
-        for(var q=0;q<pa.count;q++){
-          v3.set(pa.getX(q),pa.getY(q),pa.getZ(q)).applyMatrix4(ch.matrixWorld);
-          pts.push([v3.x,v3.z]); }
-      });
+      g=buildSceneryObject(THREE,ob,mats,h);
     }
+    if(!g)continue;
+    var pts=[];
+    g.updateMatrixWorld(true);
+    var v3=new THREE.Vector3();
+    g.traverse(function(ch){
+      if(!ch.isMesh||!ch.geometry||!ch.geometry.attributes.position)return;
+      var pa=ch.geometry.attributes.position;
+      for(var q=0;q<pa.count;q++){
+        v3.set(pa.getX(q),pa.getY(q),pa.getZ(q)).applyMatrix4(ch.matrixWorld);
+        pts.push([v3.x,v3.z]); }
+    });
     out.push({name:o.name||('#'+n), pts:pts});
   }
   return {list:out};
