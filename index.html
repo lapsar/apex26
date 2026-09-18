@@ -800,8 +800,10 @@ function grassTex(){return cvtex(64,64,(x,w,h)=>{x.fillStyle='#2f7d3a';x.fillRec
   for(let i=0;i<520;i++){x.fillStyle=`rgba(${25+Math.random()*40|0},${100+Math.random()*80|0},${45+Math.random()*40|0},.6)`;x.fillRect(Math.random()*w,Math.random()*h,2,3);}},60,60);}
 function gravelTex(){return cvtex(64,64,(x,w,h)=>{x.fillStyle='#b7a279';x.fillRect(0,0,w,h);
   for(let i=0;i<600;i++){const g=150+Math.random()*70|0;x.fillStyle=`rgba(${g},${g-20},${g-70},.6)`;x.fillRect(Math.random()*w,Math.random()*h,2,2);}},30,30);}
-function paintTex(){return cvtex(64,64,(x,w,h)=>{x.fillStyle='#46b4c8';x.fillRect(0,0,w,h);   // бирюзовая краска зон вылета: у Майами ею покрыта вся зона
-  for(let i=0;i<300;i++){const g=Math.random()*26|0;x.fillStyle=`rgba(${58+g},${170+g},${190+g},.5)`;x.fillRect(Math.random()*w,Math.random()*h,2,2);}},1,60);}
+function paintTex(){return cvtex(64,64,(x,w,h)=>{x.fillStyle='#17b5c8';x.fillRect(0,0,w,h);   // бирюзовая краска зон вылета: у Майами ею покрыта вся зона.
+  // Цвет выбрал владелец (v1.15.96): было #46b4c8. Зерно строится тем же числом бросков
+  // (300), поэтому поток случайных чисел не сдвигается и ни один пробник этого не видит.
+  for(let i=0;i<300;i++){const g=Math.random()*26|0;x.fillStyle=`rgba(${11+g},${171+g},${190+g},.5)`;x.fillRect(Math.random()*w,Math.random()*h,2,2);}},1,60);}
 function lotTex(){return cvtex(64,64,(x,w,h)=>{x.fillStyle='#5b6067';x.fillRect(0,0,w,h);        // парковки вокруг Майами: там не газон, а сплошной асфальт
   for(let i=0;i<420;i++){const g=74+Math.random()*26|0;x.fillStyle=`rgba(${g},${g+2},${g+6},.5)`;x.fillRect(Math.random()*w,Math.random()*h,2,2);}},30,30);}
 function crowdTex(){return cvtex(128,64,(x,w,h)=>{x.fillStyle='#20242c';x.fillRect(0,0,w,h);
