@@ -1,0 +1,11 @@
+# кэш тайлов и выгрузки телеметрии: качаются заново, в репозиторий не кладутся
+t_*.jpg
+*.png
+__pycache__/
+edges.json
+bulk_*.json
+grid_raw.json
+openf1_fit.json
+tracklimits.json
+*.npy
+*.log
