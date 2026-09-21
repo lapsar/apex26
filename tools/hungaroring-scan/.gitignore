@@ -7,5 +7,7 @@ bulk_*.json
 grid_raw.json
 openf1_fit.json
 tracklimits.json
+tum_*.csv
+osm_way.json
 *.npy
 *.log
