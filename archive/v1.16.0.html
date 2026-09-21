@@ -167,7 +167,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.16.1</div>
+    <div class="verstamp">v1.16.0</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -262,7 +262,7 @@ const ROSTER=[]; TEAMS.forEach((t,ti)=>t.d.forEach(d=>ROSTER.push({team:t.name,t
 const code3=n=>n.slice(0,3).toUpperCase();
 
 const TRACKS=[
-  {name:"Monza",key:"Monza",railAds:[[0,5],[1020,6],[1850,7],[2980,8],[4250,3],[5060,4],[5560,5]],cc:"Италия",c:"#E8002D",half:8.0,style:"park",runoff:24,grip:1.06,twist:2,speed:5,sfShift:5440,
+  {name:"Monza",key:"Monza",railAds:[[0,5],[1020,6],[1850,7],[2980,2],[4250,3],[5060,4],[5560,5]],cc:"Италия",c:"#E8002D",half:8.0,style:"park",runoff:24,grip:1.06,twist:2,speed:5,sfShift:5440,
    desc:"Храм скорости. Длинные прямые, шиканы, гравий и трава по краям."},
   {name:"Silverstone",key:"Silverstone",cc:"Британия",c:"#1E9BE0",half:7.5,style:"open",runoff:30,grip:1.0,twist:3,speed:4,sfShift:3120,
    desc:"Бывший аэродром: быстрые связки, широкие асфальтовые зоны вылета."},
@@ -821,24 +821,20 @@ function checkerTex(rx){return cvtex(64,16,(x,w,h)=>{const s=8;for(let a=0;a<w/s
 const RAIL_ADS=[
   {bg:'#17418f',fg:'#ffffff',text:'MIAMI GRAND PRIX 2026'},
   {bg:'#17418f',fg:'#ffffff',text:'HARD ROCK STADIUM'},
-  {bg:'#17418f',fg:'#ffffff',text:"APEX '26"},     // v1.15.99: чёрный с красным смотрелся плохо — тот же синий, что у остальных. ЭТО ПОЛОСА МАЙАМИ: у Монцы свой красный APEX ниже
+  {bg:'#17418f',fg:'#ffffff',text:"APEX '26"},     // v1.15.99: чёрный с красным смотрелся плохо — тот же синий, что у остальных
   {bg:'#f2c400',fg:'#d40511',text:'PIRELLI'},
   {bg:'#0a7d4b',fg:'#ffffff',text:'ARAMCO',alt:'#3fb6e0'},      // зелёная плитка чередуется с голубой
   /* v1.16.0 — МОНЦА. Общие с Майами мотивы (APEX, PIRELLI, ARAMCO) переиспользуются
      полосами 2/3/4, новых полос понадобилось три. Ставить их надо ПЕРЕД изнанкой:
      `back` берётся как последняя строка таблицы, и вставка в конец сломала бы её. */
   {bg:'#17418f',fg:'#ffffff',text:'ITALY \u00b7 MONZA 2026'},
-  {bg:'#17418f',fg:'#ffffff',text:"GRAN PREMIO D'ITALIA 2026"},
+  {bg:'#17418f',fg:'#ffffff',text:'PIRELLI',text2:"GRAN PREMIO D'ITALIA 2026"},   // в одну строку шрифт ужимается до 22 px на полосу в 64
   {bg:'#17418f',fg:'#ffffff',text:'AUTODROMO NAZIONALE MONZA'},
-  /* v1.16.1 — красный APEX ТОЛЬКО для Монцы, отдельной полосой. Полоса 2 общая
-     с Майами, а её синий владелец принял в v1.15.99: покрасив общую, мы бы молча
-     перекрасили и чужую трассу. Лишняя полоса стоит ноль мешей и ноль вызовов. */
-  {bg:'#a8142a',fg:'#ffffff',text:"APEX '26"},
   {bg:'#c9ccd0',fg:'#c9ccd0',text:'',bar:'#9aa0a6'}             // изнанка: отбойник, как на Монце
 ];
 const RAIL_AD_BAND=64, RAIL_AD_TEX=512, RAIL_AD_PAD=5, RAIL_AD_PERIOD=16;   // 16 м на одну плитку
 /* Высота атласа — наименьшая степень двойки, в которую влезают все полосы: шесть
-   полос Майами жили в 512, десять требуют 1024. Считается от длины таблицы,
+   полос Майами жили в 512, девять требуют 1024. Считается от длины таблицы,
    поэтому следующий мотив — по-прежнему строка, а не правка чисел. Полосу
    выбирает UV, так что рост высоты меняет только координаты, а не картинку:
    отпечаток трасс к UV слеп (он хеширует позиции вершин). */
@@ -854,10 +850,17 @@ function railAdsTex(){
       if(!a.text)return;
       x.fillStyle=a.fg;x.textAlign='center';x.textBaseline='middle';
       const reps=a.alt?2:1;                                                 // у чередующегося — две плитки в ряд
+      /* Две строки (`text2`) — не украшение, а читаемость: длинное название гонки
+         в одну строку ужимается до 22 px на полосу в 64, то есть буквы вдвое ниже
+         соседних щитов. Разбитое надвое — 28 и 26 px при тех же нуле мешей. */
+      const rows=a.text2?[[a.text,28,-15],[a.text2,26,14]]:[[a.text,34,1]];   // сдвиг В ПИКСЕЛЯХ: у однострочных он ровно прежний, пиксели Майами не двигаются
+      /* Потолки 28 и 26 выбраны так, чтобы строки НЕ НАЕЗЖАЛИ друг на друга:
+         34 и 30 при этих сдвигах перекрываются на 7 текселей, и щит выглядит тесным. */
       for(let r=0;r<reps;r++){const cw=w/reps;
-        let px=34;x.font='700 '+px+'px Helvetica,Arial,sans-serif';
-        while(x.measureText(a.text).width>cw*0.88&&px>10){px--;x.font='700 '+px+'px Helvetica,Arial,sans-serif';}
-        x.fillText(a.text,cw*(r+0.5),y+B/2+1);}
+        for(const [txt,cap,dy] of rows){
+          let px=cap;x.font='700 '+px+'px Helvetica,Arial,sans-serif';
+          while(x.measureText(txt).width>cw*0.88&&px>10){px--;x.font='700 '+px+'px Helvetica,Arial,sans-serif';}
+          x.fillText(txt,cw*(r+0.5),y+B/2+dy);}}
       x.fillStyle='rgba(0,0,0,.35)';x.fillRect(0,y+B-RAIL_AD_PAD,w,2);});   // стык щита с землёй
   },1,1);
 }
