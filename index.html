@@ -167,7 +167,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.16.5</div>
+    <div class="verstamp">v1.16.6</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -2881,7 +2881,47 @@ const SCENERY_MIAMI = {
   ],
 };
 
-const SCENERY_BY_KEY={Silverstone:SCENERY_SILVERSTONE,Monza:SCENERY_MONZA,Montreal:SCENERY_MONTREAL,Miami:SCENERY_MIAMI};
+const SCENERY_HUNGARORING = {
+  // ЭТАП 2 (v1.16.6): пит-билдинг и трибуны. Барьер и зоны вылета пока ОБОБЩЁННЫЕ —
+  // это следующая сборка (решение владельца), поэтому runoff и rail здесь нет вовсе.
+  // Места и габариты — развёртка снимка Google z19 вдоль осевой игры (S — от линии
+  // старта, off — ближний край от осевой, d — глубина наружу); сверены с OSM, где он
+  // есть: главная трибуна (way 230979479), пит-билдинг (way 123905481), Silver 5
+  // (230979485). Высоты — ОЦЕНКА по онбоарду поула Леклера 2025 (кадры 1, 11-16,
+  // 74, 110, 144-152): сверху высоту не взять. Координаты — tools/hungaroring-scan/standpos.py.
+  // ПЕРЕСТРОЙКА 2024-2025: главная трибуна и пит-билдинг на видео 2025 года уже новые
+  // (козырёк-консоль, многоярусное здание), на снимках — старая трибуна и стройка.
+  // Коробки новых стоят на тех же местах (ESRI снял стройку по тому же следу), высоты
+  // взяты с видео. Все трибуны — слева по ходу; справа только пит-билдинг и паддок.
+  // Строитель сам отодвигает трибуну за обобщённый барьер (+2 м) и коробку за него
+  // (+3 м), поэтому off здесь — ЗАМЕР, а не подгонка: когда в следующей сборке встанет
+  // настоящий барьер, трибуны подойдут к нему сами.
+  objects: [
+    // Пит-билдинг: справа по ходу, S -50..283 через линию старта, ближний край 19 м
+    // (пит-лейн между ним и полотном). OSM: 311 x 23 м; на снимке с навесом боксов 333 x 28.
+    {kind:'pit', shape:'straight', name:'Pit Building', atS:116, side:'R', off:19, w:333, h:15, d:28, latLon:[47.579655,19.247353]},
+    // Главная трибуна напротив боксов, через линию старта: S -28..250, ряды 13..47 м.
+    // Одна запись через ноль (у Майами хвост за нулём отрезали — там это были две записи).
+    {kind:'grandstand', shape:'arc', name:'Main Grandstand', fromS:4335, toS:250, side:'L', off:13, h:20, d:34, fromLatLon:[47.578618,19.248591], toLatLon:[47.580177,19.245694]},
+    // Три трибуны на склоне перед поворотом 1 (снаружи правого T1, то есть слева).
+    {kind:'grandstand', shape:'arc', name:'Turn 1 A', fromS:285, toS:368, side:'L', off:33, h:8, d:12, fromLatLon:[47.580228,19.245163], toLatLon:[47.580687,19.24429]},
+    {kind:'grandstand', shape:'arc', name:'Turn 1 B', fromS:382, toS:453, side:'L', off:30, h:8, d:12, fromLatLon:[47.580786,19.244167], toLatLon:[47.58118,19.243418]},
+    {kind:'grandstand', shape:'arc', name:'Turn 1 C', fromS:473, toS:568, side:'L', off:20, h:10, d:20, fromLatLon:[47.581363,19.243289], toLatLon:[47.58191,19.242289]},
+    // Подход к повороту 4: сплошная полоса секций слева, 20..38 м.
+    {kind:'grandstand', shape:'arc', name:'Turn 4', fromS:2170, toS:2350, side:'L', off:20, h:8, d:18, fromLatLon:[47.588145,19.252125], toLatLon:[47.586831,19.253822]},
+    // Silver 5 (имя из OSM): два ряда секций на подходе к повороту 11, 23..48 м.
+    {kind:'grandstand', shape:'arc', name:'Silver 5', fromS:3237, toS:3340, side:'L', off:23, h:10, d:25, fromLatLon:[47.58018,19.255581], toLatLon:[47.579485,19.254668]},
+    // Снаружи последнего поворота 14 и вдоль начала главной прямой — самый большой
+    // массив трибун круга (кадр 144: ярусы до неба). Передний ряд двумя кусками
+    // (у выхода из поворота ближний край 33 м, на прямой 22 м), задний ряд на холме —
+    // 62..79 м; высота 16 — трибуна плюс склон, мир у нас плоский.
+    {kind:'grandstand', shape:'arc', name:'Turn 14 A', fromS:4030, toS:4113, side:'L', off:33, h:12, d:27, fromLatLon:[47.577819,19.252389], toLatLon:[47.577265,19.251047]},
+    {kind:'grandstand', shape:'arc', name:'Turn 14 B', fromS:4117, toS:4327, side:'L', off:22, h:12, d:24, fromLatLon:[47.577371,19.250995], toLatLon:[47.578509,19.2486]},
+    {kind:'grandstand', shape:'arc', name:'Turn 14 Upper', fromS:4110, toS:4258, side:'L', off:62, h:16, d:17, fromLatLon:[47.577,19.25108], toLatLon:[47.577837,19.248992]},
+  ],
+};
+
+const SCENERY_BY_KEY={Silverstone:SCENERY_SILVERSTONE,Monza:SCENERY_MONZA,Montreal:SCENERY_MONTREAL,Miami:SCENERY_MIAMI,Hungaroring:SCENERY_HUNGARORING};
 const STRAIGHTEN_STANDS={Monza:true,Silverstone:['Becketts'],Miami:true};   // true = every folding stand; a list = only those (Silverstone's others were fine as arcs). Montreal has none: the one stand that folded (Podium Club) turned out to be a hospitality box, not a grandstand, and was dropped
 const SCEN_ORIGIN={                                            // contour means, exactly as mktracks.py computes them
   Silverstone:{lat0:52.071772149,lon0:-1.016357694,mlon:68425.496628},
