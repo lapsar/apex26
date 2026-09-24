@@ -15,3 +15,6 @@ osm_way.json
 # кадры онбоард-видео кладёт владелец — это НЕ кэш, они обязаны попадать в репозиторий
 !onboard/**
 hu-1986-pass*.geojson
+# осевая из игры (dump-cl.js) и круг openf1 под онбоард (laptime.py): строятся заново
+centerline.json
+openf1_lap_*.json
