@@ -42,7 +42,7 @@ const R = require('./report');
 // Хунгароринг открыт в меню в v1.16.3 — ориентир записан тем же прогоном. Своей
 // разметки у него нет вовсе, мир строится обобщёнными строителями, поэтому 40 мешей
 // и 13882 треугольника: самая дешёвая трасса в игре. В гонке 489 вызовов при потолке 495.
-const SCENE_BUDGET = { Monza: 43, Silverstone: 46, Montreal: 42, Miami: 45, Hungaroring: 40 };
+const SCENE_BUDGET = { Monza: 43, Silverstone: 46, Montreal: 42, Miami: 45, Hungaroring: 39 };   // Хунгароринг 40 -> 39 в v1.16.5: панель разрыва отбойника в шикане 6-7 не нужна
 const CAR_BUDGET = { player: { m: 32, t: 3000 }, ai: { m: 17, t: 1332 } };
 const DRAW_BUDGET = 495;
 
