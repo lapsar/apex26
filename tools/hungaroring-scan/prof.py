@@ -10,8 +10,12 @@ import json, math, os, sys
 import tiles
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-CIRC = os.environ.get('HUNGARO_GEOJSON', os.path.join(HERE, 'hu-1986.geojson'))
-SF = float(os.environ.get('HUNGARO_SF', 4119.1))
+CIRC = os.environ.get('HUNGARO_GEOJSON', os.path.join(HERE, 'hu-1986-center.geojson'))
+SF = float(os.environ.get('HUNGARO_SF', 4115.2))
+# С v1.16.4 в игре стоит контур, ПЕРЕСАЖЕННЫЙ на середину дороги (recenter.py), и набор
+# по умолчанию смотрит на него. На новой ломаной линия старта стоит на S=4115.2 (в игре,
+# по сплайну, sfShift=4116). Старый контур и его S=4119.1:
+#   HUNGARO_GEOJSON=hu-1986.geojson HUNGARO_SF=4119.1 python3 ...
 # 4119.1 — ЛИНИЯ СТАРТА (передний край решётки). Финишная линия Хунгароринга ОТДЕЛЬНАЯ
 # и стоит на 38.6 м раньше; какая из них какая — доказано арифметикой дистанции гонки,
 # см. README. Переменные HUNGARO_GEOJSON и HUNGARO_SF позволяют натравить набор
