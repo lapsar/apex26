@@ -22,7 +22,7 @@ INDEX = os.environ.get('APEX_INDEX', os.path.join(HERE, '..', '..', 'index.html'
 # какой geojson какой трассе соответствует
 SOURCES = {'Monza': 'it-1922', 'Silverstone': 'gb-1948', 'Suzuka': 'jp-1962',
            'Monaco': 'mc-1929', 'Montreal': 'ca-1978', 'Miami': 'us-2022',
-           'Hungaroring': 'hu-1986'}
+           'Hungaroring': 'hu-1986-center'}
 
 
 def coords(path):
