@@ -6,6 +6,10 @@
                                     #    для SCENERY_HUNGARORING (вставляются руками)
     python3 barrier.py --check      # только сводка: где барьер, сколько зон
 
+КРАСКА (v1.16.10): в zones.tsv тип «tint:ИМЯ» — зона целиком одного цвета, полосы
+краски у кромки — stripes.tsv; цвета — палитра PAINT ниже (медиана пикселей кадров
+онбоарда). В barrier.js они выходят строками runoff (type:'tint', color) и stripes[].
+
 Отступ барьера задан точками «S, сторона, off» и между ними идёт линейно; точки
 ломаной ставятся через STEP м по ОСЕВОЙ ИГРЫ, так что строитель (wallFromRail)
 находит каждую у своей станции и отступ читает ровно тот, что замерен.
@@ -23,6 +27,12 @@ import numpy as np
 HERE = os.path.dirname(os.path.abspath(__file__))
 O = dict(lat0=47.582732616, lon0=19.250829443, mlon=75088.112675)   # SCEN_ORIGIN.Hungaroring
 STEP = 2            # точка ломаной через каждые STEP станций (станция ~4 м)
+PAINT = dict(green='#3f7870',   # тёмная бирюзово-зелёная полоса у кромки (кадр 61: #356360 в тени)
+             lime='#25c060',    # ярко-зелёная: пятна внутри T6/T14, полоса у Fan (кадры 80, 111)
+             blue='#4450b0',    # T2 снаружи (кадр 40; медиана #5b5e85 выбелена дымкой)
+             yellow='#f0cc1c',  # T12 снаружи, DHL (кадр 122)
+             cyan='#22b0dc')    # T11 снаружи (кадр 109)
+# Цвет — КАК НА ЭКРАНЕ: строитель сам делит его на свет сцены (PAINT_GAIN в index.html)    # T11 снаружи (кадр 109)
 cl = json.load(open(os.path.join(HERE, 'centerline.json')))
 P = np.array(cl['P']); R = np.array(cl['R']); S = np.array(cl['S']); L = cl['len']; HALF = cl['half']
 M = len(S)
@@ -82,12 +92,21 @@ def zones():
     for r in read('zones.tsv'):
         a, b, side, typ, wid = float(r[0]), float(r[1]), r[2], r[3], r[4]
         wid = 60 if wid == 'wall' else float(wid)       # «до барьера»: строитель обрежет по нему
-        def ll(s):
-            i = int(np.argmin([cyc_s(S[k], s) for k in range(M)]))
-            return latlon(*(P[i] + R[i] * (-1 if side == 'L' else 1) * HALF))
-        res.append(dict(fromS=int(a), toS=int(b), side=side, type=typ, width=wid,
-                        fromLatLon=ll(a), toLatLon=ll(b), note=r[5] if len(r) > 5 else ''))
+        typ, _, col = typ.partition(':')
+        res.append(dict(fromS=int(a), toS=int(b), side=side, type=typ, width=wid, color=PAINT[col] if col else None,
+                        fromLatLon=edge_ll(a, side), toLatLon=edge_ll(b, side), note=r[5] if len(r) > 5 else ''))
     return res
+
+
+def edge_ll(s, side):
+    i = int(np.argmin([cyc_s(S[k], s) for k in range(M)]))
+    return latlon(*(P[i] + R[i] * (-1 if side == 'L' else 1) * HALF))
+
+
+def stripes():
+    return [dict(fromS=int(r[0]), toS=int(r[1]), side=r[2], width=float(r[3]), color=PAINT[r[4]],
+                 fromLatLon=edge_ll(float(r[0]), r[2]), toLatLon=edge_ll(float(r[1]), r[2]),
+                 note=r[5] if len(r) > 5 else '') for r in read('stripes.tsv')]
 
 
 def cyc_s(a, b):
@@ -111,15 +130,23 @@ def main():
         if cut:
             print('   сокращено из-за чужого витка:', cut[:12], '...' if len(cut) > 12 else '')
     zs = zones()
-    print('зон: %d (асфальт %d, гравий %d)' % (len(zs), sum(z['type'] == 'asphalt' for z in zs),
-                                               sum(z['type'] == 'gravel' for z in zs)))
+    st = stripes()
+    print('зон: %d (асфальт %d, гравий %d, краска %d); полос краски у кромки %d' % (len(zs),
+          sum(z['type'] == 'asphalt' for z in zs), sum(z['type'] == 'gravel' for z in zs),
+          sum(z['type'] == 'tint' for z in zs), len(st)))
     if '--check' in sys.argv:
         return
     js = ['  rail: { height:1.0, radius:12,   // радиус поворота окружностью по 12 м, а не по одному стыку (v1.16.8: ровная стена внутри T1)', '    L: [', fmt(rl), '    ],', '    R: [', fmt(rr), '    ],', '  },',
           '  runoff: [']
     for z in zs:
-        js.append("    {fromS:%d,toS:%d,side:'%s',type:'%s',width:%g, fromLatLon:[%.6f,%.6f], toLatLon:[%.6f,%.6f]},   // %s"
-                  % (z['fromS'], z['toS'], z['side'], z['type'], z['width'], *z['fromLatLon'], *z['toLatLon'], z['note']))
+        col = ",color:'%s'" % z['color'] if z['color'] else ''
+        js.append("    {fromS:%d,toS:%d,side:'%s',type:'%s',width:%g%s, fromLatLon:[%.6f,%.6f], toLatLon:[%.6f,%.6f]},   // %s"
+                  % (z['fromS'], z['toS'], z['side'], z['type'], z['width'], col, *z['fromLatLon'], *z['toLatLon'], z['note']))
+    js.append('  ],')
+    js.append('  stripes: [   // полосы краски у кромки (stripes.tsv): width — от кромки полотна')
+    for z in st:
+        js.append("    {fromS:%d,toS:%d,side:'%s',width:%g,color:'%s', fromLatLon:[%.6f,%.6f], toLatLon:[%.6f,%.6f]},   // %s"
+                  % (z['fromS'], z['toS'], z['side'], z['width'], z['color'], *z['fromLatLon'], *z['toLatLon'], z['note']))
     js.append('  ],')
     open(os.path.join(HERE, 'barrier.js'), 'w').write('\n'.join(js) + '\n')
     print('barrier.js: %d + %d точек ломаной' % (len(rl), len(rr)))

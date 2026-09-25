@@ -167,7 +167,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.16.9</div>
+    <div class="verstamp">v1.16.10</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -806,6 +806,10 @@ function paintTex(){return cvtex(64,64,(x,w,h)=>{x.fillStyle='#17b5c8';x.fillRec
   // Цвет выбрал владелец (v1.15.96): было #46b4c8. Зерно строится тем же числом бросков
   // (300), поэтому поток случайных чисел не сдвигается и ни один пробник этого не видит.
   for(let i=0;i<300;i++){const g=Math.random()*26|0;x.fillStyle=`rgba(${11+g},${171+g},${190+g},.5)`;x.fillRect(Math.random()*w,Math.random()*h,2,2);}},1,60);}
+function tintTex(){let q=20261;const rnd=()=>(q=q*16807%2147483647)/2147483647;   // краска вылетов (v1.16.10): светлая основа, цвет даёт вершина.
+  // Шум — СВОИМ зерном, не Math.random: иначе новая текстура сдвинула бы поток случайных чисел, и гонки разыгрались бы иначе.
+  return cvtex(64,64,(x,w,h)=>{x.fillStyle='#f4f4f4';x.fillRect(0,0,w,h);
+  for(let i=0;i<300;i++){const g=214+rnd()*36|0;x.fillStyle=`rgba(${g},${g},${g},.5)`;x.fillRect(rnd()*w,rnd()*h,2,2);}},4,1);}
 function lotTex(){return cvtex(64,64,(x,w,h)=>{x.fillStyle='#5b6067';x.fillRect(0,0,w,h);        // парковки вокруг Майами: там не газон, а сплошной асфальт
   for(let i=0;i<420;i++){const g=74+Math.random()*26|0;x.fillStyle=`rgba(${g},${g+2},${g+6},.5)`;x.fillRect(Math.random()*w,Math.random()*h,2,2);}},30,30);}
 function crowdTex(){return cvtex(128,64,(x,w,h)=>{x.fillStyle='#20242c';x.fillRect(0,0,w,h);
@@ -2913,6 +2917,10 @@ const SCENERY_HUNGARORING = {
   // v1.16.9: внутри T6 стена так же ровной дугой ~11.5 м вместо замеренных 22 — радиус T6
   // ~17 м, предел 0.7R = 11.7, и стена обрывалась с 22 до 11.7 за 20 м зубом к трассе.
   // И напротив, внутри T7 (слева, за гравием T6) — дугой ~16 м вместо 21 -> 14 -> 22.
+  // v1.16.10: КРАСКА ВЫЛЕТОВ 2025 и ЩИТЫ ТОРМОЖЕНИЯ — по онбоарду поула Леклера 2025.
+  // Зоны целиком одного цвета — type:'tint' (T2 синяя, T11 голубая, полоса у Fan
+  // ярко-зелёная, T12 жёлтая DHL), полосы краски у кромки — stripes (11 выходов).
+  // Замер — zones.tsv и stripes.tsv, строки строит barrier.py; щиты — markers.js.
   rail: { height:1.0, radius:12,   // радиус поворота окружностью по 12 м, а не по одному стыку (v1.16.8: ровная стена внутри T1)
     L: [
       [47.578792,19.248326],[47.578837,19.248242],[47.578882,19.248158],[47.578927,19.248074],[47.578972,19.247991],[47.579017,19.247907],[47.579062,19.247824],[47.579106,19.247740],
@@ -3063,14 +3071,17 @@ const SCENERY_HUNGARORING = {
     {fromS:1996,toS:2180,side:'L',type:'asphalt',width:60, fromLatLon:[47.588104,19.249971], toLatLon:[47.587980,19.252116]},   // T5 снаружи (светлый бетон, бирюзовая полоса у кромки)
     {fromS:2350,toS:2447,side:'L',type:'gravel',width:60, fromLatLon:[47.586824,19.253636], toLatLon:[47.586029,19.253519]},   // T6 снаружи — гравий (у кромки тёмный асфальт 2360-2430)
     {fromS:2698,toS:2815,side:'L',type:'asphalt',width:60, fromLatLon:[47.584708,19.255677], toLatLon:[47.583643,19.255676]},   // T9 снаружи
-    {fromS:3030,toS:3232,side:'L',type:'asphalt',width:60, fromLatLon:[47.581898,19.256445], toLatLon:[47.580304,19.255440]},   // T11 снаружи
-    {fromS:3225,toS:3293,side:'L',type:'asphalt',width:4.5, fromLatLon:[47.580357,19.255511], toLatLon:[47.579898,19.254908]},   // мощёная полоса перед трибуной Fan
-    {fromS:3486,toS:3655,side:'L',type:'asphalt',width:60, fromLatLon:[47.578605,19.253155], toLatLon:[47.579558,19.251421]},   // T12-12A снаружи
+    {fromS:3030,toS:3170,side:'L',type:'asphalt',width:60, fromLatLon:[47.581898,19.256445], toLatLon:[47.580736,19.256008]},   // T11 снаружи
+    {fromS:3170,toS:3232,side:'L',type:'tint',width:60,color:'#22b0dc', fromLatLon:[47.580736,19.256008], toLatLon:[47.580304,19.255440]},   // T11 снаружи: голубая площадка с белыми буквами (кадры 109-110)
+    {fromS:3225,toS:3293,side:'L',type:'tint',width:4.5,color:'#25c060', fromLatLon:[47.580357,19.255511], toLatLon:[47.579898,19.254908]},   // мощёная полоса перед трибуной Fan: ярко-зелёная с белым кольцом (кадр 111)
+    {fromS:3486,toS:3518,side:'L',type:'asphalt',width:60, fromLatLon:[47.578605,19.253155], toLatLon:[47.578681,19.252681]},   // T12-12A снаружи
+    {fromS:3518,toS:3585,side:'L',type:'tint',width:60,color:'#f0cc1c', fromLatLon:[47.578681,19.252681], toLatLon:[47.579137,19.252063]},   // T12 снаружи: жёлтая площадка DHL (кадры 120-122)
+    {fromS:3585,toS:3655,side:'L',type:'asphalt',width:60, fromLatLon:[47.579137,19.252063], toLatLon:[47.579558,19.251421]},   // T12A снаружи (у кромки зелёная полоса, stripes.tsv)
     {fromS:3976,toS:4282,side:'L',type:'asphalt',width:60, fromLatLon:[47.578439,19.251988], toLatLon:[47.578373,19.249197]},   // T14 снаружи и начало прямой
     {fromS:4290,toS:290,side:'R',type:'asphalt',width:60, fromLatLon:[47.578503,19.249212], toLatLon:[47.580524,19.245448]},   // главная прямая: полотно шире нашего, до стены пит-лейна
     {fromS:290,toS:380,side:'R',type:'asphalt',width:60, fromLatLon:[47.580524,19.245448], toLatLon:[47.581034,19.244478]},   // выезд с пит-лейна
     {fromS:380,toS:527,side:'R',type:'asphalt',width:2.3, fromLatLon:[47.581034,19.244478], toLatLon:[47.581859,19.242926]},   // полоса выезда, сливается с полотном
-    {fromS:1058,toS:1178,side:'R',type:'asphalt',width:60, fromLatLon:[47.580804,19.247390], toLatLon:[47.581397,19.248464]},   // T2 снаружи (в 2025 покрашен синим)
+    {fromS:1058,toS:1178,side:'R',type:'tint',width:60,color:'#4450b0', fromLatLon:[47.580804,19.247390], toLatLon:[47.581397,19.248464]},   // T2 снаружи: покрашен синим (кадры 36-41)
     {fromS:1788,toS:1960,side:'R',type:'asphalt',width:60, fromLatLon:[47.586251,19.250678], toLatLon:[47.587777,19.250110]},   // T4 снаружи (светлый бетон)
     {fromS:2548,toS:2662,side:'R',type:'asphalt',width:60, fromLatLon:[47.585087,19.253758], toLatLon:[47.584780,19.255192]},   // T8 снаружи (светлый бетон)
     {fromS:2915,toS:3010,side:'R',type:'gravel',width:60, fromLatLon:[47.582737,19.255483], toLatLon:[47.581992,19.256167]},   // гравий после T10 (на снимке начинается с +12)
@@ -3078,6 +3089,51 @@ const SCENERY_HUNGARORING = {
     {fromS:3800,toS:3960,side:'R',type:'asphalt',width:60, fromLatLon:[47.579435,19.250096], toLatLon:[47.578473,19.251724]},   // въезд на пит-лейн
     {fromS:3960,toS:4210,side:'R',type:'asphalt',width:60, fromLatLon:[47.578473,19.251724], toLatLon:[47.578055,19.250050]},   // внутри T14: крашеная площадка до стены пит-лейна
   ],
+  stripes: [   // полосы краски у кромки (stripes.tsv): width — от кромки полотна
+    {fromS:655,toS:735,side:'L',width:3.5,color:'#3f7870', fromLatLon:[47.582567,19.242859], toLatLon:[47.582497,19.243934]},   // T1 выход (кадры 24-25)
+    {fromS:1335,toS:1450,side:'L',width:3.5,color:'#3f7870', fromLatLon:[47.582707,19.247635], toLatLon:[47.583618,19.248303]},   // T3 выход (кадры 48-50)
+    {fromS:1990,toS:2085,side:'L',width:3,color:'#3f7870', fromLatLon:[47.588028,19.249936], toLatLon:[47.588464,19.251020]},   // T5 выход, дальний край (кадры 66-69)
+    {fromS:2735,toS:2805,side:'L',width:3.5,color:'#3f7870', fromLatLon:[47.584368,19.255821], toLatLon:[47.583715,19.255692]},   // T9 выход (кадры 96-97)
+    {fromS:3090,toS:3170,side:'L',width:3.5,color:'#3f7870', fromLatLon:[47.581348,19.256631], toLatLon:[47.580736,19.256008]},   // T11 выход, до голубой площадки (кадры 107-108)
+    {fromS:3585,toS:3645,side:'L',width:3,color:'#3f7870', fromLatLon:[47.579137,19.252063], toLatLon:[47.579512,19.251503]},   // T12A выход (кадр 123)
+    {fromS:1815,toS:1905,side:'R',width:3.5,color:'#3f7870', fromLatLon:[47.586486,19.250631], toLatLon:[47.587289,19.250300]},   // T4 снаружи (кадры 61-62)
+    {fromS:2335,toS:2390,side:'R',width:5,color:'#25c060', fromLatLon:[47.586907,19.253395], toLatLon:[47.586519,19.253227]},   // пятно внутри T6 до стены (кадры 79-80)
+    {fromS:2590,toS:2660,side:'R',width:3,color:'#3f7870', fromLatLon:[47.584868,19.254243], toLatLon:[47.584780,19.255192]},   // T8 снаружи (кадр 90)
+    {fromS:3830,toS:3900,side:'R',width:3,color:'#3f7870', fromLatLon:[47.579186,19.250384], toLatLon:[47.578808,19.251102]},   // выход T13, вдоль въезда на пит-лейн (кадры 135-136)
+    {fromS:3995,toS:4070,side:'R',width:3,color:'#25c060', fromLatLon:[47.578230,19.251935], toLatLon:[47.577693,19.251596]},   // внутри T14 (кадры 140-142)
+  ],
+  // ЩИТЫ ТОРМОЖЕНИЯ (v1.16.10): места и цифры — по онбоарду Леклера 2025 (кадры 13-15,
+  // 73-76, 84-85, 112-115, 123-125, 133-138), 24 щита у T1, T2, T6, T8, T12, T13, T14.
+  // Посадка та же, что у Монреаля и Майами: latLon — СТОЙКА на 0.30 м ЗА отбойником,
+  // полотно 1.15..2.35 м свешивается к трассе поверх стены (1.0 м). Строки считает
+  // tools/hungaroring-scan/markers.js по ПОСТРОЕННОМУ барьеру: правишь barrier.tsv —
+  // пересчитай щиты этой командой (§8: щит и отбойник связаны геометрически).
+  markers: { panelW:1.6, panelH:1.2, baseY:1.15, postW:0.14, postSide:'outer', markers: [
+    {corner:'Turn 1', dist:150, atS:436, side:'L', off:11.03, latLon:[47.581222,19.243749]},   // барьер 10.73 м, кромка 6.0 м
+    {corner:'Turn 1', dist:100, atS:484, side:'L', off:10.95, latLon:[47.581491,19.243245]},   // барьер 10.65 м, кромка 6.0 м
+    {corner:'Turn 1', dist:50, atS:536, side:'L', off:10.82, latLon:[47.581785,19.242703]},   // барьер 10.52 м, кромка 6.0 м
+    {corner:'Turn 2', dist:150, atS:953, side:'R', off:8.48, latLon:[47.581365,19.246266]},   // барьер 8.18 м, кромка 6.0 м
+    {corner:'Turn 2', dist:100, atS:1005, side:'R', off:8.60, latLon:[47.581070,19.246807]},   // барьер 8.30 м, кромка 6.0 м
+    {corner:'Turn 2', dist:50, atS:1053, side:'R', off:8.76, latLon:[47.580803,19.247323]},   // барьер 8.46 м, кромка 6.0 м
+    {corner:'Turn 6', dist:150, atS:2193, side:'L', off:10.90, latLon:[47.587935,19.252279]},   // барьер 10.60 м, кромка 6.0 м
+    {corner:'Turn 6', dist:100, atS:2245, side:'L', off:10.83, latLon:[47.587594,19.252763]},   // барьер 10.53 м, кромка 6.0 м
+    {corner:'Turn 6', dist:50, atS:2293, side:'L', off:10.81, latLon:[47.587277,19.253203]},   // барьер 10.51 м, кромка 6.0 м
+    {corner:'Turn 6', dist:150, atS:2193, side:'R', off:10.30, latLon:[47.587798,19.252080]},   // барьер 10.00 м, кромка 6.0 м
+    {corner:'Turn 6', dist:100, atS:2245, side:'R', off:10.49, latLon:[47.587461,19.252557]},   // барьер 10.19 м, кромка 6.0 м
+    {corner:'Turn 6', dist:50, atS:2293, side:'R', off:11.67, latLon:[47.587138,19.252984]},   // барьер 11.37 м, кромка 6.0 м
+    {corner:'Turn 8', dist:100, atS:2453, side:'R', off:14.30, latLon:[47.585913,19.253284]},   // барьер 14.00 м, кромка 6.0 м
+    {corner:'Turn 8', dist:50, atS:2505, side:'R', off:14.30, latLon:[47.585457,19.253464]},   // барьер 14.00 м, кромка 6.0 м
+    {corner:'Turn 12', dist:150, atS:3334, side:'L', off:10.93, latLon:[47.579598,19.254602]},   // барьер 10.63 м, кромка 6.0 м
+    {corner:'Turn 12', dist:100, atS:3386, side:'L', off:10.92, latLon:[47.579247,19.254139]},   // барьер 10.62 м, кромка 6.0 м
+    {corner:'Turn 12', dist:50, atS:3434, side:'L', off:10.92, latLon:[47.578924,19.253713]},   // барьер 10.62 м, кромка 6.0 м
+    {corner:'Turn 12', dist:150, atS:3334, side:'R', off:10.04, latLon:[47.579725,19.254393]},   // барьер 9.74 м, кромка 6.0 м
+    {corner:'Turn 12', dist:100, atS:3386, side:'R', off:10.01, latLon:[47.579374,19.253932]},   // барьер 9.71 м, кромка 6.0 м
+    {corner:'Turn 12', dist:50, atS:3434, side:'R', off:10.68, latLon:[47.579054,19.253497]},   // барьер 10.38 м, кромка 6.0 м
+    {corner:'Turn 13', dist:100, atS:3626, side:'R', off:13.44, latLon:[47.579527,19.251878]},   // барьер 13.14 м, кромка 6.0 м
+    {corner:'Turn 13', dist:50, atS:3674, side:'R', off:12.46, latLon:[47.579801,19.251365]},   // барьер 12.16 м, кромка 6.0 м
+    {corner:'Turn 14', dist:100, atS:3890, side:'L', off:11.31, latLon:[47.578977,19.251157]},   // барьер 11.01 м, кромка 6.0 м
+    {corner:'Turn 14', dist:50, atS:3938, side:'L', off:11.53, latLon:[47.578711,19.251668]},   // барьер 11.23 м, кромка 6.0 м
+  ]},
   objects: [
     // Пит-билдинг: справа по ходу, S -50..283 через линию старта, ближний край 19 м
     // (пит-лейн между ним и полотном). OSM: 311 x 23 м; на снимке с навесом боксов 333 x 28.
@@ -3840,40 +3896,80 @@ function buildMappedScenery(sc){
     if(!z.fromLatLon||!z.toLatLon)return;
     const a=scenIndexAt(h,z.fromLatLon,z.fromS),b=scenIndexAt(h,z.toLatLon,z.toS);
     const arr=zone[z.side==='R'?1:0];let span=(b-a+M)%M;if(span>M/2)return;
-    for(let t=0;t<=span;t++)arr[(a+t)%M]={type:z.type,width:z.width};});
+    for(let t=0;t<=span;t++)arr[(a+t)%M]={type:z.type,width:z.width,color:z.color};});
+  /* КРАСКА ВЫЛЕТОВ (v1.16.10, Хунгароринг 2025). Два вида: зона целиком одного цвета
+     (type:'tint' + color) и полоса краски у кромки поверх зоны или травы (ключ stripes:
+     ширина от кромки + цвет; зона под ней начинается там, где полоса кончилась, —
+     без наложения, иначе две ленты на одной высоте мерцают). ВСЕ цвета — ОДИН
+     материал: светлая текстура, цвет — вершинный (склейка его переносит, §8 урок 4),
+     обе стороны и все цвета склеиваются в один меш = один вызов отрисовки. Путь
+     «цвет — свой материал» стоил бы вызов на каждый цвет и сторону, а запас у
+     Хунгароринга был три вызова (492 из 495). Текстура шумит СВОИМ зерном, а не
+     Math.random: поток случайных чисел гонки не сдвигается (§8, лишняя текстура). */
+  const band=[new Array(M).fill(null),new Array(M).fill(null)];
+  (sc.stripes||[]).forEach(z=>{
+    if(!z.fromLatLon||!z.toLatLon)return;
+    const a=scenIndexAt(h,z.fromLatLon,z.fromS),b=scenIndexAt(h,z.toLatLon,z.toS);
+    const arr=band[z.side==='R'?1:0];let span=(b-a+M)%M;if(span>M/2)return;
+    for(let t=0;t<=span;t++)arr[(a+t)%M]={width:z.width,color:z.color};});
+  let tintMat=null;
+  const tint=()=>tintMat||(tintMat=new THREE.MeshLambertMaterial({map:tintTex(),vertexColors:true,side:THREE.DoubleSide}));
+  /* Цвет в данных — КАК НА ЭКРАНЕ (снят с онбоарда). Свет сцены (небо 1.05 + солнце 1.15)
+     делает плоскую землю вдвое светлее её цвета: асфальт вылета #5c6167 на снимке
+     tools/shot-track.js выходит #bfc8d4, трава #2f7d3a — #63ff84 (x2.07), текстура краски
+     светлая (x0.95). Поэтому вершине отдаётся половина цвета, иначе синий T2 — сиреневый. */
+  const PAINT_GAIN=0.5;
+  const painted=(m,hex)=>{const c=new THREE.Color(hex).multiplyScalar(PAINT_GAIN),n=m.geometry.attributes.position.count,a=new Float32Array(n*3);
+    for(let k=0;k<n;k++){a[k*3]=c.r;a[k*3+1]=c.g;a[k*3+2]=c.b;}
+    m.geometry.setAttribute('color',new THREE.BufferAttribute(a,3));return m;};
   const texOf={gravel:gravelTex,asphalt:runoffAsphaltTex,grass:grassTex,paint:paintTex},surf={};
   const surfTex=t=>surf[t]||(surf[t]=texOf[t]());   // только для типов, что есть в разметке: текстуры рисуются шумом, и лишняя сдвигает поток случайных чисел всей гонки
   for(const sideSign of [-1,1]){
-    const arr=zone[sideSign>0?1:0];
-    for(const type of ['gravel','asphalt','grass','paint']){
-      if(!arr.some(z=>z&&z.type===type))continue;                  // такого покрытия на трассе нет — не трогаем ни текстуру, ни генератор
-      const mat=new THREE.MeshLambertMaterial({map:surfTex(type),side:THREE.DoubleSide});   // left-side ribbons wind the other way: front-face-only made every LEFT zone invisible
-      const wall=i=>(sideSign>0?track.WR[i]:track.WL[i]);
-      const kerb=i=>!!(sideSign>0?track.kerbR:track.kerbL)[i];
-      /* ШОВ НА ВЪЕЗДЕ В ПОРЕБРИК (ключ kerbSeam, v1.15.93). Краска уходит на 0.85 м
-         от кромки там, где стоит поребрик, а сам поребрик рисуется кусками по точкам
-         разбиения и начинается СО СЛЕДУЮЩЕЙ. На въезде в каждый кусок между полотном
-         и краской остаётся треугольник голого асфальта 0.85 x 4 м — владелец увидел
-         его на устройстве. С ключом отступ берётся, только когда поребрик есть и здесь,
-         и в предыдущей точке, то есть краска подлезает под кромку на один отрезок
-         дольше. Двигается ТОЛЬКО внутрь и только на этих стыках; под полотном краски
-         не видно (зона лежит на 0.016, полотно на 0.02). Дефект общий для всех
-         размеченных трасс (Монца 14 мест, Сильверстоун 19, Монреаль 21, Майами 17),
-         поэтому ключ: включать его на откатанных трассах — отдельное решение владельца. */
-      const inner=i=>track.HW[i]+((kerb(i)&&(!sc.kerbSeam||kerb((i-1+M)%M)))?0.85:-0.05);   // under the kerb where there is one (a hairline gap reads as dark flecks),
-      const widAt=i=>{ if(arr[i])return arr[i].width;         // otherwise right up to the road: the 0.85 m of bare grass there read as a stripe of rubbish
+    const arr=zone[sideSign>0?1:0], bnd=band[sideSign>0?1:0];
+    const wall=i=>(sideSign>0?track.WR[i]:track.WL[i]);
+    const kerb=i=>!!(sideSign>0?track.kerbR:track.kerbL)[i];
+    /* ШОВ НА ВЪЕЗДЕ В ПОРЕБРИК (ключ kerbSeam, v1.15.93). Краска уходит на 0.85 м
+       от кромки там, где стоит поребрик, а сам поребрик рисуется кусками по точкам
+       разбиения и начинается СО СЛЕДУЮЩЕЙ. На въезде в каждый кусок между полотном
+       и краской остаётся треугольник голого асфальта 0.85 x 4 м — владелец увидел
+       его на устройстве. С ключом отступ берётся, только когда поребрик есть и здесь,
+       и в предыдущей точке, то есть краска подлезает под кромку на один отрезок
+       дольше. Двигается ТОЛЬКО внутрь и только на этих стыках; под полотном краски
+       не видно (зона лежит на 0.016, полотно на 0.02). Дефект общий для всех
+       размеченных трасс (Монца 14 мест, Сильверстоун 19, Монреаль 21, Майами 17),
+       поэтому ключ: включать его на откатанных трассах — отдельное решение владельца. */
+    const edge=i=>track.HW[i]+((kerb(i)&&(!sc.kerbSeam||kerb((i-1+M)%M)))?0.85:-0.05);   // under the kerb where there is one (a hairline gap reads as dark flecks),
+    const V=sideSign>0?track.VR:track.VL;                        // otherwise right up to the road: the 0.85 m of bare grass there read as a stripe of rubbish
+    const seen=i=>!V||!!V[i];                                    // где лента барьера спрятана, лента зоны сложилась бы вместе с ней
+    const pave=(i,want)=>{const lim=wall(i)+0.05;                // tuck under the barrier, never past it, never inside-out
+      return Math.max(edge(i)+0.2,Math.min(want>=lim-1.5?lim:want,lim));};   // a leftover strip thinner than 1.5 m is not grass, it is a seam: pave it
+    /* Полоса краски у кромки: на крайних отрезках она сходит на нет клином (ширина 0
+       в точке без полосы), а зона под ней начинается ровно от её края — клин зоны
+       дополняет клин полосы. Иначе на каждом конце полосы светил треугольник травы 4 x 3.5 м. */
+    const bandOut=i=>bnd[i]?pave(i,edge(i)+bnd[i].width):edge(i);
+    const inner=bandOut;                                         // без полос — ровно прежний край
+    const layers=['gravel','asphalt','grass','paint'].filter(t=>arr.some(z=>z&&z.type===t)).map(type=>({type}));   // такого покрытия на трассе нет — не трогаем ни текстуру, ни генератор
+    for(const color of new Set(arr.filter(z=>z&&z.type==='tint').map(z=>z.color)))layers.push({type:'tint',color});
+    for(const {type,color} of layers){
+      const mat=type==='tint'?tint():new THREE.MeshLambertMaterial({map:surfTex(type),side:THREE.DoubleSide});   // left-side ribbons wind the other way: front-face-only made every LEFT zone invisible
+      const widAt=i=>{ if(arr[i])return arr[i].width;
         const p=arr[(i-1+M)%M]; if(p)return p.width;          // the closing quad reads its far edge one index PAST the zone: without this it tapers to a thin wedge
         const n=arr[(i+1)%M]; if(n)return n.width; return 0; };
-      const V=sideSign>0?track.VR:track.VL;
-      const seen=i=>!V||!!V[i];                                  // где лента барьера спрятана, лента зоны сложилась бы вместе с ней
-      const outer=i=>{const lim=wall(i)+0.05,want=track.HW[i]+widAt(i);   // tuck under the barrier, never past it, never inside-out
-        return Math.max(inner(i)+0.2,Math.min(want>=lim-1.5?lim:want,lim));};   // a leftover strip thinner than 1.5 m is not grass, it is a seam: pave it
-      const room=i=>arr[i]&&arr[i].type===type&&wall(i)-0.3>track.HW[i]+1.0;   // where the barrier hugs the road there is simply no room for a zone
+      const outer=i=>Math.max(inner(i)+0.2,pave(i,track.HW[i]+widAt(i)));
+      const room=i=>arr[i]&&arr[i].type===type&&(type!=='tint'||arr[i].color===color)
+        &&wall(i)-0.3>track.HW[i]+1.0                            // where the barrier hugs the road there is simply no room for a zone
+        &&(!bnd[i]||bandOut(i)<outer(i)-0.3);                    // полоса краски дошла до стены — зоне места нет
+      const tag=m=>(m&&type==='tint')?painted(m,color):m;
       const rib=cornerRibbon(i=>sideSign*inner(i),i=>sideSign*outer(i),0.016,mat,
         i=>room(i)&&seen(i)&&seen((i+1)%M));                     // обычная лента доходит до разрыва и останавливается
-      if(rib)grp.add(rib);
+      if(rib)grp.add(tag(rib));
       const fill=zoneSpanFill(sideSign,inner,outer,room,mat);    // а сам разрыв закрывает плоский кусок по прямой перемычке
-      if(fill)grp.add(fill);}}
+      if(fill)grp.add(tag(fill));}
+    const bandSeg=i=>bnd[i]||bnd[(i+1)%M];                       // отрезок i..i+1 с полосой хотя бы на одном конце
+    for(const color of new Set(bnd.filter(Boolean).map(z=>z.color))){   // полосы краски у кромки
+      const rib=cornerRibbon(i=>sideSign*edge(i),i=>sideSign*bandOut(i),0.016,tint(),
+        i=>bandSeg(i)&&bandSeg(i).color===color&&wall(i)-0.3>track.HW[i]+1.0&&seen(i)&&seen((i+1)%M));
+      if(rib)grp.add(painted(rib,color));}}
   // --- grandstands / pit building: rebuild their S from lat/lon so nothing lands 100 m off ---
   (sc.objects||[]).forEach(o=>{
     const ob=Object.assign({},o);
