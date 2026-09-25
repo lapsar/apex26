@@ -50,7 +50,11 @@ const T = JSON.parse(env.evalIn(`(function(){
 const MK = JSON.parse(env.evalIn(`(function(){
   var sc=SCENERY_BY_KEY['Hungaroring'],h=scenHelpers(),M=track.M,zones=[],obj=[];
   (sc.runoff||[]).forEach(function(z){var a=scenIndexAt(h,z.fromLatLon,z.fromS),b=scenIndexAt(h,z.toLatLon,z.toS);
-    zones.push({a:a,b:b,side:z.side,type:z.type,width:z.width});});
+    zones.push({a:a,b:b,side:z.side,type:z.type,width:z.width,color:z.color});});
+  var stripes=[],marks=[];
+  (sc.stripes||[]).forEach(function(z){var a=scenIndexAt(h,z.fromLatLon,z.fromS),b=scenIndexAt(h,z.toLatLon,z.toS);
+    stripes.push({a:a,b:b,side:z.side,width:z.width,color:z.color});});
+  ((sc.markers&&sc.markers.markers)||[]).forEach(function(m){var q=h.toXZ(m.latLon[0],m.latLon[1]);marks.push({x:q[0],z:q[1],dist:m.dist});});
   (sc.objects||[]).forEach(function(o){
     var r={kind:o.kind,name:o.name,side:o.side,off:o.off,d:o.d,w:o.w,shape:o.shape};
     if(o.fromLatLon&&o.toLatLon){r.a=scenIndexAt(h,o.fromLatLon,o.fromS);r.b=scenIndexAt(h,o.toLatLon,o.toS);
@@ -59,7 +63,7 @@ const MK = JSON.parse(env.evalIn(`(function(){
       if(need>0)r.off+=need;}
     if(o.latLon){r.at=scenIndexAt(h,o.latLon,o.atS);var q=h.toXZ(o.latLon[0],o.latLon[1]);r.x=q[0];r.z=q[1];}
     obj.push(r);});
-  return JSON.stringify({zones:zones,obj:obj});})()`));
+  return JSON.stringify({zones:zones,obj:obj,stripes:stripes,marks:marks});})()`));
 
 const geo = p => [-p[0], p[1]];
 const P = T.P.map(geo), R = T.R.map(geo), S = T.S, M = T.M, L = T.len, HW = T.half;
@@ -111,7 +115,14 @@ for (const z of MK.zones) {
   const W = z.side === 'R' ? T.WR : T.WL, inn = [], outp = [];
   for (let t = 0; t <= span; t++) { const i = (z.a + t) % M;
     inn.push(at(i, T.HW[i], z.side)); outp.push(at(i, Math.min(T.HW[i] + z.width, W[i]), z.side)); }
-  out.push(`<polygon points="${inn.concat(outp.reverse()).map(fmtP).join(' ')}" fill="${ZCOL[z.type] || '#ccc'}" stroke="none"/>`); }
+  out.push(`<polygon points="${inn.concat(outp.reverse()).map(fmtP).join(' ')}" fill="${z.type === 'tint' ? z.color : (ZCOL[z.type] || '#ccc')}" stroke="none"/>`); }
+// полосы краски у кромки (v1.16.10): поверх зоны, от кромки на width, не дальше стены
+for (const z of MK.stripes) {
+  const span = (z.b - z.a + M) % M; if (span > M / 2) continue;
+  const W = z.side === 'R' ? T.WR : T.WL, inn = [], outp = [];
+  for (let t = 0; t <= span; t++) { const i = (z.a + t) % M;
+    inn.push(at(i, T.HW[i], z.side)); outp.push(at(i, Math.min(T.HW[i] + z.width, W[i]), z.side)); }
+  out.push(`<polygon points="${inn.concat(outp.reverse()).map(fmtP).join(' ')}" fill="${z.color}" stroke="none"/>`); }
 // стены — построенный барьер
 for (const [key, side] of [['WL', 'L'], ['WR', 'R']]) {
   const q = []; for (let i = 0; i < M; i++) q.push(at(i, T[key][i], side));
@@ -163,6 +174,9 @@ for (let s = 0; s < L; s += 300) { const i = idxAtS(s), t = tang(i), p = P[i];
   const w2 = [p[0] - t[0] * 5 - n[0] * 5.5, p[1] - t[1] * 5 - n[1] * 5.5];
   out.push(`<polygon points="${[tip, w1, w2].map(fmtP).join(' ')}" fill="#ffffff" opacity="0.8"/>`); }
 
+// щиты торможения (v1.16.10): стойка за отбойником, чёрный квадратик 150/100/50 — крупнее ближний
+for (const m of MK.marks) { const q = px(geo([m.x, m.z])), r = m.dist === 50 ? 5 : m.dist === 100 ? 4 : 3.2;
+  out.push(`<rect x="${(q[0] - r).toFixed(1)}" y="${(q[1] - r).toFixed(1)}" width="${(2 * r).toFixed(1)}" height="${(2 * r).toFixed(1)}" fill="#ffffff" stroke="#1a1a1a" stroke-width="1.6"/>`); }
 const CORN = CORNERS.map(([n, s, dir]) => { const i = idxAtS(s); return { n, s, i, dir, ours: turnDir(i), r: radius(i) }; });
 for (const c of CORN) {
   const base = P[c.i], dir = outward(c.i);
@@ -216,15 +230,18 @@ const sw = (y, c, t, line) => { out.push(line
 const LY = y0 + 56;
 sw(LY, '#4a4a4a', 'полотно (12 м)'); sw(LY + 22, '#1f4e9c', 'стена / отбойник / шины — как построено в игре', true);
 sw(LY + 44, ZCOL.asphalt, 'зона вылета: асфальт / бетон'); sw(LY + 66, ZCOL.gravel, 'зона вылета: гравий');
-sw(LY + 88, '#cfe3bf', 'трава между кромкой и стеной'); sw(LY + 110, '#e8a33d', 'трибуны (9)'); sw(LY + 132, '#9aa0a6', 'пит-билдинг');
-const notes = ['',
+sw(LY + 88, '#cfe3bf', 'трава между кромкой и стеной'); sw(LY + 110, '#e8a33d', 'трибуны (' + MK.obj.filter(o => o.kind === 'grandstand').length + ')'); sw(LY + 132, '#9aa0a6', 'пит-билдинг');
+sw(LY + 154, '#4450b0', 'краска 2025: синяя / жёлтая / голубая / зелёная — цвет как в игре');
+sw(LY + 176, '#ffffff', 'щит торможения 150 / 100 / 50 (' + MK.marks.length + ')');
+const notes = ['', '',
+  'v1.16.10: краска вылетов и щиты — по онбоарду Леклера 2025.',
   'v1.16.7: стены и зоны сняты со снимка Google z20 и сверены',
   'с онбоардом 2025. Слева по ходу (сторона трибун) армко в 4-5 м',
   'за кромкой, справа синяя стена в 2-4 м; снаружи поворотов',
   'асфальт до шин. Трибуны — v1.16.6.',
   'Север сверху, отражение мира игры снято — можно класть',
   'рядом с официальной схемой гонки.'];
-notes.forEach((t, k) => out.push(`<text x="${col}" y="${LY + 150 + k * 19}" font-size="13" fill="#3c4043">${esc(t)}</text>`));
+notes.forEach((t, k) => out.push(`<text x="${col}" y="${LY + 172 + k * 19}" font-size="13" fill="#3c4043">${esc(t)}</text>`));
 out.push(`<text x="${col}" y="${y0 + 30}" font-size="17" font-weight="bold" fill="#1a1a1a">Условные знаки</text>`);
 }
 out.push('</svg>');
