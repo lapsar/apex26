@@ -18,3 +18,9 @@ hu-1986-pass*.geojson
 # осевая из игры (dump-cl.js) и круг openf1 под онбоард (laptime.py): строятся заново
 centerline.json
 openf1_lap_*.json
+wall.json
+barrier.js
+strip_*.png
+plan_*.png
+tilecache/
+unrolled_*.json
