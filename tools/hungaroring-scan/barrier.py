@@ -115,7 +115,7 @@ def main():
                                                sum(z['type'] == 'gravel' for z in zs)))
     if '--check' in sys.argv:
         return
-    js = ['  rail: { height:1.0,', '    L: [', fmt(rl), '    ],', '    R: [', fmt(rr), '    ],', '  },',
+    js = ['  rail: { height:1.0, radius:12,   // радиус поворота окружностью по 12 м, а не по одному стыку (v1.16.8: ровная стена внутри T1)', '    L: [', fmt(rl), '    ],', '    R: [', fmt(rr), '    ],', '  },',
           '  runoff: [']
     for z in zs:
         js.append("    {fromS:%d,toS:%d,side:'%s',type:'%s',width:%g, fromLatLon:[%.6f,%.6f], toLatLon:[%.6f,%.6f]},   // %s"
