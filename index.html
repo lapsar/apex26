@@ -167,7 +167,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.16.11</div>
+    <div class="verstamp">v1.16.12</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -3065,6 +3065,10 @@ const SCENERY_HUNGARORING = {
       [47.578882,19.248567],
     ],
   },
+  // ТОН БЕТОНА ВЫЛЕТОВ (v1.16.12, вариант Б владельца): вылеты Хунгароринга — светлый
+  // ТЁПЛЫЙ серо-бежевый бетон (онбоард 2025 ~#aea5a0..#c5b4ac, снимок ESRI 05.2025), а наш
+  // асфальт вылетов на экране холодный #bfc8d4. Множитель текстуры; на экране ~#b0a39a.
+  runoffTone:'#ecd2bc',
   runoff: [
     {fromS:572,toS:775,side:'L',type:'asphalt',width:60, fromLatLon:[47.582033,19.242370], toLatLon:[47.582389,19.244456]},   // T1 снаружи, до шин
     {fromS:1292,toS:1450,side:'L',type:'asphalt',width:60, fromLatLon:[47.582282,19.247581], toLatLon:[47.583618,19.248303]},   // T3 снаружи, до шин
@@ -3101,6 +3105,8 @@ const SCENERY_HUNGARORING = {
     {fromS:2590,toS:2660,side:'R',width:3,color:'#3f7870', fromLatLon:[47.584868,19.254243], toLatLon:[47.584780,19.255192]},   // T8 снаружи (кадр 90)
     {fromS:3830,toS:3900,side:'R',width:3,color:'#3f7870', fromLatLon:[47.579186,19.250384], toLatLon:[47.578808,19.251102]},   // выход T13, вдоль въезда на пит-лейн (кадры 135-136)
     {fromS:3995,toS:4070,side:'R',width:3,color:'#25c060', fromLatLon:[47.578230,19.251935], toLatLon:[47.577693,19.251596]},   // внутри T14 (кадры 140-142)
+    {fromS:2090,toS:2165,side:'L',width:3,type:'gravel', fromLatLon:[47.588452,19.251074], toLatLon:[47.588078,19.251954]},   // T5 выход: гравий сразу за поребриком, дальше светлый бетон (кадры 70-72; FIA 2025)
+    {fromS:3520,toS:3588,side:'L',width:2.5,type:'gravel', fromLatLon:[47.578681,19.252681], toLatLon:[47.579137,19.252063]},   // T12 выход: гравий между поребриком и жёлтой DHL (кадры 120-122; FIA 2024: 2.5 м)
   ],
   // ЩИТЫ ТОРМОЖЕНИЯ (v1.16.10): места и цифры — по онбоарду Леклера 2025 (кадры 13-15,
   // 73-76, 84-85, 112-115, 123-125, 133-138), 26 щитов у T1, T2, T6, T8, T12, T13, T14.
@@ -3919,7 +3925,7 @@ function buildMappedScenery(sc){
     if(!z.fromLatLon||!z.toLatLon)return;
     const a=scenIndexAt(h,z.fromLatLon,z.fromS),b=scenIndexAt(h,z.toLatLon,z.toS);
     const arr=band[z.side==='R'?1:0];let span=(b-a+M)%M;if(span>M/2)return;
-    for(let t=0;t<=span;t++)arr[(a+t)%M]={width:z.width,color:z.color};});
+    for(let t=0;t<=span;t++)arr[(a+t)%M]={width:z.width,color:z.type==='gravel'?'gravel':z.color};});   // type:'gravel' — полоса ГРАВИЯ у кромки (v1.16.12)
   let tintMat=null;
   const tint=()=>tintMat||(tintMat=new THREE.MeshLambertMaterial({map:tintTex(),vertexColors:true,side:THREE.DoubleSide}));
   /* Цвет в данных — КАК НА ЭКРАНЕ (снят с онбоарда). Свет сцены (небо 1.05 + солнце 1.15)
@@ -3933,7 +3939,7 @@ function buildMappedScenery(sc){
   const texOf={gravel:gravelTex,asphalt:runoffAsphaltTex,grass:grassTex,paint:paintTex},surf={};
   const surfTex=t=>surf[t]||(surf[t]=texOf[t]());   // только для типов, что есть в разметке: текстуры рисуются шумом, и лишняя сдвигает поток случайных чисел всей гонки
   for(const sideSign of [-1,1]){
-    const arr=zone[sideSign>0?1:0], bnd=band[sideSign>0?1:0];
+    const arr=zone[sideSign>0?1:0], bnd=band[sideSign>0?1:0], sideMat={};   // материал покрытия — один на сторону: гравийная полоса ложится в меш гравия той же стороны
     const wall=i=>(sideSign>0?track.WR[i]:track.WL[i]);
     const kerb=i=>!!(sideSign>0?track.kerbR:track.kerbL)[i];
     /* ШОВ НА ВЪЕЗДЕ В ПОРЕБРИК (ключ kerbSeam, v1.15.93). Краска уходит на 0.85 м
@@ -3959,7 +3965,11 @@ function buildMappedScenery(sc){
     const layers=['gravel','asphalt','grass','paint'].filter(t=>arr.some(z=>z&&z.type===t)).map(type=>({type}));   // такого покрытия на трассе нет — не трогаем ни текстуру, ни генератор
     for(const color of new Set(arr.filter(z=>z&&z.type==='tint').map(z=>z.color)))layers.push({type:'tint',color});
     for(const {type,color} of layers){
-      const mat=type==='tint'?tint():new THREE.MeshLambertMaterial({map:surfTex(type),side:THREE.DoubleSide});   // left-side ribbons wind the other way: front-face-only made every LEFT zone invisible
+      const mat=type==='tint'?tint():(sideMat[type]||(sideMat[type]=new THREE.MeshLambertMaterial({map:surfTex(type),side:THREE.DoubleSide})));   // left-side ribbons wind the other way: front-face-only made every LEFT zone invisible
+      /* ТОН БЕТОНА ВЫЛЕТОВ (ключ runoffTone, v1.16.12, Хунгароринг): цвет материала умножает
+         текстуру асфальта вылетов — только затемняет (§8 урок 7), поэтому тон светлый. Меш
+         и текстура те же: ни вызова, ни случайного числа. Без ключа — белый, как было. */
+      if(type==='asphalt'&&sc.runoffTone)mat.color.set(sc.runoffTone);
       const widAt=i=>{ if(arr[i])return arr[i].width;
         const p=arr[(i-1+M)%M]; if(p)return p.width;          // the closing quad reads its far edge one index PAST the zone: without this it tapers to a thin wedge
         const n=arr[(i+1)%M]; if(n)return n.width; return 0; };
@@ -3975,9 +3985,10 @@ function buildMappedScenery(sc){
       if(fill)grp.add(tag(fill));}
     const bandSeg=i=>bnd[i]||bnd[(i+1)%M];                       // отрезок i..i+1 с полосой хотя бы на одном конце
     for(const color of new Set(bnd.filter(Boolean).map(z=>z.color))){   // полосы краски у кромки
-      const rib=cornerRibbon(i=>sideSign*edge(i),i=>sideSign*bandOut(i),0.016,tint(),
+      const grav=color==='gravel', gm=grav?(sideMat.gravel||(sideMat.gravel=new THREE.MeshLambertMaterial({map:surfTex('gravel'),side:THREE.DoubleSide}))):tint();
+      const rib=cornerRibbon(i=>sideSign*edge(i),i=>sideSign*bandOut(i),0.016,gm,
         i=>bandSeg(i)&&bandSeg(i).color===color&&wall(i)-0.3>track.HW[i]+1.0&&seen(i)&&seen((i+1)%M));
-      if(rib)grp.add(painted(rib,color));}}
+      if(rib)grp.add(grav?rib:painted(rib,color));}}
   // --- grandstands / pit building: rebuild their S from lat/lon so nothing lands 100 m off ---
   (sc.objects||[]).forEach(o=>{
     const ob=Object.assign({},o);
