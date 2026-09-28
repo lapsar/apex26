@@ -14,7 +14,12 @@ O = dict(lat0=47.582732616, lon0=19.250829443, mlon=75088.112675, mlat=110540)  
 SRC = {
     'esri': "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
     'goog': "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
+    'bing': "https://ecn.t0.tiles.virtualearth.net/tiles/a{q}.jpeg?g=1",   # свежее Google у T1 (09.2026)
 }
+
+
+def quadkey(x, y, z):
+    return ''.join(str(((x >> i) & 1) | (((y >> i) & 1) << 1)) for i in range(z - 1, -1, -1))
 
 
 def game2deg(x, z):
@@ -41,7 +46,7 @@ class Mosaic:
         lst = os.path.join(CACHE, 'urls.txt')
         with open(lst, 'w') as f:
             for (tx, ty) in miss:
-                f.write(f"url = {SRC[self.src].format(z=self.z, x=tx, y=ty)}\n")
+                f.write(f"url = {SRC[self.src].format(z=self.z, x=tx, y=ty, q=quadkey(tx, ty, self.z))}\n")
                 f.write(f"output = {self._path((tx, ty))}\n")
         subprocess.run(["curl", "-sS", "--parallel", "--parallel-max", "8",
                         "--max-time", "60", "-A", "apex26-dev", "-K", lst], check=False)

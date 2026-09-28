@@ -120,13 +120,16 @@ const MARKERS = `(function(){
     for(var k=0;k<track.M;k++){var dx=x-track.P[k].x,dz=z-track.P[k].z,d=dx*dx+dz*dz;if(d<bd){bd=d;bi=k;}}
     var R=track.R[bi], off=(x-track.P[bi].x)*R.x+(z-track.P[bi].z)*R.z;
     var wall=off<0?track.WL[bi]:track.WR[bi];
-    var W=sc.markers.panelW||1.6, a=Math.abs(off), outer=(sc.markers.postSide==='outer');
+    // ground:true (v1.16.11) — щит на земле ПЕРЕД барьером, как у Монцы: latLon —
+    // середина полотна, стойки нет, низ на земле. Проверяется как щит Монцы.
+    var W=sc.markers.panelW||1.6, a=Math.abs(off), gnd=!!m.ground, outer=(sc.markers.postSide==='outer')&&!gnd;
     var near=outer?(a-W):(a-W/2), far=outer?a:(a+W/2);   // края полотна по отступу от осевой
+    var y0=gnd?0:(sc.markers.baseY||0);
     out.push({name:(m.corner||'?')+' '+(m.dist||'?')+' м', off:+a.toFixed(2),
-              near:+near.toFixed(2), far:+far.toFixed(2),
+              near:+near.toFixed(2), far:+far.toFixed(2), ground:gnd,
               wall:+wall.toFixed(2), S:Math.round(track.S[bi]),
-              bottom:+(sc.markers.baseY||0).toFixed(2),
-              top:+(((sc.markers.baseY||0)+(sc.markers.panelH||0.9))).toFixed(2),
+              bottom:+y0.toFixed(2),
+              top:+((y0+(sc.markers.panelH||0.9))).toFixed(2),
               wallH:(track.style==='street'?1.1:1.0),
               corner:(m.corner||'?'), past:+(near-track.HW[bi]).toFixed(2)});
   }
@@ -207,6 +210,7 @@ const MARKER_FREE = 2.0;     // ближе этого к стене считае
 // Допуск шире самого перекоса: 0.30 м проектных минус округление координат
 // до шестого знака и привязка к ближайшей точке осевой дают разброс 0.26-0.32.
 const MARKER_BEHIND = 0.15;  // на столько стойка обязана уйти за барьер
+const MARKER_KERB = 1.0;     // щит на земле: полотно не ближе этого к кромке (поребрик 0.9 м)
 
 // Пятая проверка: ОБЪЕКТ ОКРУЖЕНИЯ НЕ СТОИТ ВНУТРИ ЛИНИИ БАРЬЕРА.
 // Тот же класс ошибки, что со щитами: объект и отбойник заданы РАЗНЫМИ данными,
@@ -326,13 +330,24 @@ function run(opt) {
     // «выглядывает из-за борта» — только там, где так задумано (postSide:'outer').
     // У Монцы и Сильверстоуна стойка стоит по центру полотна, барьер в 24-27 м,
     // и связи между ними нет вовсе — там проверять нечего.
-    const front = s.outer ? s.list.filter(m => m.off - m.wall < MARKER_BEHIND) : [];
-    const worstBehind = s.outer && s.list.length
-      ? Math.min(...s.list.map(m => m.off - m.wall)) : null;
+    // Щит на земле (ground) стойки за барьером не имеет — здесь он не в зачёт, зато
+    // обязан стоять ЗА кромкой: полотно не должно лезть на асфальт и поребрик (0.9 м).
+    const posted = s.list.filter(m => !m.ground);
+    const front = s.outer ? posted.filter(m => m.off - m.wall < MARKER_BEHIND) : [];
+    const worstBehind = s.outer && posted.length
+      ? Math.min(...posted.map(m => m.off - m.wall)) : null;
+    const onRoad = s.list.filter(m => m.ground && m.past < MARKER_KERB);
+    for (const m of onRoad) {
+      const say = T.hidden ? r.note.bind(r) : r.fail.bind(r);
+      say(`${T.name}: щит на земле «${m.name}» начинается в ${m.past} м за кромкой `
+        + `(${m.S} м от старта) — стоит на поребрике или на асфальте`);
+    }
     r.line(`${T.name.padEnd(12)} щитов торможения ${String(s.list.length).padStart(3)} · `
       + `за отбойником ${bad.length} · тонет в отбойнике ${dim.length}`
-      + (s.outer ? ` · стойка перед барьером ${front.length} · `
-        + `наименьший заход за барьер ${worstBehind.toFixed(2)} м` : ''));
+      + (s.outer && posted.length ? ` · стойка перед барьером ${front.length} · `
+        + `наименьший заход за барьер ${worstBehind.toFixed(2)} м` : '')
+      + (s.list.some(m => m.ground) ? ` · на земле ${s.list.filter(m => m.ground).length}, `
+        + `ближе всех к кромке ${Math.min(...s.list.filter(m => m.ground).map(m => m.past)).toFixed(2)} м` : ''));
     for (const m of front) {
       const say = T.hidden ? r.note.bind(r) : r.fail.bind(r);
       const d = m.off - m.wall;

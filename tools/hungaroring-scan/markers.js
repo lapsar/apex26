@@ -34,21 +34,37 @@
    «за отбойником» (правило посадки, пробник clear) встал бы в 12-16 м за кромкой,
    посреди площадки. В жизни он стоит на своей стойке у кромки — у нас его нет.
 
+   ПОСАДКА НА ЗЕМЛЮ (v1.16.11, владелец: «место есть, и таблички почти везде стоят на
+   земле»). Онбоард 2025 кадр за кадром: у T1, T6, T8, T12, T13, T14 щит стоит НА ТРАВЕ
+   (или на бетоне вылета) ПЕРЕД армко, низко, верх примерно вровень с верхом борта —
+   кадры 13-15, 73-76, 83-85, 112-115, 122-125, 137. Висит на сетке только T2 (кадр 34:
+   стена у моста в 2.2 м за кромкой, «50» высоко на ограждении) — там остаётся стойка за
+   отбойником. Посадка на земле — как у Монцы и Сильверстоуна (baseY 0, без стойки,
+   latLon — середина полотна), ключ ground:true у щита. Отступ середины полотна:
+     off = min(барьер − GAP − W/2, кромка + FAR)
+   — полотно в GAP=0.5 м перед барьером (на кадрах щит почти касается армко), но не
+   дальше FAR=4.5 м за кромкой там, где вылет широкий (T8 справа, T13 слева: на кадрах
+   84 и 123 щит стоит посреди травы/площадки, а не у далёкой стены). Левые щиты T13,
+   которых в v1.16.10 не было (стойке «за отбойником» там не место), теперь стоят.
+
    node tools/hungaroring-scan/markers.js
 */
 const path = require('path');
 const H = require(path.join(__dirname, '..', 'harness.js'));
 
-const ZONES = [
-  { corner: 'Turn 1',  ref: 585,  sides: ['L'],      dist: [150, 100, 50] },
-  { corner: 'Turn 2',  ref: 1104, sides: ['R'],      dist: [150, 100, 50] },
-  { corner: 'Turn 6',  ref: 2345, sides: ['L', 'R'], dist: [150, 100, 50] },
-  { corner: 'Turn 8',  ref: 2555, sides: ['R'],      dist: [100, 50] },
-  { corner: 'Turn 12', ref: 3485, sides: ['L', 'R'], dist: [150, 100, 50] },
-  { corner: 'Turn 13', ref: 3725, sides: ['R'],      dist: [100, 50] },
-  { corner: 'Turn 14', ref: 3990, sides: ['L'],      dist: [100, 50] },
+const ZONES = [          // ground — на земле перед барьером; иначе стойка за отбойником
+  { corner: 'Turn 1',  ref: 585,  sides: ['L'],      dist: [150, 100, 50], ground: true },
+  { corner: 'Turn 2',  ref: 1104, sides: ['R'],      dist: [150, 100, 50], ground: false },
+  { corner: 'Turn 6',  ref: 2345, sides: ['L', 'R'], dist: [150, 100, 50], ground: true },
+  { corner: 'Turn 8',  ref: 2555, sides: ['R'],      dist: [100, 50],      ground: true },
+  { corner: 'Turn 12', ref: 3485, sides: ['L', 'R'], dist: [150, 100, 50], ground: true },
+  { corner: 'Turn 13', ref: 3725, sides: ['L', 'R'], dist: [100, 50],      ground: true },
+  { corner: 'Turn 14', ref: 3990, sides: ['L'],      dist: [100, 50],      ground: true },
 ];
 const BEHIND = 0.30;                       // на столько стойка уходит за барьер
+const PANEL_W = 1.6;                       // ширина полотна (panelW в данных)
+const GAP = 0.5;                           // щит на земле: от края полотна до барьера
+const FAR = 4.5;                           // щит на земле: середина не дальше кромка + FAR
 
 const env = H.loadGame();
 const idx = H.tracks().findIndex(t => t.key === 'Hungaroring');
@@ -69,10 +85,13 @@ console.log("  markers: { panelW:1.6, panelH:1.2, baseY:1.15, postW:0.14, postSi
 for (const z of ZONES) for (const side of z.sides) for (const d of z.dist) {
   const i = idxAtS(z.ref - d);
   const wall = (side === 'L' ? WL[i] : WR[i]);
-  const off = wall + BEHIND, sgn = (side === 'L') ? -1 : 1;
+  const off = z.ground ? Math.min(wall - GAP - PANEL_W / 2, HW[i] + FAR) : wall + BEHIND;
+  const sgn = (side === 'L') ? -1 : 1;
   const x = P[i][0] + R[i][0] * sgn * off, zz = P[i][1] + R[i][1] * sgn * off;
   const [lat, lon] = toDeg(x, zz);
-  console.log(`    {corner:'${z.corner}', dist:${d}, atS:${Math.round(S[i])}, side:'${side}', off:${f(off, 2)}, latLon:[${f(lat, 6)},${f(lon, 6)}]},`
-    + `   // барьер ${f(wall, 2)} м, кромка ${f(HW[i], 1)} м`);
+  console.log(`    {corner:'${z.corner}', dist:${d}, atS:${Math.round(S[i])}, side:'${side}', off:${f(off, 2)}, `
+    + (z.ground ? 'ground:true, ' : '') + `latLon:[${f(lat, 6)},${f(lon, 6)}]},`
+    + `   // барьер ${f(wall, 2)} м, кромка ${f(HW[i], 1)} м`
+    + (z.ground ? `, полотно ${f(off - HW[i] - PANEL_W / 2, 1)}..${f(off - HW[i] + PANEL_W / 2, 1)} м за кромкой` : ''));
 }
 console.log('  ]},');
