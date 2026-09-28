@@ -11,6 +11,7 @@
      npm i -D playwright            # браузер в песочнице уже стоит, качать нечего
      node tools/shot-track.js --html=index.html --tag=after --track=4 --s=3400
      node tools/shot-track.js --html=archive/v1.15.26.html --tag=before --track=4 --s=3400
+     node tools/shot-track.js --track=6 --s=1110 --off=20 --yaw=-40   # с вылета, лицом к стене
    Кадры лягут в tools/shots/.
 
    Три приёма, без которых ничего не выходит:
@@ -36,6 +37,8 @@ const HTML = path.resolve(args.html || path.join(__dirname, '..', 'index.html'))
 const TAG = args.tag || 'shot';
 const TRACK = +(args.track || 0);
 const S = +(args.s || 0);
+const OFF = +(args.off || 0);                // сдвиг вбок от осевой, м (+ вправо по ходу)
+const YAW = +(args.yaw || 0) * Math.PI / 180; // поворот камеры от направления трассы, градусы
 const OUT = args.out ? path.resolve(args.out) : path.join(__dirname, 'shots');
 const CHROME = args.chrome || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 
@@ -65,15 +68,16 @@ const CHROME = args.chrome || '/opt/pw-browsers/chromium-1194/chrome-linux/chrom
     scene.children.forEach(o => {                   // см. про 16-битную глубину в шапке
       if (o.isMesh && o.geometry && o.geometry.parameters && o.geometry.parameters.width === 9000) o.position.y = -0.6; });
   });
-  const info = await page.evaluate(({ s }) => {
+  const info = await page.evaluate(({ s, off, yaw }) => {
     let i = 0; while (i < track.M - 1 && track.S[i] < s) i++;
     player.x = track.P[i].x; player.z = track.P[i].z;
-    player.hdg = Math.atan2(track.F[i].x, track.F[i].z);
+    player.hdg = Math.atan2(track.F[i].x, track.F[i].z) + yaw;
+    player.x += track.R[i].x * off; player.z += track.R[i].z * off;   // вид с вылета, лицом к стене
     player.speed = 0; player.hint = i; player.steerVis = 0;
     placePlayer(player); updateCamera(0.016); render();
     window.__i = i;
     return { i, S: +track.S[i].toFixed(0), name: track.spec.name };
-  }, { s: S });
+  }, { s: S, off: OFF, yaw: YAW });
   await page.waitForTimeout(200);
   const base = info.name.toLowerCase() + '-s' + info.S + '-';
   await page.screenshot({ path: path.join(OUT, base + 'cockpit-' + TAG + '.png') });
