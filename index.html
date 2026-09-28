@@ -167,7 +167,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.16.13</div>
+    <div class="verstamp">v1.16.14</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -274,7 +274,7 @@ const TRACKS=[
    desc:"Остров на реке: длинные прямые, шпилька, тесные шиканы и стены у самой кромки."},
   {name:"Miami",key:"Miami",ground:"asphalt",rail:"#17418f",railAds:[[0,0],[800,1],[1950,4],[2900,2],[4200,3],[5150,0]],cc:"США",c:"#00B7C7",half:7.0,style:"park",runoff:2,grip:1.0,twist:4,speed:5,sfShift:5274,
    desc:"Стадион Hard Rock: круг против часовой, длиннейшая прямая в игре, стены у самой кромки."},
-  {name:"Hungaroring",key:"Hungaroring",railAds:[[0,9],[880,10],[1400,11],[2240,3],[2480,2],[2820,4],[3420,3],[3660,8],[3900,9]],cc:"Венгрия",c:"#4E9C45",half:6.0,style:"park",runoff:12,grip:1.0,twist:5,speed:2,sfShift:4118,
+  {name:"Hungaroring",key:"Hungaroring",railAds:[[0,9],[880,10],[1020,8],[1240,10],[1400,11],[2240,3],[2480,2],[2820,4],[3420,3],[3660,8],[3900,9]],cc:"Венгрия",c:"#4E9C45",half:6.0,style:"park",runoff:12,grip:1.0,twist:5,speed:2,sfShift:4118,
    desc:"«Монако без стен»: самое узкое полотно в игре, четырнадцать поворотов почти без прямых."},
 ];
 const sel={track:null,roster:null,custom:"",laps:3,view:"cockpit",diff:"easy"};
@@ -844,7 +844,9 @@ const RAIL_ADS=[
      красное название на главной прямой (там в жизни красные щиты Lenovo) и два синих
      (тёмно-синие Louis Vuitton/Salesforce у T2, MSC у T4). Остальные пять зон берут
      готовые полосы: PIRELLI (шикана 6-7 и T12, где жёлто-красный DHL), ARAMCO (T10-T12),
-     синий APEX (T8-T9) и красный APEX (T13, где бордовый Qatar). Снова ПЕРЕД изнанкой. */
+     синий APEX (T8-T9) и красный APEX (T13, где бордовый Qatar). Снова ПЕРЕД изнанкой.
+     v1.16.14: в самом T2 (S 1020-1240) щит КРАСНЫЙ APEX, а не синий — площадка вылета
+     там крашена синим (как в жизни), и синий щит на ней сливался (скриншот владельца). */
   {bg:'#a8142a',fg:'#ffffff',text:'HUNGARY \u00b7 BUDAPEST 2026'},
   {bg:'#17418f',fg:'#ffffff',text:'MAGYAR NAGYD\u00cdJ 2026'},
   {bg:'#17418f',fg:'#ffffff',text:'HUNGARORING'},
