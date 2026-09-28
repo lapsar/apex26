@@ -288,3 +288,23 @@ tracks/hungaroring.md, «Онбоард: привязка кадров».
 (фильтр по тегам, малый bbox). Разметку Монцы и Сильверстоуна это задним числом не отменяет:
 переделывать работающее незачем, но сверить спорные места (§9-bis) теперь есть чем.
 
+
+### FIA Event Notes и дата снимка ESRI — что на трассе СЕЙЧАС (09.2026, Хунгароринг)
+
+**«Race Director's Event Notes» каждого Гран-при** лежат на fia.com среди документов этапа
+(страница `fia.com/documents/championships/fia-formula-one-world-championship-14/season/
+season-<год>-<id>/event/<Гран-при>`, ссылка на PDF ищется в её HTML по `event_notes`;
+старые годы — `fia.com/sites/default/files/decision-document/<год> <Гран-при> - Race
+Director's Event Notes.pdf`). Раздел **«Changes to the Circuit»** — официальный список правок
+трассы к этому этапу: гравий вместо травы, новые стены, перенос белой линии. Это единственный
+источник, который говорит о полосе в 2.5 м — на снимке 0.5 м/пкс её не различить, на онбоарде
+её место видно, а ширину — нет. Текст из PDF: `pdfminer.six` (нужен `pip install cffi`, иначе
+падает системный `cryptography`).
+
+**Дата снимка ESRI World Imagery узнаётся запросом `identify`** к
+`services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/identify`
+(точка трассы, `layers=all`, `f=json`): поле `SRC_DATE2` по каждому слою. Для Хунгароринга —
+**2 мая 2025** (Vivid Advanced, 0.5 м/пкс; z19 — тот же снимок, растянутый). То есть ESRI на
+три месяца старше онбоарда 2025 и новее Google z20. Проверять дату перед каждым выводом «так на
+трассе сейчас»: три слоя (Google, Bing, ESRI) у T1 Венгрии показывают три разные трассы.
+Bing добавлен источником в `hungaroring-scan/unroll.py` (`plan.py S0 S1 bing 19`).

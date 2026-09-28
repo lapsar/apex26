@@ -104,7 +104,10 @@ def edge_ll(s, side):
 
 
 def stripes():
-    return [dict(fromS=int(r[0]), toS=int(r[1]), side=r[2], width=float(r[3]), color=PAINT[r[4]],
+    # цвет «gravel» (v1.16.12) — не краска, а полоса ГРАВИЯ у кромки: в игре type:'gravel',
+    # материал гравия той же стороны (выходы T5 и T12, FIA Event Notes 2024-2025)
+    return [dict(fromS=int(r[0]), toS=int(r[1]), side=r[2], width=float(r[3]),
+                 color=None if r[4] == 'gravel' else PAINT[r[4]],
                  fromLatLon=edge_ll(float(r[0]), r[2]), toLatLon=edge_ll(float(r[1]), r[2]),
                  note=r[5] if len(r) > 5 else '') for r in read('stripes.tsv')]
 
@@ -145,8 +148,9 @@ def main():
     js.append('  ],')
     js.append('  stripes: [   // полосы краски у кромки (stripes.tsv): width — от кромки полотна')
     for z in st:
-        js.append("    {fromS:%d,toS:%d,side:'%s',width:%g,color:'%s', fromLatLon:[%.6f,%.6f], toLatLon:[%.6f,%.6f]},   // %s"
-                  % (z['fromS'], z['toS'], z['side'], z['width'], z['color'], *z['fromLatLon'], *z['toLatLon'], z['note']))
+        kind = "color:'%s'" % z['color'] if z['color'] else "type:'gravel'"
+        js.append("    {fromS:%d,toS:%d,side:'%s',width:%g,%s, fromLatLon:[%.6f,%.6f], toLatLon:[%.6f,%.6f]},   // %s"
+                  % (z['fromS'], z['toS'], z['side'], z['width'], kind, *z['fromLatLon'], *z['toLatLon'], z['note']))
     js.append('  ],')
     open(os.path.join(HERE, 'barrier.js'), 'w').write('\n'.join(js) + '\n')
     print('barrier.js: %d + %d точек ломаной' % (len(rl), len(rr)))
