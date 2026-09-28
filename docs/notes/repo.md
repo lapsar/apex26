@@ -332,6 +332,7 @@ apex26/
     │                                   2025, 2 кадра/с, кладёт владелец) и README.txt;
     │                                   dump-cl.js + laptime.py — КАДР → МЕСТО:
     │                                   onboard/kadry.tsv (время, S игры, скорость);
+    │                                   ads/proposal.jpg — реклама на бортах: онбоард → предложение (09.2026);
     │                                   views/ — 12 видов с трибун (3ddigitalvenue,
     │                                   рендер модели) к этапу 3: типы бортов;
     │                                   standpos.py — S/сторона/отступ → [lat,lon]
