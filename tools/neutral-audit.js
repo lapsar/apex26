@@ -8,7 +8,7 @@
    на границе зоны, и обгоны игрока.
    Заодно печатает мерку «держит ли темп»: долю фактической скорости от потолка,
    отдельно у игрока и у ИИ. Ключи:
-     --seeds=7,91  --pos=11  --fast=0|1  --hc=0.62  --quiet=1
+     --seeds=7,91  --pos=11  --fast=0|1  --hc=0.62  --quiet=1  --diff=easy|normal|hard (по умолчанию normal)
    --hc<1 — автопилот с гандикапом, грубая замена неопытному пилоту (ребёнку). */
 'use strict';
 const H = require('./harness');
@@ -42,7 +42,7 @@ function __driveFast(n,dt,watch){for(var f=0;f<n;f++){__AP.fast();if(phase==='')
 
 function runOne(T, seed, pos, fast, hc, mode) {
   const env = H.loadGame({ seed, file: FILE });
-  H.setupWeekend(env, { trackIdx: T.idx, diff: 'normal', laps: 3 });
+  H.setupWeekend(env, { trackIdx: T.idx, diff: DIFF, laps: 3 });
   H.startRaceAt(env, pos);
   H.lightsOut(env);
   env.evalIn(FASTAP, 'harness(fastap)');
@@ -162,6 +162,7 @@ const hc    = +arg('hc','1');
 const quiet = arg('quiet','0')==='1';
 const mode  = arg('mode','yellow');
 const FILE  = arg('file','') || undefined;
+const DIFF  = arg('diff','normal');                 // v1.16.17: режим — раньше всегда Норма; правка долей Новичка его и потребовала
 
 let tot={all:0,zone:0,both:0,edge:0,pby:0,pof:0,heldv:0}, runs=0, lost=0, gained=0;
 for (const T of H.tracks(true)) {
