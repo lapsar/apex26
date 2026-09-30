@@ -22,14 +22,15 @@
         с 11-го места 0 с рядом с соперником под флагом на всех пяти трассах).
      4. В углу вместо номера версии — «ТЕСТ ФЛАГОВ».
 
-   Запуск: node tools/flag-test-build.js --out=<файл.html>
+   Запуск: node tools/flag-test-build.js --out=<файл.html> [--src=archive/v1.16.17.html]
    ========================================================================== */
 'use strict';
 const fs = require('fs'), path = require('path');
 const arg = (k, d) => { const a = process.argv.find(s => s.startsWith('--' + k + '=')); return a ? a.split('=')[1] : d; };
 const OUT = arg('out', null); if (!OUT) throw new Error('нужен --out=<файл>');
 
-let src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const SRC = arg('src', path.join(__dirname, '..', 'index.html'));   // другая сборка — для сверки (archive/v1.16.17.html)
+let src = fs.readFileSync(SRC, 'utf8');
 function swap(from, to) {
   const n = src.split(from).length - 1;
   if (n !== 1) throw new Error(`образец найден ${n} раз, нужен ровно 1:\n${from}`);
