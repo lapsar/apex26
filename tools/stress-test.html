@@ -5590,21 +5590,26 @@ if(typeof module!=='undefined')module.exports={makeTrack,makeCar,project,TRACKS,
     font:600 12px system-ui,-apple-system,sans-serif;font-variant-numeric:tabular-nums;pointer-events:none;white-space:nowrap;}
   #stchip[hidden]{display:none!important;}
 </style>
+<style id="stNoBlur" media="not all">#game .kb{-webkit-backdrop-filter:none!important;backdrop-filter:none!important;}</style>
+<style id="stNoUI" media="not all">#game > :not(canvas){visibility:hidden!important;}</style>
 <div id="stchip" hidden></div>
 <div id="stz">
   <div class="box">
     <div class="kick">APEX '26 · замер на устройстве</div>
     <h1>Сколько вытянет это устройство</h1>
-    <p>Страница сама проедет гонку на Сильверстоуне (вы стартуете последним, всё поле перед камерой)
-       и будет ступенями доводить нагрузку: сначала вызовы отрисовки от 495 до 1700, потом лишние треугольники.
-       Десять ступеней по 18 секунд, всего около 3,5 минут. В конце появится таблица.</p>
+    <p>Страница сама проедет гонку на Сильверстоуне (вы стартуете последним, всё поле перед камерой).
+       В конце появится таблица.</p>
+    <p><b>Замер 2 — что нагружает видеокарту</b> (8 ступеней, около 2,5 минут): игра как есть, потом
+       по очереди кнопки без размытия, без интерфейса, картинка менее чёткая, машины без блеска.</p>
+    <p class="mut">Замер 1 — сколько выдержит (10 ступеней, около 3,5 минут): вызовы отрисовки от 495 до 1700,
+       потом лишние треугольники. Его уже прошли iPad mini 5 и iPhone 16 Pro Max.</p>
     <ul>
       <li>Зарядка больше 30 %, <b>режим энергосбережения выключен</b> — он режет игру до 30 кадров.</li>
       <li>Другие приложения закрыть, устройство держать <b>горизонтально</b>.</li>
       <li><b>Экран не трогать</b> до таблицы: болид ведёт автопилот, врезаться — нормально.</li>
       <li>Если экран гаснет сам — поставьте на время замера автоблокировку «Никогда».</li>
     </ul>
-    <div class="row"><button id="stGo" type="button">Начать замер</button></div>
+    <div class="row"><button id="stGo2" type="button">Начать замер 2</button><button id="stGo" type="button" class="sec">Замер 1</button></div>
     <p class="mut">Сама игра в этой странице не изменена. Звук мотора будет — его можно убавить.</p>
   </div>
 </div>
@@ -5613,7 +5618,7 @@ if(typeof module!=='undefined')module.exports={makeTrack,makeCar,project,TRACKS,
   // calls — ОБЩЕЕ число вызовов в кадре, до которого кубики добирают игру. Прибавка (как было
   // в первой версии) плыла вместе с игрой: поле уезжало из кадра, и на iPhone «как в игре»
   // упало за замер с 447 до 172. tris — прибавка одним плотным шаром.
-  const LEVELS=[
+  const LEVELS_LOAD=[
     {name:'495 (как в игре)',calls:495,tris:0},
     {name:'650 вызовов',calls:650,tris:0},
     {name:'800 вызовов',calls:800,tris:0},
@@ -5624,6 +5629,20 @@ if(typeof module!=='undefined')module.exports={makeTrack,makeCar,project,TRACKS,
     {name:'495 + 500 тыс. треуг.',calls:495,tris:500000},
     {name:'495 + 1 млн треуг.',calls:495,tris:1000000},
     {name:'495, повтор',calls:495,tris:0}];
+  /* ЗАМЕР 2 — «на что уходит время видеокарты» (после замера iPad mini 5: игра ~50 кадров/с при
+     процессоре 4 мс из 20). Нагрузка везде та же — 495 вызовов; меняется по одному: размытие под
+     четырьмя кнопками (backdrop-filter поверх живого холста), весь интерфейс, плотность пикселей,
+     блестящие материалы машин. «Как в игре» трижды — это полоса шума (машин в кадре то больше, то меньше). */
+  const LEVELS_GPU=[
+    {name:'Как в игре',calls:495,tris:0},
+    {name:'Кнопки без размытия',calls:495,tris:0,noblur:true},
+    {name:'Без интерфейса',calls:495,tris:0,noui:true},
+    {name:'Как в игре (2)',calls:495,tris:0},
+    {name:'Чёткость ×1.5',calls:495,tris:0,pr:1.5},
+    {name:'Чёткость ×1',calls:495,tris:0,pr:1},
+    {name:'Машины матовые',calls:495,tris:0,matte:true},
+    {name:'Как в игре (3)',calls:495,tris:0}];
+  let LEVELS=LEVELS_GPU, testName='';
   const NBOX=1700;
   const SETTLE=3000, MEAS=15000, LEN=SETTLE+MEAS;
   const $=id=>document.getElementById(id), ov=$('stz'), chip=$('stchip');
@@ -5661,7 +5680,22 @@ if(typeof module!=='undefined')module.exports={makeTrack,makeCar,project,TRACKS,
     blob=new THREE.Mesh(new THREE.SphereGeometry(0.8,w,h),new THREE.MeshLambertMaterial({color:0xdde3ea}));
     blob.position.set(4,6,-40);extra.add(blob);
   }
-  function applyLevel(L){setBlob(L.tris);}
+  function setMatte(on){
+    scene.traverse(o=>{if(!o.isMesh)return;
+      if(on){const m=o.material;if(!m||!m.isMeshStandardMaterial)return;
+        if(!matteCache.has(m))matteCache.set(m,new THREE.MeshLambertMaterial({color:m.color,map:m.map,side:m.side,
+          transparent:m.transparent,opacity:m.opacity,vertexColors:m.vertexColors}));
+        o.userData.__stOrig=m;o.material=matteCache.get(m);}
+      else if(o.userData.__stOrig){o.material=o.userData.__stOrig;delete o.userData.__stOrig;}});
+  }
+  const basePR=Math.min(window.devicePixelRatio||1,2), matteCache=new Map();
+  function applyLevel(L){
+    setBlob(L.tris);
+    $('stNoBlur').media=L.noblur?'all':'not all';
+    $('stNoUI').media=L.noui?'all':'not all';
+    const pr=L.pr||basePR;if(renderer.getPixelRatio()!==pr){renderer.setPixelRatio(pr);resize();}
+    setMatte(!!L.matte);
+  }
   // Каждый кадр: сколько вызовов дала сама игра в прошлом кадре — столько не хватает до цели.
   function topUp(){
     const L=LEVELS[lvl];if(!L)return;
@@ -5734,8 +5768,8 @@ if(typeof module!=='undefined')module.exports={makeTrack,makeCar,project,TRACKS,
     if(wake){try{wake.release();}catch(e){}wake=null;}
     const rows=results.map(r=>'<tr><td>'+r.name+(r.hidden?' *':'')+'</td><td>'+r.calls+'</td><td>'+(r.tris/1000).toFixed(0)+' тыс.</td><td>'+
       r.fps.toFixed(1)+'</td><td>'+r.jank.toFixed(1)+' %</td><td>'+r.p95.toFixed(1)+'</td><td>'+r.frame.toFixed(1)+'</td><td>'+r.gpuish.toFixed(1)+'</td><td>'+verdict(r)+'</td></tr>').join('');
-    const txt=results.map(r=>[r.name,r.calls,r.tris,r.fps.toFixed(1),r.jank.toFixed(1),r.p95.toFixed(1),r.frame.toFixed(1),r.gpuish.toFixed(1)].join('\t')).join('\n')+'\n'+deviceLine();
-    ov.innerHTML='<div class="box"><div class="kick">APEX \'26 · замер на устройстве</div><h1>Готово</h1>'+
+    const txt=testName+'\n'+results.map(r=>[r.name,r.calls,r.tris,r.fps.toFixed(1),r.jank.toFixed(1),r.p95.toFixed(1),r.frame.toFixed(1),r.gpuish.toFixed(1)].join('\t')).join('\n')+'\n'+deviceLine();
+    ov.innerHTML='<div class="box"><div class="kick">APEX \'26 · '+testName+'</div><h1>Готово</h1>'+
       '<p><b>Сделайте снимок экрана этой таблицы и пришлите его мне.</b> Если таблица не влезает — два снимка или кнопка «Скопировать».</p>'+
       '<div class="tw"><table><thead><tr><th>Ступень</th><th>Вызовов</th><th>Треуг.</th><th>Кадр/с</th><th>Рывки</th><th>95 %, мс</th><th>Кадр, мс</th><th>Отрисовка, мс</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
       '<p class="mut">Кадр/с — в среднем (предел экрана 60). Рывки — доля кадров дольше 25 мс. 95 % — 19 кадров из 20 не дольше этого. '+
@@ -5750,12 +5784,15 @@ if(typeof module!=='undefined')module.exports={makeTrack,makeCar,project,TRACKS,
     $('stAgain').onclick=()=>location.reload();
   }
 
-  $('stGo').onclick=function(){
+  function begin(levels,name){
+    LEVELS=levels;testName=name;
     ov.hidden=true;chip.hidden=false;chip.textContent='Строю трассу…';
     try{if(navigator.wakeLock)navigator.wakeLock.request('screen').then(w=>{wake=w;},()=>{});}catch(e){}
     sel.track=TRACKS.findIndex(t=>t.key==='Silverstone');sel.roster=0;selTeam=ROSTER[0].teamIdx;sel.custom='';sel.diff='easy';sel.laps=20;sel.view='cockpit';
     startWeekend();stage='quali';stT=performance.now();setTimeout(poll,200);
-  };
+  }
+  $('stGo').onclick=()=>begin(LEVELS_LOAD,'замер 1: нагрузка');
+  $('stGo2').onclick=()=>begin(LEVELS_GPU,'замер 2: видеокарта');
 })();
 </script>
 </body>
