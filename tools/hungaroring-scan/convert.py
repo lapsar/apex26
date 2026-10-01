@@ -21,8 +21,12 @@ INDEX = os.environ.get('APEX_INDEX', os.path.join(HERE, '..', '..', 'index.html'
 
 # какой geojson какой трассе соответствует
 SOURCES = {'Monza': 'it-1922', 'Silverstone': 'gb-1948', 'Suzuka': 'jp-1962',
-           'Monaco': 'mc-1929', 'Montreal': 'ca-1978', 'Miami': 'us-2022',
+           'Monaco': '../monaco-scan/mc-1929-center', 'Montreal': 'ca-1978', 'Miami': 'us-2022',
            'Hungaroring': 'hu-1986-center'}
+# Контуры, СГЛАЖЕННЫЕ уже в игре (tools/contour-smooth.js): geojson остаётся несглаженным,
+# поэтому сверка допускает сдвиг точки не больше CAP сглаживания (Хунгароринг v1.16.5 — 1.0 м,
+# Монако v1.16.22 — 1.5 м). До 10.2026 сверка на Хунгароринге падала: про сглаживание не знала.
+SMOOTHED = {'Hungaroring': 1.0, 'Monaco': 1.5}
 
 
 def coords(path):
@@ -70,9 +74,16 @@ def check(dirpath):
             print('  %-12s ТОЧЕК %d против %d' % (name, len(mine), len(theirs)))
             ok = False
             continue
-        bad = [i for i in range(len(mine)) if mine[i] != theirs[i]]
-        print('  %-12s %4d точек, расхождений %d%s' % (name, len(mine), len(bad),
-              '' if not bad else '  ПЕРВОЕ: i=%d %s против %s' % (bad[0], mine[bad[0]], theirs[bad[0]])))
+        cap = SMOOTHED.get(name)
+        if cap:
+            dev = [math.hypot(mine[i][0] - theirs[i][0], mine[i][1] - theirs[i][1]) for i in range(len(mine))]
+            bad = [i for i in range(len(mine)) if dev[i] > cap + 0.11]
+            print('  %-12s %4d точек, сглажена в игре: сдвиг средний %.2f, наибольший %.2f м (допуск %.1f)%s'
+                  % (name, len(mine), sum(dev) / len(dev), max(dev), cap, '' if not bad else '  ПРЕВЫШЕН у %d точек' % len(bad)))
+        else:
+            bad = [i for i in range(len(mine)) if mine[i] != theirs[i]]
+            print('  %-12s %4d точек, расхождений %d%s' % (name, len(mine), len(bad),
+                  '' if not bad else '  ПЕРВОЕ: i=%d %s против %s' % (bad[0], mine[bad[0]], theirs[bad[0]])))
         if bad:
             ok = False
     return ok
