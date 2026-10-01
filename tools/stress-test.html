@@ -5594,13 +5594,13 @@ if(typeof module!=='undefined')module.exports={makeTrack,makeCar,project,TRACKS,
 <div id="stz">
   <div class="box">
     <div class="kick">APEX '26 · замер на устройстве</div>
-    <h1>Сколько вытянет этот iPad</h1>
+    <h1>Сколько вытянет это устройство</h1>
     <p>Страница сама проедет гонку на Сильверстоуне (вы стартуете последним, всё поле перед камерой)
-       и будет постепенно добавлять нагрузку: сначала лишние вызовы отрисовки, потом лишние треугольники.
+       и будет ступенями доводить нагрузку: сначала вызовы отрисовки от 495 до 1700, потом лишние треугольники.
        Десять ступеней по 18 секунд, всего около 3,5 минут. В конце появится таблица.</p>
     <ul>
       <li>Зарядка больше 30 %, <b>режим энергосбережения выключен</b> — он режет игру до 30 кадров.</li>
-      <li>Другие приложения закрыть, iPad держать <b>горизонтально</b>.</li>
+      <li>Другие приложения закрыть, устройство держать <b>горизонтально</b>.</li>
       <li><b>Экран не трогать</b> до таблицы: болид ведёт автопилот, врезаться — нормально.</li>
       <li>Если экран гаснет сам — поставьте на время замера автоблокировку «Никогда».</li>
     </ul>
@@ -5610,20 +5610,24 @@ if(typeof module!=='undefined')module.exports={makeTrack,makeCar,project,TRACKS,
 </div>
 <script>
 (function(){
+  // calls — ОБЩЕЕ число вызовов в кадре, до которого кубики добирают игру. Прибавка (как было
+  // в первой версии) плыла вместе с игрой: поле уезжало из кадра, и на iPhone «как в игре»
+  // упало за замер с 447 до 172. tris — прибавка одним плотным шаром.
   const LEVELS=[
-    {name:'Как в игре',calls:0,tris:0},
-    {name:'+150 вызовов',calls:150,tris:0},
-    {name:'+300 вызовов',calls:300,tris:0},
-    {name:'+500 вызовов',calls:500,tris:0},
-    {name:'+800 вызовов',calls:800,tris:0},
-    {name:'+1200 вызовов',calls:1200,tris:0},
-    {name:'+200 тыс. треуг.',calls:0,tris:200000},
-    {name:'+500 тыс. треуг.',calls:0,tris:500000},
-    {name:'+1 млн треуг.',calls:0,tris:1000000},
-    {name:'Как в игре, повтор',calls:0,tris:0}];
+    {name:'495 (как в игре)',calls:495,tris:0},
+    {name:'650 вызовов',calls:650,tris:0},
+    {name:'800 вызовов',calls:800,tris:0},
+    {name:'1000 вызовов',calls:1000,tris:0},
+    {name:'1300 вызовов',calls:1300,tris:0},
+    {name:'1700 вызовов',calls:1700,tris:0},
+    {name:'495 + 200 тыс. треуг.',calls:495,tris:200000},
+    {name:'495 + 500 тыс. треуг.',calls:495,tris:500000},
+    {name:'495 + 1 млн треуг.',calls:495,tris:1000000},
+    {name:'495, повтор',calls:495,tris:0}];
+  const NBOX=1700;
   const SETTLE=3000, MEAS=15000, LEN=SETTLE+MEAS;
   const $=id=>document.getElementById(id), ov=$('stz'), chip=$('stchip');
-  let stage='', stT=0, lvl=-1, lvlT=0, rec=null, results=[], extra=null, boxes=[], blob=null, lastFrame=0, wake=null, hiddenSeen=false;
+  let stage='', stT=0, shown=0, lastCalls=0, lvl=-1, lvlT=0, rec=null, results=[], extra=null, boxes=[], blob=null, lastFrame=0, wake=null, hiddenSeen=false;
 
   // Автопилот — тот же, что у пробников (tools/harness.js): к осевой, тормоз по кривизне впереди.
   function drive(){
@@ -5646,9 +5650,9 @@ if(typeof module!=='undefined')module.exports={makeTrack,makeCar,project,TRACKS,
   function buildExtra(){
     extra=new THREE.Group();scene.add(extra);
     const g=new THREE.BoxGeometry(0.05,0.05,0.05);
-    for(let i=0;i<1200;i++){
+    for(let i=0;i<NBOX;i++){
       const m=new THREE.Mesh(g,new THREE.MeshLambertMaterial({color:new THREE.Color().setHSL((i*0.618)%1,0.5,0.6)}));
-      m.position.set(-6+(i%40)*0.3,5+Math.floor(i/40)*0.14,-30);m.visible=false;extra.add(m);boxes.push(m);}
+      m.position.set(-6+(i%50)*0.24,5+Math.floor(i/50)*0.14,-30);m.visible=false;extra.add(m);boxes.push(m);}
   }
   function setBlob(tris){
     if(blob){extra.remove(blob);blob.geometry.dispose();blob.material.dispose();blob=null;}
@@ -5657,7 +5661,14 @@ if(typeof module!=='undefined')module.exports={makeTrack,makeCar,project,TRACKS,
     blob=new THREE.Mesh(new THREE.SphereGeometry(0.8,w,h),new THREE.MeshLambertMaterial({color:0xdde3ea}));
     blob.position.set(4,6,-40);extra.add(blob);
   }
-  function applyLevel(L){boxes.forEach((b,i)=>b.visible=i<L.calls);setBlob(L.tris);}
+  function applyLevel(L){setBlob(L.tris);}
+  // Каждый кадр: сколько вызовов дала сама игра в прошлом кадре — столько не хватает до цели.
+  function topUp(){
+    const L=LEVELS[lvl];if(!L)return;
+    const game=lastCalls-shown-(blob?1:0);
+    const want=Math.max(0,Math.min(NBOX,L.calls-game-(blob?1:0)));
+    if(want!==shown){for(let i=Math.min(want,shown);i<Math.max(want,shown);i++)boxes[i].visible=i<want;shown=want;}
+  }
 
   function median(a){if(!a.length)return 0;const s=a.slice().sort((x,y)=>x-y);return s[Math.floor(s.length/2)];}
   function pct(a,p){if(!a.length)return 0;const s=a.slice().sort((x,y)=>x-y);return s[Math.min(s.length-1,Math.floor(s.length*p))];}
@@ -5683,8 +5694,8 @@ if(typeof module!=='undefined')module.exports={makeTrack,makeCar,project,TRACKS,
     if(stage==='run'&&rec&&a-lvlT>=SETTLE)rec.upd.push(performance.now()-a);
   };
   render=function(){
-    if(extra){extra.position.copy(cam.position);extra.quaternion.copy(cam.quaternion);}
-    const a=performance.now();_render();const b=performance.now();
+    if(extra){extra.position.copy(cam.position);extra.quaternion.copy(cam.quaternion);if(stage==='run')topUp();}
+    const a=performance.now();_render();const b=performance.now();lastCalls=renderer.info.render.calls;
     if(stage!=='run')return;
     if(a-lvlT>=LEN){nextLevel(a);if(stage!=='run')return;}
     if(a-lvlT>=SETTLE&&rec){
@@ -5728,7 +5739,7 @@ if(typeof module!=='undefined')module.exports={makeTrack,makeCar,project,TRACKS,
       '<p><b>Сделайте снимок экрана этой таблицы и пришлите его мне.</b> Если таблица не влезает — два снимка или кнопка «Скопировать».</p>'+
       '<div class="tw"><table><thead><tr><th>Ступень</th><th>Вызовов</th><th>Треуг.</th><th>Кадр/с</th><th>Рывки</th><th>95 %, мс</th><th>Кадр, мс</th><th>Отрисовка, мс</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
       '<p class="mut">Кадр/с — в среднем (предел экрана 60). Рывки — доля кадров дольше 25 мс. 95 % — 19 кадров из 20 не дольше этого. '+
-      'Кадр, мс — сколько процессор тратит на кадр целиком (всё, что больше ~14 мс, грозит рывками). Отрисовка, мс — из них на раздачу поручений видеокарте.'+
+      'Кадр, мс — сколько процессор тратит на кадр целиком (всё, что больше ~14 мс, грозит рывками). Отрисовка, мс — из них на раздачу поручений видеокарте. Safari округляет время до 1 мс; главное — кадр/с и рывки.'+
       (results.some(r=>r.hidden)?' * — на этой ступени страница уходила с экрана, число неточное.':'')+'</p>'+
       '<pre id="stTxt">'+deviceLine().replace(/</g,'&lt;')+'</pre>'+
       '<div class="row"><button id="stCopy" type="button" class="sec">Скопировать</button><button id="stAgain" type="button" class="sec">Ещё раз</button></div></div>';
