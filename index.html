@@ -167,7 +167,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.16.22</div>
+    <div class="verstamp">v1.16.23</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -271,8 +271,9 @@ const TRACKS=[
   /* Монако, этап 0 (v1.16.22): контур mc-1929 пересажен на середину проезжей части по OSM
      (ось улицы + тротуары; тоннель — по оси OSM) и сглажен (5 проходов, сдвиг ≤1.5 м);
      sfShift 2460 -> 2416: линия на клетчатой полосе Бульвара Альберта I, где стоял поул
-     на решётке Гран-при 2025 (openf1). Было на 37 м впереди. tools/monaco-scan/. */
-  {name:"Monaco",key:"Monaco",cc:"Монако",c:"#C6A15B",half:6.0,style:"street",runoff:1.6,grip:.94,twist:6,speed:2,sfShift:2416,hidden:true,
+     на решётке Гран-при 2025 (openf1). Было на 37 м впереди. tools/monaco-scan/.
+     v1.16.23: открыта в меню по просьбе владельца — проехать полотно; окружение пока обобщённое. */
+  {name:"Monaco",key:"Monaco",cc:"Монако",c:"#C6A15B",half:6.0,style:"street",runoff:1.6,grip:.94,twist:6,speed:2,sfShift:2416,
    desc:"Улицы княжества: сплошной Armco, барьеры из покрышек, права на ошибку нет."},
   {name:"Montreal",key:"Montreal",cc:"Канада",c:"#D52B1E",half:7.0,style:"park",runoff:3,grip:0.98,twist:4,speed:4,sfShift:196,
    desc:"Остров на реке: длинные прямые, шпилька, тесные шиканы и стены у самой кромки."},
