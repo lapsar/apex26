@@ -8,3 +8,5 @@ __pycache__/
 wall.json
 wall-*.json
 plans/
+relief-grid.json
+relief-monaco.js.txt
