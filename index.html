@@ -4764,13 +4764,14 @@ const LOD_NEAR=4;                                     // rivals close enough to 
 const HULL_A=3.0, HULL_B=1.25;            // полудлина и полуширина для касания: 6.0 × 2.5 (картинка 6.04 × 2.57 — колёса чуть заходят, так задумано с прежним B)
 const CONTACT_RUB=1.0;                    // м/с²: трение бортом, пока касаешься. Подобрано так, что гонка стоит игроку столько же, сколько с прежним касанием (40 гонок: +0.03 с на гонку, разброс)
 /* Отбойник для игрока: каждый угол болида (колёса и концы крыльев) — внутрь линии стены.
-   Возвращает, насколько глубоко зашёл самый глубокий угол (0 — не касается). */
-function playerWallClamp(){const s=Math.sin(player.hdg),co=Math.cos(player.hdg);let maxEx=0;
+   gap — запас до видимого борта (физика держит на 0.35 м ближе). Возвращает, насколько
+   глубоко зашёл самый глубокий угол (0 — не касается). */
+function playerWallClamp(gap=0.35){const s=Math.sin(player.hdg),co=Math.cos(player.hdg);let maxEx=0;
   for(const wc of [[1.05,2.0],[-1.05,2.0],[1.05,-1.7],[-1.05,-1.7],
                    [1.0,3.25],[-1.0,3.25],[0.78,-2.55],[-0.78,-2.55]]){   // wings overhang the wheels by ~1.3 m: without these the nose passed through the rail and the hit (and its sound) landed a beat late
     const wx=player.x+wc[0]*co+wc[1]*s, wz=player.z-wc[0]*s+wc[1]*co;
     const pw=project(wx,wz,player.hint);const right=pw.off>=0;
-    const wl=(right?track.WR:track.WL)[pw.idx]-0.35;             // в разрыве ленты стена идёт по хорде перемычки (wallSpanFill)
+    const wl=(right?track.WR:track.WL)[pw.idx]-gap;              // в разрыве ленты стена идёт по хорде перемычки (wallSpanFill)
     const ex=Math.abs(pw.off)-wl;
     if(ex>0){const sign=Math.sign(pw.off||1),R=track.R[pw.idx];player.x-=R.x*sign*ex;player.z-=R.z*sign*ex;if(ex>maxEx)maxEx=ex;}}
   return maxEx;}
@@ -5339,8 +5340,10 @@ function update(dt){
       колесом за бортом до следующего кадра — а пока сосед давит, каждый кадр (владелец, 02.10.2026:
       «колесо в борьбе повисло сквозь борт»; нажимной прогон Монако — до 1.3 м, Казино). Стена
       важнее: зажатый между стеной и соперником заходит в соперника, как зажатый между двумя.
+      Держим до ВИДИМОГО борта, без запаса 0.35 м: с запасом внахлёст с соседом выходил чаще
+      (332 против 256 кадров на 4 гонки), а запас и так добирает физика следующего кадра.
       Только если касание сдвинуло игрока — иначе кадр ровно прежний. */
-   if(player.x!==x0||player.z!==z0)playerWallClamp();}
+   if(player.x!==x0||player.z!==z0)playerWallClamp(0);}
   placePlayer(player);updateCarLOD();   // rivals move first, then push the player out of them: otherwise they slide through sideways
   updateCamera(dt);render();updateHUD();
 }
