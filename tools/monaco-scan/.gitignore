@@ -1,0 +1,6 @@
+tiles/
+osm/t_*.osm
+osm/all.json
+pt_*.txt
+hw*.tsv
+__pycache__/

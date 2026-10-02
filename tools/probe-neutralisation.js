@@ -360,8 +360,14 @@ function run(opt) {
         var dt=1/60, short=${mode === 'конец флага' ? 'true' : 'false'};
         for(var f=0;f<12*60;f++){__AP.drive();update(dt);}
         var p0=project(player.x,player.z,player.hint);
-        // "конец флага": зона вокруг игрока и флаг гаснет через 2 с — он точно ещё внутри
-        var s=sectorAt(p0.idx/track.M+(short?1/240:1/24)), prev=(s+MARSHAL_SECTORS-1)%MARSHAL_SECTORS;
+        // "конец флага": зона вокруг игрока и флаг гаснет через 2 с — он точно ещё внутри.
+        // Голова зоны — с запасом на 3 с езды (10.2026, Монако): прежний запас 1/240 круга
+        // это 14 м на коротком круге, а игрок стоял в 31 м от конца сектора на 32 м/с и
+        // покидал зону за секунду, раньше флага, — зелёный по правилам не загорался, и
+        // пробник ругал верное поведение игры. У шести остальных трасс зона та же
+        // (до конца сектора 86-453 м при 3 с езды 64-241 м).
+        var ahead=short?Math.max(1/240,Math.abs(player.speed)*3/track.length):1/24;
+        var s=sectorAt(p0.idx/track.M+ahead), prev=(s+MARSHAL_SECTORS-1)%MARSHAL_SECTORS;
         neutral={mode:'yellow',left:short?2.0:YELLOW_SECS,secs:[prev,s],cars:[]};
         try{zoneOut=0;wasInZone=false;greenSeen=false;}catch(e){}   // до v1.15.40 этих переменных нет — пробник обязан работать и на архивной сборке
         var capT=0,yelT=0,endT=0,grnT=0,mism=0,grnOut=0;
