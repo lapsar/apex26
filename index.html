@@ -167,7 +167,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.16.29</div>
+    <div class="verstamp">v1.16.30</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -279,7 +279,8 @@ const TRACKS=[
      2025 (вариант Б): railAds — [S от старта, полоса RAIL_ADS], -1 — голый отбойник.
      v1.16.27: рельеф «для глаза» (RELIEF_BY_KEY): полотно по высотам телеметрии, вдали горы, море.
      v1.16.28: болид берёт высоту по сечениям ленты (без тряски в поворотах), асфальт и в разрывах стены.
-     v1.16.29: профиль высот сглажен (округление до дециметра кивало носом), камера-голова 0.15 с. */
+     v1.16.29: профиль высот сглажен (округление до дециметра кивало носом), камера-голова 0.15 с.
+     v1.16.30: асфальт в разрывах стены — по низу перемычки (в шпильке закрывал борт до половины). */
   {name:"Monaco",key:"Monaco",railAds:[[0,-1],[176,12],[270,14],[500,2],[790,13],[900,4],[1150,12],[1430,14],[1545,-1],[1925,8],[2400,14],[2730,-1],[2840,3],[2990,12],[3200,-1]],cc:"Монако",c:"#C6A15B",half:6.0,style:"street",runoff:1.6,grip:.94,twist:6,speed:2,sfShift:2416,
    desc:"Улицы княжества: сплошной Armco, барьеры из покрышек, права на ошибку нет."},
   {name:"Montreal",key:"Montreal",cc:"Канада",c:"#D52B1E",half:7.0,style:"park",runoff:3,grip:0.98,twist:4,speed:4,sfShift:196,
@@ -3373,6 +3374,23 @@ function reliefVerge(sign){const M=track.M,W=sign<0?track.WL:track.WR,V=sign<0?t
   if(!pos.length)return null;const g=new THREE.BufferGeometry();
   g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
   g.setIndex(idx);g.computeVertexNormals();return g;}
+/* Асфальт в разрыве ленты встречает стену ровно по низу. Перемычка (wallBridges) — длинный кусок,
+   рельеф поднимает её только в вершинах пути (у Монако — два конца), и низ стены идёт прямой.
+   Край асфальта лежит на той же прямой, но вершин у него больше (по точке на отсчёт трассы), и каждая
+   поднялась бы по своей высоте: внутри шпильки Fairmont высота «ближайшего отрезка» на прямой
+   стоит горбом до +0.66 м над прямой (и перескакивает на нижнюю ногу) — асфальт закрывал стену
+   до половины (владелец на iPhone, 02.10.2026). Здесь вершине края заранее вычитается то, что
+   добавит reliefApply, и прибавляется высота прямой между вершинами пути: край — по низу стены. */
+function reliefBridgeEdge(sign,pa){const M=track.M,W=sign>0?track.WR:track.WL,V=sign>0?track.VR:track.VL;if(!V)return;
+  const runs=[];
+  for(let i=0;i<M;i++){if(V[i]||!V[(i-1+M)%M])continue;let len=0;while(len<M&&!V[(i+len)%M])len++;
+    const p=spanPath(sign,W,i,len);runs.push({p,y:p.map(q=>reliefY(q[0],q[1]))});}
+  for(let v=0;v<pa.count;v++){const x=pa.getX(v),z=pa.getZ(v);
+    edge:for(const r of runs)for(let k=0;k+1<r.p.length;k++){const a=r.p[k],b=r.p[k+1],ex=b[0]-a[0],ez=b[1]-a[1],L2=ex*ex+ez*ez;if(L2<1e-8)continue;
+      const t=((x-a[0])*ex+(z-a[1])*ez)/L2;if(t<-1e-4||t>1+1e-4)continue;
+      const dx=x-a[0]-ex*t,dz=z-a[1]-ez*t;if(dx*dx+dz*dz>1e-4)continue;            // вершина лежит на пути перемычки
+      pa.setY(v,pa.getY(v)+r.y[k]+(r.y[k+1]-r.y[k])*t-reliefY(x,z));break edge;}}
+  pa.needsUpdate=true;}
 /* Поднять готовый мир: каждая вершина каждого меша — на высоту рельефа под ней (в мировых
    координатах); вертикальные рёбра остаются вертикальными. Обобщённые дома поставлены заранее,
    целиком по нижнему углу (buildScenery), и помечены reliefDone, как земля и море.
@@ -4324,7 +4342,7 @@ function buildWorld(){
         for(let t=0;t<ix.length;t+=3){const a=ix[t],b=ix[t+1],c=ix[t+2];
           const ny=(pa.getZ(b)-pa.getZ(a))*(pa.getX(c)-pa.getX(a))-(pa.getX(b)-pa.getX(a))*(pa.getZ(c)-pa.getZ(a));
           if(ny<0){ix[t+1]=c;ix[t+2]=b;}}
-        f.geometry.computeVertexNormals();rg.add(f);}}
+        reliefBridgeEdge(sg,pa);f.geometry.computeVertexNormals();rg.add(f);}}
     mergeStatics(rg,[]);scene.add(rg);
     const skMat=new THREE.MeshLambertMaterial({color:'#b5ad9e',side:THREE.DoubleSide}),sk=new THREE.Group();
     for(const o of [wallRibbon(-1,track.WL,track.VL,RELIEF_SKIRT,skMat,null),wallRibbon(1,track.WR,track.VR,RELIEF_SKIRT,skMat,null),wallBridges(RELIEF_SKIRT,skMat,null)])
@@ -4745,6 +4763,17 @@ const LOD_NEAR=4;                                     // rivals close enough to 
    параллельных корпусов оси те же, что прежде, и касание прежнее. Внахлёст 946 -> 0 кадров. */
 const HULL_A=3.0, HULL_B=1.25;            // полудлина и полуширина для касания: 6.0 × 2.5 (картинка 6.04 × 2.57 — колёса чуть заходят, так задумано с прежним B)
 const CONTACT_RUB=1.0;                    // м/с²: трение бортом, пока касаешься. Подобрано так, что гонка стоит игроку столько же, сколько с прежним касанием (40 гонок: +0.03 с на гонку, разброс)
+/* Отбойник для игрока: каждый угол болида (колёса и концы крыльев) — внутрь линии стены.
+   Возвращает, насколько глубоко зашёл самый глубокий угол (0 — не касается). */
+function playerWallClamp(){const s=Math.sin(player.hdg),co=Math.cos(player.hdg);let maxEx=0;
+  for(const wc of [[1.05,2.0],[-1.05,2.0],[1.05,-1.7],[-1.05,-1.7],
+                   [1.0,3.25],[-1.0,3.25],[0.78,-2.55],[-0.78,-2.55]]){   // wings overhang the wheels by ~1.3 m: without these the nose passed through the rail and the hit (and its sound) landed a beat late
+    const wx=player.x+wc[0]*co+wc[1]*s, wz=player.z-wc[0]*s+wc[1]*co;
+    const pw=project(wx,wz,player.hint);const right=pw.off>=0;
+    const wl=(right?track.WR:track.WL)[pw.idx]-0.35;             // в разрыве ленты стена идёт по хорде перемычки (wallSpanFill)
+    const ex=Math.abs(pw.off)-wl;
+    if(ex>0){const sign=Math.sign(pw.off||1),R=track.R[pw.idx];player.x-=R.x*sign*ex;player.z-=R.z*sign*ex;if(ex>maxEx)maxEx=ex;}}
+  return maxEx;}
 function carContacts(dt){
   const fx=Math.sin(player.hdg),fz=Math.cos(player.hdg),rx=fz,rz=-fx;   // вперёд и вбок у игрока
   for(const c of field){const dx=player.x-c.x,dz=player.z-c.z;
@@ -5065,14 +5094,7 @@ function update(dt){
   player.x+=fx*player.speed*dt;player.z+=fz*player.speed*dt;
   // wall collision — keep every wheel inside the barrier, even when the car sits at an angle
   const pr2=project(player.x,player.z,player.hint);player.hint=pr2.idx;
-  {const s=Math.sin(player.hdg),co=Math.cos(player.hdg);let hitWall=false,maxEx=0;
-    for(const wc of [[1.05,2.0],[-1.05,2.0],[1.05,-1.7],[-1.05,-1.7],
-                     [1.0,3.25],[-1.0,3.25],[0.78,-2.55],[-0.78,-2.55]]){   // wings overhang the wheels by ~1.3 m: without these the nose passed through the rail and the hit (and its sound) landed a beat late
-      const wx=player.x+wc[0]*co+wc[1]*s, wz=player.z-wc[0]*s+wc[1]*co;
-      const pw=project(wx,wz,player.hint);const right=pw.off>=0;
-      const wl=(right?track.WR:track.WL)[pw.idx]-0.35;             // в разрыве ленты стена идёт по хорде перемычки (wallSpanFill)
-      const ex=Math.abs(pw.off)-wl;
-      if(ex>0){const sign=Math.sign(pw.off||1),R=track.R[pw.idx];player.x-=R.x*sign*ex;player.z-=R.z*sign*ex;hitWall=true;if(ex>maxEx)maxEx=ex;}}
+  {const maxEx=playerWallClamp(),hitWall=maxEx>0;
     if(hitWall){
       if(!wallTouch)AUDIO.crash(Math.min(1,(maxEx/Math.max(dt,0.001))/16));   // impact scales with how hard you hit
       AUDIO.scrape(Math.min(1,0.22+player.speed/MAXSPEED));                    // grinding along the rail
@@ -5311,7 +5333,15 @@ function update(dt){
   // smoke drift/fade
   for(let i=smokes.length-1;i>=0;i--){const gsm=smokes[i];const age=raceTime-gsm.userData.born;gsm.position.y+=dt*0.35;
     const op=Math.max(0,0.5*(1-age/6));gsm.children.forEach(s=>{s.material.opacity=op;});if(age>6){scene.remove(gsm);smokes.splice(i,1);}}
-  placePlayer(player);field.forEach(c=>placeAI(c,dt));carContacts(dt);carContacts(dt);placePlayer(player);updateCarLOD();   // rivals move first, then push the player out of them: otherwise they slide through sideways
+  placePlayer(player);field.forEach(c=>placeAI(c,dt));
+  {const x0=player.x,z0=player.z;carContacts(dt);carContacts(dt);
+   /* Соперник выталкивает игрока ПОСЛЕ проверки отбойника, и прижатый к стене болид оставался
+      колесом за бортом до следующего кадра — а пока сосед давит, каждый кадр (владелец, 02.10.2026:
+      «колесо в борьбе повисло сквозь борт»; нажимной прогон Монако — до 1.3 м, Казино). Стена
+      важнее: зажатый между стеной и соперником заходит в соперника, как зажатый между двумя.
+      Только если касание сдвинуло игрока — иначе кадр ровно прежний. */
+   if(player.x!==x0||player.z!==z0)playerWallClamp();}
+  placePlayer(player);updateCarLOD();   // rivals move first, then push the player out of them: otherwise they slide through sideways
   updateCamera(dt);render();updateHUD();
 }
 const CAR_LEN=6.04, CAR_WID=2.57;                       // real hull, the same numbers the contact oval is built on
