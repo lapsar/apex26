@@ -57,14 +57,22 @@ const MEASURE = `(function(){
     return bi<0?null:{i:bi,d:Math.sqrt(bd)};
   }
   var v=new THREE.Vector3();
+  // Рельеф (v1.16.27, Монако): мир поднят на высоту рельефа под каждой вершиной, поэтому
+  // высоту меша меряем НАД РЕЛЬЕФОМ — иначе всё Монако (полотно от 2.7 м над морем)
+  // выпадало бы из проверки как «висит над трассой», а ленты на склоне — как объёмные.
+  // Без рельефа relY = 0, и габарит тот же, что раньше.
+  var relY=(typeof track!=='undefined'&&track.relief)?reliefY:function(){return 0;};
   scene.traverse(function(o){
     if(!o.isMesh||!o.geometry||!o.geometry.attributes.position)return;
-    o.geometry.computeBoundingBox();
-    var bb=o.geometry.boundingBox.clone(); bb.applyMatrix4(o.matrixWorld);
+    o.updateMatrixWorld(true);
+    var bb=new THREE.Box3(), pp=o.geometry.attributes.position;
+    for(var i=0;i<pp.count;i++){ v.set(pp.getX(i),pp.getY(i),pp.getZ(i)).applyMatrix4(o.matrixWorld);
+      v.y-=relY(v.x,v.z); bb.expandByPoint(v); }
     var sz=bb.getSize(new THREE.Vector3());
     if(o===(typeof skyMesh!=='undefined'?skyMesh:null))return;   // небо
     var gp=o.geometry.parameters;
     if(gp&&gp.width===9000)return;                          // травяное основание мира
+    if(o.userData&&o.userData.reliefDone)return;            // рельеф: земля-сетка и море — то же основание мира
     // Раньше здесь стояло «больше 900 м — пропустить», и это была ДЫРА: склейка
     // по материалам даёт один меш сидений на весь круг, он длиннее 900 м и целиком
     // выпадал из проверки. Трибуна Монреаля легла поперёк трассы, а пробник молчал.
