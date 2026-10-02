@@ -50,7 +50,7 @@ const R = require('./report');
 // Хунгароринг 43 -> 45 в v1.16.10: щиты торможения (+1, стойки в общем каркасе) и краска
 // вылетов (+1: все цвета и обе стороны — один материал с вершинным цветом). В гонке 494
 // вызова при потолке 495 — запас один вызов, как у Майами.
-const SCENE_BUDGET = { Monza: 43, Silverstone: 46, Montreal: 42, Miami: 45, Hungaroring: 45, Monaco: 37 };   // Монако — v1.16.23, обобщённый мир: 486 вызовов в гонке
+const SCENE_BUDGET = { Monza: 43, Silverstone: 46, Montreal: 42, Miami: 45, Hungaroring: 45, Monaco: 39 };   // Монако — v1.16.24: обобщённый мир + щиты Мирабо (было 37 в v1.16.23): 488 вызовов в гонке
 const CAR_BUDGET = { player: { m: 32, t: 3000 }, ai: { m: 17, t: 1332 } };
 const DRAW_BUDGET = 495;
 
