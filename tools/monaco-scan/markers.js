@@ -18,13 +18,31 @@
    и выезд по 12 м (замер tools/monaco-scan/hairpin-trials.js 3: 50 км/ч чисто
    69 → 97 % вариантов). Точки — на осевой, по ним строитель находит участок.
 
+   ВЫЕЗДЫ-ЛОВУШКИ (этап 1, v1.16.25). По онбоарду 2025 и снимку сверху (plan.py, листы sheet.py):
+   почти по всему кругу стена в жизни у самой дороги — наш зазор 1 м за кромкой это и есть;
+   настоящих выездов три, все — прямо по ходу из торможения:
+     Сент-Девот — слева (снаружи правого), кадры 19-22 и 300-304: асфальт до чёрных щитов F1;
+     Мирабо     — слева (снаружи правого), кадры 84-88: прямо вверх по улице, щиты Aramco вдали;
+     шикана     — справа, кадры 176-188: прямо мимо шиканы по набережной; это ВНУТРИ второго
+                  (правого) поворота шиканы — стена прямым куском поперёк (chord), как в жизни.
+   Покрытие выездов — асфальт; type:'tint' (шум своим зерном), а не 'asphalt': текстура асфальта
+   вылетов тянет Math.random, и гонка Монако сдвинулась бы целиком (§8).
+   Щит «50» Мирабо (по правилу, S 1128) пришёлся бы в устье выезда, в 10 м от полотна, —
+   поставлен перед устьем, S 1100 (выезд начинается с 1105).
+
    node tools/monaco-scan/markers.js
 */
 const path = require('path');
 const H = require(path.join(__dirname, '..', 'harness.js'));
 
-const BOARDS = [ { corner: 'Mirabeau', side: 'L', at: { 150: 1028, 100: 1078, 50: 1128 } } ];
-const WALL = { side: 'R', from: 1225, to: 1300, by: 3, ramp: 12 };
+const BOARDS = [ { corner: 'Mirabeau', side: 'L', at: { 150: 1028, 100: 1078, 50: 1100 } } ];
+const WALLS = [
+  { corner: 'Hairpin', side: 'R', from: 1225, to: 1300, by: 3, ramp: 12, why: 'шпилька: внешняя стена +3 м (вопрос владельца 10.2026)' },
+  { corner: 'Sainte-Devote', side: 'L', from: 176, to: 240, by: 11, ramp: 22, why: 'выезд прямо, кадры 19-22, 300-304' },
+  { corner: 'Mirabeau', side: 'L', from: 1106, to: 1152, by: 10, ramp: 18, why: 'выезд прямо вверх по улице, кадры 84-88' },
+  { corner: 'Chicane', side: 'R', from: 2060, to: 2160, chord: true, why: 'выезд прямо мимо шиканы, кадры 176-188' },
+];
+const ESCAPE = { color: '#80838a' };   // асфальт выезда — чуть светлее полотна
 const BEHIND = 0.30, PANEL_W = 1.2;
 
 const env = H.loadGame();
@@ -52,8 +70,17 @@ for (const b of BOARDS) for (const d of [150, 100, 50]) {
 }
 console.log('  ]},');
 const ll = s => { const i = idxAtS(s); return [toDeg(P[i][0], P[i][1]), Math.round(S[i])]; };
-const [a, sa] = ll(WALL.from), [b, sb] = ll(WALL.to);
-console.log(`  wallOut: [   // шпилька: внешняя стена +${WALL.by} м (вопрос владельца 10.2026)`);
-console.log(`    {corner:'Hairpin', side:'${WALL.side}', by:${WALL.by}, ramp:${WALL.ramp}, fromS:${sa}, toS:${sb}, `
-  + `fromLatLon:[${f(a[0], 6)},${f(a[1], 6)}], toLatLon:[${f(b[0], 6)},${f(b[1], 6)}]},`);
+const LL = x => `[${f(x[0], 6)},${f(x[1], 6)}]`;
+console.log('  wallOut: [');
+for (const w of WALLS) {
+  const [a, sa] = ll(w.from), [b, sb] = ll(w.to);
+  const body = w.chord ? 'chord:true' : `by:${w.by}, ramp:${w.ramp}`;
+  console.log(`    {corner:'${w.corner}', side:'${w.side}', ${body}, fromS:${sa}, toS:${sb}, fromLatLon:${LL(a)}, toLatLon:${LL(b)}},   // ${w.why}`);
+}
+console.log('  ],');
+console.log('  runoff: [   // покрытие выездов: асфальт до стены');
+for (const w of WALLS.filter(w => w.corner !== 'Hairpin')) {
+  const [a, sa] = ll(w.from), [b, sb] = ll(w.to);
+  console.log(`    {corner:'${w.corner}', fromS:${sa}, toS:${sb}, side:'${w.side}', type:'tint', width:60, color:'${ESCAPE.color}', fromLatLon:${LL(a)}, toLatLon:${LL(b)}},`);
+}
 console.log('  ],');
