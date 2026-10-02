@@ -167,7 +167,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.16.26</div>
+    <div class="verstamp">v1.16.25</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -274,10 +274,8 @@ const TRACKS=[
      на решётке Гран-при 2025 (openf1). Было на 37 м впереди. tools/monaco-scan/.
      v1.16.23: открыта в меню по просьбе владельца — проехать полотно; окружение пока обобщённое.
      v1.16.24: щиты торможения Мирабо и внешняя стена шпильки +3 м — данными SCENERY_MONACO.
-     v1.16.25: выезды-ловушки Сент-Девот, Мирабо и шиканы (этап 1, по онбоарду 2025 и снимку).
-     v1.16.26: реклама на стенах по онбоарду
-     2025 (вариант Б): railAds — [S от старта, полоса RAIL_ADS], -1 — голый отбойник. */
-  {name:"Monaco",key:"Monaco",railAds:[[0,-1],[176,12],[270,14],[500,2],[790,13],[900,4],[1150,12],[1430,14],[1545,-1],[1925,8],[2400,14],[2730,-1],[2840,3],[2990,12],[3200,-1]],cc:"Монако",c:"#C6A15B",half:6.0,style:"street",runoff:1.6,grip:.94,twist:6,speed:2,sfShift:2416,
+     v1.16.25: выезды-ловушки Сент-Девот, Мирабо и шиканы (этап 1, по онбоарду 2025 и снимку). */
+  {name:"Monaco",key:"Monaco",cc:"Монако",c:"#C6A15B",half:6.0,style:"street",runoff:1.6,grip:.94,twist:6,speed:2,sfShift:2416,
    desc:"Улицы княжества: сплошной Armco, барьеры из покрышек, права на ошибку нет."},
   {name:"Montreal",key:"Montreal",cc:"Канада",c:"#D52B1E",half:7.0,style:"park",runoff:3,grip:0.98,twist:4,speed:4,sfShift:196,
    desc:"Остров на реке: длинные прямые, шпилька, тесные шиканы и стены у самой кромки."},
@@ -860,16 +858,6 @@ const RAIL_ADS=[
   {bg:'#a8142a',fg:'#ffffff',text:'HUNGARY \u00b7 BUDAPEST 2026'},
   {bg:'#17418f',fg:'#ffffff',text:'MAGYAR NAGYD\u00cdJ 2026'},
   {bg:'#17418f',fg:'#ffffff',text:'HUNGARORING'},
-  /* v1.16.26 — МОНАКО (вариант Б владельца, опись по онбоарду 2025 — tracks/monaco.md).
-     Новых полос три: чёрный MONACO с жёлтой надписью (чёрные щиты F1 «Monaco» в Сент-Девот,
-     у Мирабо и шпильки, TAG Heuer у Антони Ноэс; голый графит в v1.16.1 сливался с отбойником,
-     поэтому надпись ярко-жёлтая), красный CASINO DE MONTE-CARLO (площадь Казино) и тёмно-синий
-     GRAND PRIX DE MONACO (Louis Vuitton, Salesforce, Explora). Остальные зоны берут готовые
-     полосы: синий APEX (Массне, ярко-синий AmEx), ARAMCO (к Мирабо), красный APEX (шикана
-     и Табак: Lenovo, Qatar), PIRELLI (Раскасс). Снова ПЕРЕД изнанкой. */
-  {bg:'#15151e',fg:'#f2d21b',text:'MONACO'},
-  {bg:'#c8102e',fg:'#ffffff',text:'CASINO DE MONTE-CARLO'},
-  {bg:'#1d2150',fg:'#ffffff',text:'GRAND PRIX DE MONACO'},
   {bg:'#c9ccd0',fg:'#c9ccd0',text:'',bar:'#9aa0a6'}             // изнанка: отбойник, как на Монце
 ];
 const RAIL_AD_BAND=64, RAIL_AD_TEX=512, RAIL_AD_PAD=5, RAIL_AD_PERIOD=16;   // 16 м на одну плитку
@@ -907,11 +895,8 @@ function railAdsSetup(spec){                                   // null — тр�
   const z=spec.railAds; if(!z)return null;
   const tx=railAdsTex();
   if(tx){tx.wrapS=THREE.RepeatWrapping;tx.wrapT=THREE.ClampToEdgeWrapping;tx.anisotropy=8;}
-  /* Зона с полосой -1 — голый отбойник (полоса изнанки), v1.16.26: у Монако рекламы нет на пит-прямой,
-     в тоннеле и у выхода бассейна. Номером её не записать: изнанка — ПОСЛЕДНЯЯ строка таблицы
-     и уезжает с каждой новой полосой. */
   return {tex:tx,back:RAIL_ADS.length-1,
-    zoneAt:S=>{let k=z[0][1];for(let q=0;q<z.length;q++)if(S>=z[q][0])k=z[q][1];return k<0?RAIL_ADS.length-1:k;}};
+    zoneAt:S=>{let k=z[0][1];for(let q=0;q<z.length;q++)if(S>=z[q][0])k=z[q][1];return k;}};
 }
 function armcoTex(c){const a=c||'#c9ccd0',b=c?'#0d2f52':'#9aa0a6';   // c — цвет борта из spec: у Майами борта не стальные, а рекламные щиты
   return cvtex(16,32,(x,w,h)=>{x.fillStyle=a;x.fillRect(0,0,w,h);x.fillStyle=b;x.fillRect(0,h*0.44,w,h*0.12);},40,1);}
