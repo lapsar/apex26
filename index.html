@@ -3379,9 +3379,6 @@ const SCENERY_MONACO = {
     {kind:'grandstand', shape:'arc', name:'P', fromS:2633, toS:2681, side:'L', off:28, h:10, d:9, fromLatLon:[43.734520,7.422370], toLatLon:[43.734093,7.422469]},   // кадры 224–226: слева на понтоне; контур 28..36 м
     {kind:'grandstand', shape:'arc', name:'L', fromS:2653, toS:2709, side:'R', off:9, h:10, d:25, fromLatLon:[43.734342,7.422414], toLatLon:[43.733923,7.422223]},   // кадр 232: справа на выходе из бассейна, жёлтые ряды; контур 9..37 м
     {kind:'grandstand', shape:'arc', name:'T', fromS:2688, toS:2848, side:'L', off:9, h:12, d:25, fromLatLon:[43.734038,7.422430], toLatLon:[43.732853,7.423004]},   // кадры 236–240: слева перед Раскасс, полная; контур 5..37 м
-    {kind:'grandstand', shape:'arc', name:'V', fromS:2958, toS:2984, side:'L', off:9, h:5, d:9, fromLatLon:[43.732370,7.422881], toLatLon:[43.732370,7.422560]},   // самая маленькая, у последней шиканы; контур 5..14 м
-    {kind:'grandstand', shape:'arc', name:'X1', fromS:3045, toS:3075, side:'L', off:9, h:6, d:12, fromLatLon:[43.732831,7.422208], toLatLon:[43.733053,7.421994]},   // низкая, на выходе из Антони Ноэс; контур 6..19 м
-    {kind:'grandstand', shape:'arc', name:'X2', fromS:3080, toS:3105, side:'L', off:9, h:6, d:9, fromLatLon:[43.733092,7.421961], toLatLon:[43.733295,7.421826]},   // низкая, ближе к линии старта; контур 5..15 м
     {kind:'grandstand', shape:'arc', name:'K', fromS:2410, toS:2535, side:'R', off:9, h:14, d:18, fromLatLon:[43.736383,7.421906], toLatLon:[43.735327,7.421980]},   // кадры 206–214: справа за стеной MONACO — высокая трибуна во всю улицу; северный край на 8 м позже — иначе встык с A1; контур 8..49 м; глубина урезана до 27 (чужая нога)
     {kind:'grandstand', shape:'arc', name:'M', fromS:2540, toS:2573, side:'R', off:14, h:8, d:14, fromLatLon:[43.735300,7.422030], toLatLon:[43.735055,7.422239]},   // у входа в бассейн справа, небольшая; контур 14..36 м
     {kind:'grandstand', shape:'arc', name:'A1', fromS:183, toS:244, side:'R', off:14, h:7, d:8, fromLatLon:[43.736683,7.421458], toLatLon:[43.737006,7.421904]},   // внутри Сент-Девот; контур 14..22 м
@@ -4064,15 +4061,16 @@ function wallFromRail(sc){                                     // physical wall 
 
 // Процедурная текстура зрителей: ряды сидений, часть мест пустая, люди — резкие
 // пиксели (NearestFilter, без размытия). Ни файлов, ни сети. 96x96 ≈ 32 чел. в ряд.
-function makeCrowdTexture(THREE){
+function makeCrowdTexture(THREE,st){
   if(typeof document==='undefined') return null;          // headless — работаем без текстуры
   // Все места заняты: пустых кресел не рисуем, только разные цвета одежды.
+  // st — стиль трассы (standStyle, v1.16.37, Монако): свой фон рядов, ступень и палитра одежды.
   const N=96, cv=document.createElement('canvas'); cv.width=cv.height=N;
   const g=cv.getContext('2d');
-  g.fillStyle='#1a222c'; g.fillRect(0,0,N,N);
-  const ROW=6, PAL=['#c9d2dc','#8fa3b8','#c86b5a','#d7b26a','#6f8f5e','#5b6f9c','#b6bcc4','#e2e6ea','#a2555f','#d0dae4','#7f93a8','#bf6350'];
+  g.fillStyle=(st&&st.seat)||'#1a222c'; g.fillRect(0,0,N,N);
+  const ROW=6, PAL=(st&&st.pal)||['#c9d2dc','#8fa3b8','#c86b5a','#d7b26a','#6f8f5e','#5b6f9c','#b6bcc4','#e2e6ea','#a2555f','#d0dae4','#7f93a8','#bf6350'];
   for(let y=0;y<N;y+=ROW){
-    g.fillStyle='#141b23'; g.fillRect(0,y,N,1);           // ступень ряда
+    g.fillStyle=(st&&st.step)||'#141b23'; g.fillRect(0,y,N,1);           // ступень ряда
     for(let x=0;x<N;x+=3){
       // пустых мест нет — трибуны заполнены полностью
       g.fillStyle=PAL[(Math.random()*PAL.length)|0];
@@ -4087,14 +4085,14 @@ function makeCrowdTexture(THREE){
   return t;
 }
 
-function makeSceneryMats(THREE,noCrowd){
-  const crowdTex=noCrowd?null:makeCrowdTexture(THREE);    // noCrowd: трассе без трибун (Монако v1.16.24) — текстура зрителей тянет Math.random и сдвинула бы всю гонку
+function makeSceneryMats(THREE,noCrowd,st){
+  const crowdTex=noCrowd?null:makeCrowdTexture(THREE,st);    // noCrowd: трассе без трибун (Монако v1.16.24) — текстура зрителей тянет Math.random и сдвинула бы всю гонку
   const boardTex=makeMarkerAtlas(THREE);
   return {
     // side:DoubleSide — ленты сидений/козырьков это открытые полосы; без этого
     // они видны только с одной стороны (сверху казались отсутствующими).
     crowd: new THREE.MeshLambertMaterial({map:crowdTex, vertexColors:true, side:THREE.DoubleSide}),
-    struct:new THREE.MeshLambertMaterial({color:0x9aa0a6, side:THREE.DoubleSide}),
+    struct:new THREE.MeshLambertMaterial({color:(st&&st.frame)||0x9aa0a6, side:THREE.DoubleSide}),
     build: new THREE.MeshLambertMaterial({color:0x8792a0}),   // здания — общий
     glass: new THREE.MeshLambertMaterial({color:0x3b3f45}),
     rail:  new THREE.MeshLambertMaterial({color:0xb5443c, side:THREE.DoubleSide}),
@@ -4207,7 +4205,7 @@ function makeGrandstandArc(THREE,o,mats,helpers){
   // --- каркас: задняя стенка (перпендикулярно земле), козырёк, торцы ---
   const fv=[].concat(
     strip(C,K,true),          // задняя стенка: до верха сидений, а при openBack — до пояса
-    strip(B,Rf,false),        // козырёк над сиденьями
+    (o.roof===false?[]:strip(B,Rf,false)),   // козырёк над сиденьями; roof:false — временная трибуна без козырька (Монако, v1.16.37)
     strip(A,C,true)           // пол/цоколь под трибуной (закрывает низ)
   ).concat(PL?strip(G,A,false):[]);   // base или рельеф: лицевая стенка цоколя от земли до первого ряда
   // торцевые заглушки: треугольник A-C-B на каждом конце
@@ -4500,7 +4498,7 @@ function withRng(seed,fn){if(seed==null)return fn();const R0=Math.random;let a=s
 function buildMappedScenery(sc){
   const h=scenHelpers(),M=track.M,S=track.S;
   const grp=new THREE.Group();
-  const mats=withRng(sc.rng,()=>makeSceneryMats(THREE,!(sc.objects&&sc.objects.length)));
+  const mats=withRng(sc.rng,()=>makeSceneryMats(THREE,!(sc.objects&&sc.objects.length),sc.standStyle));
   mats.rail=new THREE.MeshLambertMaterial({map:armcoTex(),side:THREE.DoubleSide});   // their own suggestion: use the game's armco
   // --- run-off zones: index ranges come from lat/lon, never from their S (ours drifts up to ~110 m) ---
   const zone=[null,null];                                       // 0 = left, 1 = right
@@ -4590,8 +4588,10 @@ function buildMappedScenery(sc){
       if(rib)grp.add(grav?rib:painted(rib,color));}}
   // --- grandstands / pit building: rebuild their S from lat/lon so nothing lands 100 m off ---
   const hS=track.relief?Object.assign({},h,{relief:{hy:i=>track.relief.HY[i],y:(x,z)=>reliefY(x,z),gnd:(x,z)=>reliefGroundY(x,z)}}):h;   // трибуна на рельефе (v1.16.35)
+  const SS=sc.standStyle||{};
   withRng(sc.rng,()=>(sc.objects||[]).forEach(o=>{
     const ob=Object.assign({},o);
+    if(o.kind==='grandstand'){if(SS.roof===false&&ob.roof==null)ob.roof=false;if(SS.base!=null&&ob.base==null)ob.base=SS.base;}   // стиль трибун трассы (v1.16.37)
     if(o.fromLatLon&&o.toLatLon){ob.fromS=S[scenIndexAt(h,o.fromLatLon,o.fromS)];ob.toS=S[scenIndexAt(h,o.toLatLon,o.toS)];}
     if(o.latLon)ob.atS=S[scenIndexAt(h,o.latLon,o.atS)];
     if(o.fromLatLon&&o.toLatLon){                                // a stand must never sit inside the barrier: nudge its offset out if it does
