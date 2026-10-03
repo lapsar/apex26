@@ -3498,7 +3498,7 @@ function buildTunnel(){const T=track.tunnel;if(!T)return;
     lp.push(...(fw?[...a,...b,...c,...a,...c,...d]:[...a,...c,...b,...a,...d,...c]));for(let q=0;q<6;q++)lc.push(...GLOW);}
   const gl=new THREE.BufferGeometry();gl.setAttribute('position',new THREE.Float32BufferAttribute(lp,3));
   gl.setAttribute('color',new THREE.Float32BufferAttribute(lc,3));
-  T.lamps=new THREE.Mesh(gl,new THREE.MeshBasicMaterial({vertexColors:true}));scene.add(T.lamps);}
+  T.lamps=new THREE.Mesh(gl,new THREE.MeshBasicMaterial({vertexColors:true}));T.lamps.userData.passable=true;scene.add(T.lamps);}   // свет, а не предмет: сквозь заслонку проезжают (пробник clear)
 function nearestRoad(x,z){let bd=1e18;for(let k=0;k<track.M;k++){const dx=x-track.P[k].x,dz=z-track.P[k].z,d=dx*dx+dz*dz;if(d<bd)bd=d;}return Math.sqrt(bd);}
 /* Свет в тоннеле: пока камера внутри, общий свет тускнеет и желтеет (k 0..1). Меняется, только когда k сдвинулся. */
 const TUN_LIGHTS={k:-1};
