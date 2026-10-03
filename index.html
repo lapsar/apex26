@@ -4206,8 +4206,9 @@ function makeGrandstandArc(THREE,o,mats,helpers){
   for(let k=0;k<N-1;k++){
     const a=A[k],b=B[k],c=A[k+1],e=B[k+1];
     const u0=cum/TILE; cum+=a.distanceTo(c); const u1=cum/TILE;
+    const v1=o.rowTile?a.distanceTo(b)/o.rowTile:1;   // rowTile (Монако, v1.16.37): метров ряда на плитку — у низкой трибуны и рядов мало; без ключа плитка на всю высоту
     sv.push(a.x,a.y,a.z, c.x,c.y,c.z, b.x,b.y,b.z,  b.x,b.y,b.z, c.x,c.y,c.z, e.x,e.y,e.z);
-    suv.push(u0,0, u1,0, u0,1,  u0,1, u1,0, u1,1);
+    suv.push(u0,0, u1,0, u0,v1,  u0,v1, u1,0, u1,v1);
     const f=0.92+0.08*Math.random();               // лёгкая вариация освещённости,
                                                    // НЕ заполненность: трибуны полные
     for(let q=0;q<6;q++) sc.push(f,f,f*0.98);
@@ -4607,7 +4608,7 @@ function buildMappedScenery(sc){
   const SS=sc.standStyle||{};
   withRng(sc.rng,()=>(sc.objects||[]).forEach(o=>{
     const ob=Object.assign({},o);
-    if(o.kind==='grandstand'){if(SS.roof===false&&ob.roof==null)ob.roof=false;if(SS.base!=null&&ob.base==null)ob.base=SS.base;}   // стиль трибун трассы (v1.16.37)
+    if(o.kind==='grandstand'){if(SS.roof===false&&ob.roof==null)ob.roof=false;if(SS.base!=null&&ob.base==null)ob.base=SS.base;if(SS.rowTile&&ob.rowTile==null)ob.rowTile=SS.rowTile;}   // стиль трибун трассы (v1.16.37)
     if(o.fromLatLon&&o.toLatLon){ob.fromS=S[scenIndexAt(h,o.fromLatLon,o.fromS)];ob.toS=S[scenIndexAt(h,o.toLatLon,o.toS)];}
     if(o.latLon)ob.atS=S[scenIndexAt(h,o.latLon,o.atS)];
     if(o.fromLatLon&&o.toLatLon){                                // a stand must never sit inside the barrier: nudge its offset out if it does
