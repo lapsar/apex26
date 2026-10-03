@@ -4092,14 +4092,14 @@ function makeCrowdTexture(THREE,st){
    ступень ряда — тонкая тень. 128 пикселей на плитку 24 м: человек ≈ 0.38 м. */
 function makeDenseCrowdTexture(THREE,st){
   const N=128,cv=document.createElement('canvas');cv.width=cv.height=N;const g=cv.getContext('2d');
-  const PAL=st.pal,HAIR=['#2b211b','#3d2f25','#5a4636','#1c1a19','#b89a6a','#8a7a6a','#d8d2c8'],SKIN=['#e8c9ad','#d9b08f','#c69675','#f0d6c0'];
-  const pick=a=>a[(Math.random()*a.length)|0],ROW=5;
+  const PAL=st.pal,HAIR=st.hair||['#2b211b','#3d2f25','#5a4636','#1c1a19','#b89a6a','#8a7a6a','#d8d2c8'],SKIN=['#e8c9ad','#d9b08f','#c69675','#f0d6c0','#a87656'];
+  const pick=a=>a[(Math.random()*a.length)|0],ROW=st.row||5,face=st.face!=null?st.face:0.55;
   g.fillStyle=st.step||'#3d3f42';g.fillRect(0,0,N,N);
   for(let y=0,r=0;y<N;y+=ROW,r++){const sh=(r%2)*1;
-    for(let x=-1;x<N;x+=2){const c=pick(PAL);g.fillStyle=c;g.fillRect(x+sh,y+2,2,ROW-2);          // плечи и одежда вплотную
-      g.fillStyle=Math.random()<0.55?pick(SKIN):pick(HAIR);g.fillRect(x+sh,y+1,1+((Math.random()*2)|0),1);}   // головы
-    for(let x=0;x<N;x+=2){if(Math.random()<0.7){g.fillStyle=Math.random()<0.5?pick(SKIN):pick(HAIR);g.fillRect(x+1-sh,y,1,1);}}   // второй слой голов
-    g.fillStyle='rgba(20,20,22,0.35)';g.fillRect(0,y+ROW-1,N,1);}                                                      // тень ступени
+    for(let x=-1;x<N;x+=2){g.fillStyle=pick(PAL);g.fillRect(x+sh,y+2,2,ROW-2);                       // плечи и одежда вплотную
+      g.fillStyle=Math.random()<face?pick(SKIN):pick(HAIR);g.fillRect(x+sh,y+1,1+((Math.random()*2)|0),1);}   // головы
+    for(let x=0;x<N;x+=2){if(Math.random()<0.7){g.fillStyle=Math.random()<face?pick(SKIN):pick(HAIR);g.fillRect(x+1-sh,y,1,1);}}   // второй слой голов
+    g.fillStyle='rgba(20,20,22,'+(st.shade!=null?st.shade:0.35)+')';g.fillRect(0,y+ROW-1,N,1);}         // тень ступени
   const t=new THREE.CanvasTexture(cv);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.magFilter=THREE.NearestFilter;t.minFilter=THREE.LinearMipmapLinearFilter;return t;}
 function makeSceneryMats(THREE,noCrowd,st){
   const crowdTex=noCrowd?null:makeCrowdTexture(THREE,st);    // noCrowd: трассе без трибун (Монако v1.16.24) — текстура зрителей тянет Math.random и сдвинула бы всю гонку
