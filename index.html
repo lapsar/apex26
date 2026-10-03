@@ -167,7 +167,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.16.30</div>
+    <div class="verstamp">v1.16.31</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -280,7 +280,8 @@ const TRACKS=[
      v1.16.27: рельеф «для глаза» (RELIEF_BY_KEY): полотно по высотам телеметрии, вдали горы, море.
      v1.16.28: болид берёт высоту по сечениям ленты (без тряски в поворотах), асфальт и в разрывах стены.
      v1.16.29: профиль высот сглажен (округление до дециметра кивало носом), камера-голова 0.15 с.
-     v1.16.30: асфальт в разрывах стены — по низу перемычки (в шпильке закрывал борт до половины). */
+     v1.16.30: асфальт в разрывах стены — по низу перемычки (в шпильке закрывал борт до половины).
+     v1.16.31: тоннель под Fairmont (S 1504–1881) и дома над ним по OSM; внутри свет ламп, выезд пересвечен. */
   {name:"Monaco",key:"Monaco",railAds:[[0,-1],[176,12],[270,14],[500,2],[790,13],[900,4],[1150,12],[1430,14],[1545,-1],[1925,8],[2400,14],[2730,-1],[2840,3],[2990,12],[3200,-1]],cc:"Монако",c:"#C6A15B",half:6.0,style:"street",runoff:1.6,grip:.94,twist:6,speed:2,sfShift:2416,
    desc:"Улицы княжества: сплошной Armco, барьеры из покрышек, права на ошибку нет."},
   {name:"Montreal",key:"Montreal",cc:"Канада",c:"#D52B1E",half:7.0,style:"park",runoff:3,grip:0.98,twist:4,speed:4,sfShift:196,
@@ -3233,6 +3234,16 @@ const SCENERY_MONACO = {
     {corner:'Mirabeau', fromS:1105, toS:1153, side:'L', type:'tint', width:60, color:'#80838a', fromLatLon:[43.741025,7.428617], toLatLon:[43.740970,7.429089]},
     {corner:'Chicane', fromS:2061, toS:2161, side:'R', type:'tint', width:60, color:'#80838a', fromLatLon:[43.737250,7.425701], toLatLon:[43.737043,7.424664]},
   ],
+  /* Тоннель под Fairmont и дома над ним (v1.16.31) — строки считает tools/monaco-scan/tunnel.py.
+     Тоннель: OSM (Boulevard Louis II, tunnel=yes, S 1508–1869) и онбоард 2025 (въезд кадр 145–146,
+     выезд кадр 167); h — высота потолка над полотном. Дома: контуры OSM, top — абсолютная высота крыши
+     в метрах рельефа, h — над самой низкой землёй под домом; band — цвет полос окон. */
+  tunnel: {name:'Tunnel', fromS:1504, toS:1881, fromLatLon:[43.740383,7.430329], toLatLon:[43.737716,7.427835], h:5.6},
+  buildings: [
+    {name:'Fairmont', top:31, color:'#ece6da', band:'#5c6670', poly:[[43.739896,7.429473],[43.740006,7.429580],[43.739996,7.429728],[43.739988,7.429858],[43.740030,7.429903],[43.740153,7.430034],[43.740385,7.430307],[43.740362,7.430320],[43.740362,7.430326],[43.740356,7.430390],[43.740354,7.430416],[43.740345,7.430454],[43.740089,7.430618],[43.739956,7.430487],[43.739796,7.430590],[43.739597,7.430372],[43.739433,7.430469],[43.739180,7.430188],[43.739016,7.430275],[43.738610,7.429871],[43.738642,7.429453],[43.738636,7.429303],[43.738882,7.429138],[43.739016,7.429273],[43.738824,7.429376],[43.738800,7.429651],[43.739033,7.429897],[43.739170,7.429821],[43.739208,7.429392],[43.739379,7.429492],[43.739595,7.429347],[43.739814,7.429414],[43.739877,7.429492]]},
+    {name:'Monte Carlo Star', top:24.5, color:'#e7d5b8', band:'#66615a', poly:[[43.738882,7.429138],[43.738527,7.428786],[43.738413,7.428660],[43.738306,7.428507],[43.738180,7.428282],[43.738083,7.428091],[43.737995,7.427920],[43.737915,7.427969],[43.737867,7.427998],[43.737843,7.427935],[43.737778,7.427973],[43.737723,7.428005],[43.737716,7.428009],[43.737713,7.428042],[43.737684,7.428395],[43.737761,7.428490],[43.737720,7.428931],[43.737808,7.429016],[43.738058,7.429256],[43.738292,7.429089],[43.738375,7.429176],[43.738515,7.429320],[43.738589,7.429397],[43.738642,7.429453],[43.738636,7.429303]]},
+    {name:'Auditorium Rainier III', h:12.5, color:'#f0dac3', band:'#7a6a5c', poly:[[43.737904,7.429432],[43.737890,7.429606],[43.738024,7.429745],[43.738293,7.430024],[43.738514,7.429893],[43.738522,7.429796],[43.738532,7.429667],[43.738546,7.429485],[43.738584,7.429468],[43.738589,7.429397],[43.738375,7.429176],[43.738335,7.429202],[43.738313,7.429186],[43.738054,7.429342]]},
+  ],
 };
 
 const SCENERY_BY_KEY={Silverstone:SCENERY_SILVERSTONE,Monza:SCENERY_MONZA,Montreal:SCENERY_MONTREAL,Miami:SCENERY_MIAMI,Hungaroring:SCENERY_HUNGARORING,Monaco:SCENERY_MONACO};
@@ -3364,16 +3375,16 @@ function reliefGround(mat){const R=track.relief,rl=R.rl;
 /* Обочина: асфальт от кромки до отбойника (в Монако стена у самого полотна, в жизни там асфальт,
    а не трава). Без рельефа её нет: там земля лежит вровень с полотном. Строится только по
    видимым кускам ленты стены — в разрывах отступ может быть больше радиуса и лента сложится. */
-function reliefVerge(sign){const M=track.M,W=sign<0?track.WL:track.WR,V=sign<0?track.VL:track.VR,pos=[],uv=[],idx=[];let vi=0;
+function reliefVerge(sign){const M=track.M,W=sign<0?track.WL:track.WR,V=sign<0?track.VL:track.VR,pos=[],uv=[],idx=[],st=[];let vi=0;
   for(let k=0;k<M;k++){const k2=(k+1)%M;if(V&&(!V[k]||!V[k2]))continue;
     const pts=[];for(const q of [k,k2]){const p=track.P[q],r=track.R[q];
       const a=sign*track.HW[q],b=sign*Math.max(track.HW[q],W[q]);pts.push(p.x+r.x*a,p.z+r.z*a,p.x+r.x*b,p.z+r.z*b,track.S[q]/7);}
     pos.push(pts[0],0.012,pts[1],pts[2],0.012,pts[3],pts[5],0.012,pts[6],pts[7],0.012,pts[8]);
-    uv.push(0,pts[4],1,pts[4],0,pts[9],1,pts[9]);
+    uv.push(0,pts[4],1,pts[4],0,pts[9],1,pts[9]);st.push(k,k,k2,k2);
     if(sign<0)idx.push(vi+1,vi,vi+3,vi,vi+2,vi+3);else idx.push(vi,vi+1,vi+2,vi+1,vi+3,vi+2);vi+=4;}
   if(!pos.length)return null;const g=new THREE.BufferGeometry();
   g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
-  g.setIndex(idx);g.computeVertexNormals();return g;}
+  g.setIndex(idx);g.computeVertexNormals();tunnelRoadColors(g,v=>st[v]);return g;}
 /* Асфальт в разрыве ленты встречает стену ровно по низу. Перемычка (wallBridges) — длинный кусок,
    рельеф поднимает её только в вершинах пути (у Монако — два конца), и низ стены идёт прямой.
    Край асфальта лежит на той же прямой, но вершин у него больше (по точке на отсчёт трассы), и каждая
@@ -3391,6 +3402,114 @@ function reliefBridgeEdge(sign,pa){const M=track.M,W=sign>0?track.WR:track.WL,V=
       const dx=x-a[0]-ex*t,dz=z-a[1]-ez*t;if(dx*dx+dz*dz>1e-4)continue;            // вершина лежит на пути перемычки
       pa.setY(v,pa.getY(v)+r.y[k]+(r.y[k+1]-r.y[k])*t-reliefY(x,z));break edge;}}
   pa.needsUpdate=true;}
+/* ---------- ТОННЕЛЬ И ДОМА НАД НИМ (v1.16.31, Монако; данные — SCENERY_MONACO.tunnel / .buildings) ----------
+   Тоннель — бетонная коробка от отбойника до потолка, плита потолка и две нитки оранжевых ламп (онбоард 2025,
+   кадры 146–167); дома — контуры OSM (Fairmont, Monte Carlo Star, Auditorium Rainier III). Коробка и дома —
+   ОДИН меш с вершинным цветом, лампы — второй: два вызова на всё. Освещения по-настоящему в игре нет: солнце
+   светило бы на асфальт под потолком. Поэтому (1) полотно и обочина в тоннеле темнее вершинным цветом
+   (tunnelShade) — снаружи тоннель читается тёмной норой; (2) пока камера внутри, общий свет плавно тускнеет
+   и желтеет (tunnelLight) — машины и стены в оранжевом свете ламп, выезд — яркое небо.
+   Физика не тронута: стены те же (отбойник), потолок выше любой машины. У трасс без ключа tunnel — ничего. */
+const TUN_ROAD=0.45;          // доля яркости асфальта в глубине тоннеля
+const TUN_WALL=0.5;           // то же для стен и потолка: снаружи тоннель — тёмная нора, внутри свет ярче (tunnelLight)
+const TUN_RAMP=14;            // м: на столько вглубь от портала асфальт темнеет (свет падает в портал)
+const TUN_LIGHT=[6,34];       // м: на въезде свет начинает меняться за 6 м до портала и меняется на 34 м пути
+const TUN_EXIT=[8,16,12];     // м до выезда: свет дневной ближе 8 м, внутренний дальше 24 м; заслонка выезда гаснет ближе 12 м
+const TUN_SLAB=1.2;           // м: толщина плиты потолка
+function tunnelSetup(){track.tunnel=null;track.tunnelBld=null;
+  const sc=SCENERY_BY_KEY[track.spec.key];if(!sc||!sc.tunnel||!SCEN_ORIGIN[track.spec.key])return;
+  const h=scenHelpers(),t=sc.tunnel,M=track.M,a=scenIndexAt(h,t.fromLatLon,t.fromS),b=scenIndexAt(h,t.toLatLon,t.toS);
+  track.tunnel={a,b,n:(b-a+M)%M,h:t.h,s0:track.S[a],len:(track.S[b]-track.S[a]+track.length)%track.length};
+  track.tunnelBld=(sc.buildings||[]).map(o=>({o,pts:o.poly.map(ll=>scenXZ(ll[0],ll[1]))}));}
+function tunnelDepth(s){const T=track&&track.tunnel;if(!T)return -1e9;   // м внутрь от ближайшего портала; снаружи — минус
+  const L=track.length,d=((s-T.s0)%L+L)%L;
+  return d<=T.len?Math.min(d,T.len-d):-Math.min(d-T.len,L-d);}
+function tunnelShade(k){const d=tunnelDepth(track.S[k]);return d<=0?1:1-(1-TUN_ROAD)*Math.min(1,d/TUN_RAMP);}
+function tunnelRoadColors(g,perStation){if(!track.tunnel)return;    // вершины ленты идут парами/четвёрками на точку осевой
+  const n=g.attributes.position.count,c=new Float32Array(n*3);
+  for(let i=0;i<n;i++){const v=tunnelShade(perStation(i));c[i*3]=c[i*3+1]=c[i*3+2]=v;}
+  g.setAttribute('color',new THREE.BufferAttribute(c,3));}
+/* Точка над полотном внутри тоннеля: вернуть высоту рельефа под ней, иначе null. Запас 1.5 м за отбойником —
+   стена дома, пересекающая коридор, начинается от плиты потолка, а не от земли (иначе встала бы поперёк дороги). */
+function tunnelOver(x,z){const T=track.tunnel;if(!T)return null;const M=track.M;let bi=-1,bd=1e18;
+  for(let t=-1;t<=T.n+1;t++){const k=(T.a+t+M)%M,dx=x-track.P[k].x,dz=z-track.P[k].z,d=dx*dx+dz*dz;if(d<bd){bd=d;bi=k;}}
+  const p=track.P[bi],f=track.F[bi],r=track.R[bi],al=(x-p.x)*f.x+(z-p.z)*f.z,off=(x-p.x)*r.x+(z-p.z)*r.z;
+  const t=(bi-T.a+M)%M;if((t===0&&al<-0.5)||(t>=T.n&&al>0.5)||t>T.n+1)return null;
+  return Math.abs(off)<=(off<0?track.WL[bi]:track.WR[bi])+1.5?reliefY(x,z):null;}
+function tunnelInPoly(x,z,pts){let c=false;for(let i=0,j=pts.length-1;i<pts.length;j=i++){const a=pts[i],b=pts[j];
+  if((a[1]>z)!==(b[1]>z)&&x<(b[0]-a[0])*(z-a[1])/(b[1]-a[1])+a[0])c=!c;}return c;}
+function buildTunnel(){const T=track.tunnel;if(!T)return;
+  const M=track.M,P=track.P,R=track.R,H=T.h,SL=TUN_SLAB,HA=0.9;     // HA — скругление (скос) правого угла потолка
+  const C=s=>{const c=new THREE.Color(s);return [c.r,c.g,c.b];};
+  const LAMP=C('#ffc46b'),GLOW=C('#fff4e4'),WALL_LO=C('#6e665e'),WALL=C('#a88763'),OPEN=C('#e2d2b0'),PIL=C('#7d6a55'),CEIL=C('#3b3631'),TOP=C('#8d8780'),ROOF=C('#7a746b');
+  const pos=[],col=[],bp=[],bc=[],lp=[];
+  const quad=(A,a,b,c,d,cl,cc)=>{A.push(...a,...b,...c,...a,...c,...d);for(let q=0;q<6;q++)cc.push(...cl);};
+  const pt=(k,k2,f,off,y)=>{const x=P[k].x+(P[k2].x-P[k].x)*f,z=P[k].z+(P[k2].z-P[k].z)*f,
+    rx=R[k].x+(R[k2].x-R[k].x)*f,rz=R[k].z+(R[k2].z-R[k].z)*f;return [x+rx*off,y,z+rz*off];};
+  const OL=k=>-(track.WL[k]+0.05),OR=k=>track.WR[k]+0.05,OH=k=>track.WR[k]+0.05-HA;   // левая стена, правая, край скоса
+  for(let t=0;t<T.n;t++){const k=(T.a+t)%M,k2=(k+1)%M,l=OL(k),r=OR(k);
+    const sh=1-(1-TUN_WALL)*Math.min(1,Math.max(0,tunnelDepth(track.S[k]))/TUN_RAMP);    // вглубь от портала темнее
+    const q=(o1,y1,o2,y2,cl)=>quad(pos,pt(k,k,0,o1(k),y1),pt(k2,k2,0,o1(k2),y1),pt(k2,k2,0,o2(k2),y2),pt(k,k,0,o2(k),y2),cl.map(v=>v*sh),col);
+    const open=Math.floor(track.S[k]/6)%2===0;                     // слева над отбойником светлые проёмы через 6 м (кадры 148–157)
+    q(OL,0,OL,1.4,WALL_LO);q(OL,1.4,OL,4.0,open?OPEN:PIL);q(OL,4.0,OL,H,WALL);q(OL,H,OL,H+SL,WALL);
+    q(OR,0,OR,H-HA,WALL);q(OR,H-HA,OH,H,WALL);q(OR,H-HA,OR,H+SL,WALL);
+    q(OL,H,OH,H,CEIL);q(OL,H+SL,OR,H+SL,TOP);
+    for(const f0 of [0.1,0.6]){const f1=f0+0.3;                   // лампы: по две на отрезок 4 м слева под потолком и на скосе справа
+      lp.push(...pt(k,k2,f0,l+0.3,H-0.03),...pt(k,k2,f1,l+0.3,H-0.03),...pt(k,k2,f1,l+0.6,H-0.03),
+              ...pt(k,k2,f0,l+0.3,H-0.03),...pt(k,k2,f1,l+0.6,H-0.03),...pt(k,k2,f0,l+0.6,H-0.03));
+      const A=[r-0.3,H-HA+0.27],B=[r-0.6,H-HA+0.57];                // на скосе: от (r, H-HA) к (r-HA, H), чуть внутрь
+      lp.push(...pt(k,k2,f0,A[0]-0.03,A[1]-0.03),...pt(k,k2,f1,A[0]-0.03,A[1]-0.03),...pt(k,k2,f1,B[0]-0.03,B[1]-0.03),
+              ...pt(k,k2,f0,A[0]-0.03,A[1]-0.03),...pt(k,k2,f1,B[0]-0.03,B[1]-0.03),...pt(k,k2,f0,B[0]-0.03,B[1]-0.03));}}
+  for(const k of [T.a,T.b]){const l=-(track.WL[k]+0.05),r=track.WR[k]+0.05;   // торцы плиты над порталами
+    quad(pos,pt(k,k,0,l,H),pt(k,k,0,r,H),pt(k,k,0,r,H+SL),pt(k,k,0,l,H+SL),WALL,col);}
+  /* Дома: высоты абсолютные. Стена — кусками ≤2.5 м (у тоннеля 0.5 м), низ — земля под куском минус 1 м,
+     а над полотном в тоннеле — верх плиты потолка. Полосы: парапет, затем окна/перекрытие на этаж 3.2 м. */
+  for(const B of track.tunnelBld){const o=B.o,pts=B.pts,n=pts.length;
+    let gmin=1e9;for(const p of pts)gmin=Math.min(gmin,reliefY(p[0],p[1]));
+    const top=o.top!=null?o.top:gmin+o.h,cA=C(o.color),cB=C(o.band);
+    for(let e=0;e<n;e++){const a=pts[e],b=pts[(e+1)%n],len=Math.hypot(b[0]-a[0],b[1]-a[1]);
+      const near=Math.min(nearestRoad(a[0],a[1]),nearestRoad(b[0],b[1]),nearestRoad((a[0]+b[0])/2,(a[1]+b[1])/2));
+      const m=Math.max(1,Math.ceil(len/(near<20?0.5:2.5))),at=j=>[a[0]+(b[0]-a[0])*j/m,a[1]+(b[1]-a[1])*j/m];
+      const wall=(u,w,y0)=>{const strip=(ya,yb,cl)=>{if(yb<=y0)return;ya=Math.max(ya,y0);
+          quad(bp,[u[0],ya,u[1]],[w[0],ya,w[1]],[w[0],yb,w[1]],[u[0],yb,u[1]],cl,bc);};
+        strip(top-0.9,top,cA);
+        for(let y=top-0.9;y>y0;y-=3.2){strip(y-1.5,y,cB);strip(y-3.2,y-1.5,cA);}};
+      let j0=0,low=1e9;                                             // куски на земле склеиваются до 6 м (низ — самая низкая земля)
+      for(let j=0;j<m;j++){const u=at(j),w=at(j+1),ov=tunnelOver((u[0]+w[0])/2,(u[1]+w[1])/2);
+        if(ov!=null){if(j>j0)wall(at(j0),u,low);wall(u,w,ov+H+SL);j0=j+1;low=1e9;continue;}
+        low=Math.min(low,reliefY(u[0],u[1])-1,reliefY(w[0],w[1])-1);
+        if(j+1===m||(j+1-j0)*len/m>=6){wall(at(j0),w,low);j0=j+1;low=1e9;}}}
+    const tri=THREE.ShapeUtils.triangulateShape(pts.map(p=>new THREE.Vector2(p[0],p[1])),[]);
+    for(const f of tri){for(const v of f)bp.push(pts[v][0],top,pts[v][1]);for(let q=0;q<3;q++)bc.push(...ROOF);}}
+  for(let i=0;i<bp.length;i+=3)bp[i+1]-=reliefY(bp[i],bp[i+2]);   // дома заданы в абсолютной высоте: reliefApply прибавит её обратно
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos.concat(bp),3));
+  g.setAttribute('color',new THREE.Float32BufferAttribute(col.concat(bc),3));g.computeVertexNormals();
+  scene.add(new THREE.Mesh(g,new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide})));
+  /* Лампы — в обе стороны (видны снизу при любом обходе). Выезд изнутри — белое пересвеченное пятно
+     (онбоард, кадры 164–167): заслонка в плоскости портала, лицом В тоннель — снаружи её нет (отсечена
+     изнанка), изнутри она закрывает вид наружу, пока болид её не проедет; свет к тому времени уже дневной. */
+  const lc=[],nl=lp.length;for(let i=0;i<nl;i+=9){lp.push(lp[i],lp[i+1],lp[i+2],lp[i+6],lp[i+7],lp[i+8],lp[i+3],lp[i+4],lp[i+5]);}
+  for(let i=0;i<lp.length/3;i++)lc.push(...LAMP);
+  T.glow0=lp.length/3;
+  {const k=T.b,f=track.F[k],l=OL(k)-1,r=OR(k)+1,e=0.3,a=pt(k,k,0,l,-0.5),b=pt(k,k,0,r,-0.5),c=pt(k,k,0,r,H+0.5),d=pt(k,k,0,l,H+0.5);   // с запасом: края прячутся за стенами и плитой
+    for(const v of [a,b,c,d]){v[0]+=f.x*e;v[2]+=f.z*e;}
+    const n=(b[1]-a[1])*(c[2]-a[2])-(b[2]-a[2])*(c[1]-a[1]),nz=(b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]),nx=n;   // нормаль (x,z) треугольника a,b,c
+    const fw=nx*f.x+nz*f.z<0;                                     // лицом против хода — к едущему в тоннеле
+    lp.push(...(fw?[...a,...b,...c,...a,...c,...d]:[...a,...c,...b,...a,...d,...c]));for(let q=0;q<6;q++)lc.push(...GLOW);}
+  const gl=new THREE.BufferGeometry();gl.setAttribute('position',new THREE.Float32BufferAttribute(lp,3));
+  gl.setAttribute('color',new THREE.Float32BufferAttribute(lc,3));
+  T.lamps=new THREE.Mesh(gl,new THREE.MeshBasicMaterial({vertexColors:true}));scene.add(T.lamps);}
+function nearestRoad(x,z){let bd=1e18;for(let k=0;k<track.M;k++){const dx=x-track.P[k].x,dz=z-track.P[k].z,d=dx*dx+dz*dz;if(d<bd)bd=d;}return Math.sqrt(bd);}
+/* Свет в тоннеле: пока камера внутри, общий свет тускнеет и желтеет (k 0..1). Меняется, только когда k сдвинулся. */
+const TUN_LIGHTS={k:-1};
+function tunnelLight(){if(!TUN_LIGHTS.hemi)return;let k=0;const T=track&&track.tunnel;
+  if(T&&player){const L=track.length,dIn=((track.S[player.hint||0]-T.s0)%L+L)%L,sm=v=>{v=Math.max(0,Math.min(1,v));return v*v*(3-2*v);};
+    const inside=dIn<=T.len,dEx=T.len-dIn;
+    k=inside?Math.min(sm((dIn+TUN_LIGHT[0])/TUN_LIGHT[1]),sm((dEx-TUN_EXIT[0])/TUN_EXIT[1])):sm((dIn-L+TUN_LIGHT[0])/TUN_LIGHT[1]);
+    if(T.lamps)T.lamps.geometry.setDrawRange(0,inside&&dEx>TUN_EXIT[2]?Infinity:T.glow0);}
+  if(Math.abs(k-TUN_LIGHTS.k)<0.002)return;TUN_LIGHTS.k=k;const L=TUN_LIGHTS;
+  L.hemi.intensity=1.05+(1.45-1.05)*k;L.hemi.color.set('#eaf3ff').lerp(L.c1,k);L.hemi.groundColor.set('#5b6b4a').lerp(L.c2,k);
+  L.sun.intensity=1.15+(0.15-1.15)*k;L.sun.color.set('#fff4e2').lerp(L.c3,k);L.fill.intensity=0.25*(1-k);}
 /* Поднять готовый мир: каждая вершина каждого меша — на высоту рельефа под ней (в мировых
    координатах); вертикальные рёбра остаются вертикальными. Обобщённые дома поставлены заранее,
    целиком по нижнему углу (buildScenery), и помечены reliefDone, как земля и море.
@@ -4258,7 +4377,7 @@ function buildMappedScenery(sc){
   return true;}
 
 function buildWorld(){
-  const half=track.roadHalf;buildWidth();reliefSetup();
+  const half=track.roadHalf;buildWidth();reliefSetup();tunnelSetup();
   const HL=i=>-track.HW[i], HR=i=>track.HW[i];
   // ground grass
   const grMat=new THREE.MeshLambertMaterial({map:(track.spec.ground==='asphalt'?lotTex():grassTex())});
@@ -4272,6 +4391,7 @@ function buildWorld(){
   scene.add(skyMesh);
   // road
   const road=ribbonBetween(HL,HR,0.02,new THREE.MeshLambertMaterial({map:asphaltTex()}),7);scene.add(road);
+  if(track.tunnel){tunnelRoadColors(road.geometry,v=>(v>>1)%track.M);road.material.vertexColors=true;}   // тоннель: асфальт под потолком темнее
   // edge lines
   const lineMat=()=>new THREE.MeshBasicMaterial({color:'#f0f0f0',side:THREE.DoubleSide});   // the two sides wind opposite ways, so front-face-only hid the left line
   scene.add(ribbonBetween(i=>-track.HW[i]+0.18,i=>-track.HW[i]+0.04,0.035,lineMat()));
@@ -4352,6 +4472,7 @@ function buildWorld(){
   buildScenery(isCorner,hasStands);
   if(mapped)buildMappedScenery(mapped);
   buildGantry();
+  buildTunnel();                                                  // тоннель и дома над ним (Монако)
   if(track.relief)reliefApply([skyMesh]);                         // весь мир — на высоту рельефа под ним
 }
 function buildScenery(isCorner,mapped){
@@ -4385,6 +4506,8 @@ function buildScenery(isCorner,mapped){
         const pos=p.clone().addScaledVector(r,side*off);
         if(!clearOfTrack(pos.x,pos.z,need)||!farFromOtherLegs(pos.x,pos.z,need+2,i,winS))continue;
         if(track.relief&&reliefAt(pos.x,pos.z).y<0.5)continue;     // рельеф: дом в море не ставим
+        if(track.tunnelBld&&track.tunnelBld.some(B=>[[0,0],[-1,-1],[-1,1],[1,-1],[1,1]].some(c=>tunnelInPoly(pos.x+c[0]*w/2,pos.z+c[1]*d/2,B.pts))
+          ||B.pts.some(q=>Math.abs(q[0]-pos.x)<w/2&&Math.abs(q[1]-pos.z)<d/2)))continue;   // на месте настоящего дома (OSM) обобщённый не ставим
         const bld=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),bldMat);
         bld.position.copy(pos);bld.position.y=h/2;props.add(bld);}
     }                                                  // no roadside trees anywhere: they read as clutter next to real circuit furniture
@@ -4705,9 +4828,10 @@ function initThree(){if(renderer)return;const canvas=document.getElementById('cv
   scene.environment=makeEnvMap();                       // subtle reflections on glossy bodywork
   ENVSHADOW=ENVSHADOW||radialShadowTex();
   cam=new THREE.PerspectiveCamera(64,1,0.5,2600);
-  scene.add(new THREE.HemisphereLight('#eaf3ff','#5b6b4a',1.05));
+  const hemi=new THREE.HemisphereLight('#eaf3ff','#5b6b4a',1.05);scene.add(hemi);
   const sun=new THREE.DirectionalLight('#fff4e2',1.15);sun.position.set(320,520,200);scene.add(sun);
-  scene.add(new THREE.DirectionalLight('#cfe0ff',0.25).translateX(-200).translateY(180));  // cool fill
+  const fill=new THREE.DirectionalLight('#cfe0ff',0.25);fill.translateX(-200).translateY(180);scene.add(fill);  // cool fill
+  Object.assign(TUN_LIGHTS,{hemi,sun,fill,c1:new THREE.Color('#ffcf9c'),c2:new THREE.Color('#3d2b1c'),c3:new THREE.Color('#ffb46e')});   // тоннель (tunnelLight)
   clock=new THREE.Clock();fit();}
 function fit(){resize();checkOrient();}
 function resize(){if(!renderer)return;const w=window.innerWidth,h=window.innerHeight;
@@ -5601,7 +5725,8 @@ function updateCamera(dt){const c=player;const fx=Math.sin(c.hdg),fz=Math.cos(c.
   else{const back=-4.45;ey=2.7+gy+sl*back;ex=c.x+fx*back;ez=c.z+fz*back;lx=c.x+fx*8.5;ly=1.1+gy+sl*8.5;lz=c.z+fz*8.5;
     cam.position.lerp(new THREE.Vector3(ex,ey,ez),Math.min(1,dt*10));}
   cam.lookAt(lx,ly,lz);
-  if(skyMesh)skyMesh.position.set(cam.position.x,gy,cam.position.z);}
+  if(skyMesh)skyMesh.position.set(cam.position.x,gy,cam.position.z);
+  tunnelLight();}
 function render(){renderer.render(scene,cam);}
 
 /* ---------- HUD ---------- */
