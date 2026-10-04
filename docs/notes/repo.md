@@ -465,6 +465,10 @@ apex26/
     │                                   (v1.16.39): OSM ближе 100 м, без Казино и
     │                                   тоннеля, коридор трассы вычитается
     │                                   (shapely; pip install shapely);
+    │                                   streetview.py — Google Street View без
+    │                                   ключа: панорама у точки → кадр с курсом
+    │                                   и полем зрения игры (04.10.2026; numpy,
+    │                                   pillow; смотреть дату панорамы);
     │                                   stands.py — строки трибун (v1.16.35) из
     │                                   разметки grandprixguides (gpg_monaco.json,
     │                                   проекция по своей ноге — gpg_stands.py);
