@@ -128,7 +128,8 @@ apex26/
 │   ├── v1.16.36.html
 │   ├── v1.16.37.html
 │   ├── v1.16.38.html
-│   └── v1.16.39.html
+│   ├── v1.16.39.html
+│   └── v1.16.40.html
 ├── docs/
 │   ├── BRIEF-model-bolida.md           задание на доводку 3D-модели болида:
 │   │                                   контракт, ограничения r128, бюджет
@@ -465,6 +466,13 @@ apex26/
     │                                   (v1.16.39): OSM ближе 100 м, без Казино и
     │                                   тоннеля, коридор трассы вычитается
     │                                   (shapely; pip install shapely);
+    │                                   relief.py — карта высот: с v1.16.40 суша
+    │                                   IGN RGE ALTI (земля без домов, кэш
+    │                                   tiles/ign.json), берег — terrarium;
+    │                                   streetview.py — Google Street View без
+    │                                   ключа: панорама у точки → кадр с курсом
+    │                                   и полем зрения игры (04.10.2026; numpy,
+    │                                   pillow; смотреть дату панорамы);
     │                                   stands.py — строки трибун (v1.16.35) из
     │                                   разметки grandprixguides (gpg_monaco.json,
     │                                   проекция по своей ноге — gpg_stands.py);
