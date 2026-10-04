@@ -34,6 +34,8 @@ H = {
 # у нас ниже (оставлены, как были), а N и P — по 6 рядов (A–F, «с заднего ряда плохо видно поверх отбойника»): 2.6 м
 # высоты (ряд 0.85 м по скату, ~6 рядов) на низком помосте 1 м вместо общего цоколя 2.5 м
 BASE = {'Grandstand N': 1, 'Grandstand P': 1}
+# одной прямой (modularStand, straight:true): A1 внутри Сент-Девот — в жизни прямая трибуна поперёк дуги (контур — прямоугольник)
+STRAIGHT = {'Grandstand A1'}
 
 
 def ll(x, z):
@@ -75,7 +77,9 @@ if __name__ == '__main__':
     print("       высоты — оценка по онбоарду. Строитель отодвигает трибуну за отбойник (+2 м); на рельефе ряды начинаются")
     print("       с высоты полотна, низ — до видимой земли. */")
     rows = [r for r in stands() if r['name'] in H]
-    TRIM = {'Grandstand K': (8, 7)}                    # K у Табака сходилась с A1 (прямая трибуна внутри Сент-Девот) на 1 м;
+    TRIM = {'Grandstand T': (46, 0),                  # T — с переднего края контура (2734): северный клин контура (2689–2734) обращён к шикане
+                                                     # под углом к дороге и на нашей геометрии висел над водой у выхода из бассейна (владелец 04.10.2026)
+            'Grandstand K': (8, 7)}                    # K у Табака сходилась с A1 (прямая трибуна внутри Сент-Девот) на 1 м;
                                                      # южный край на 7 м раньше (v1.16.38): трибуна на 4 м дальше от стены и из прямых секций — на изломе входа в бассейн K заходила на M
     for r in rows:
         ta, tb = TRIM.get(r['name'], (0, 0))
@@ -95,4 +99,4 @@ if __name__ == '__main__':
         a, b = ll(*at_s(s0)[:2]), ll(*at_s(s1)[:2])
         nm = r['name'].replace('Grandstand ', '')
         print("    {kind:'grandstand', shape:'arc', name:'%s', fromS:%d, toS:%d, side:'%s', off:%.0f, h:%g, d:%g,%s fromLatLon:[%.6f,%.6f], toLatLon:[%.6f,%.6f]},   // %s; контур %.0f..%.0f м%s" % (
-            nm, s0, s1, r['side'], near, h, round(dd, 1), (' base:%g,' % BASE[r['name']]) if r['name'] in BASE else '', a[0], a[1], b[0], b[1], why, r['n'], r['f'], ('; глубина урезана до %.0f (чужая нога)' % lim) if lim < near + (d if d else r['f'] - near) else ''))
+            nm, s0, s1, r['side'], near, h, round(dd, 1), ((' base:%g,' % BASE[r['name']]) if r['name'] in BASE else '') + (' straight:true,' if r['name'] in STRAIGHT else ''), a[0], a[1], b[0], b[1], why, r['n'], r['f'], ('; глубина урезана до %.0f (чужая нога)' % lim) if lim < near + (d if d else r['f'] - near) else ''))
