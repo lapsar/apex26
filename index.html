@@ -3374,7 +3374,9 @@ const SCENERY_MONACO = {
   /* Стиль трибун (v1.16.37, владелец 03.10.2026, вариант Б + публика Б1 + размер «на треть меньше»): временные трибуны
      без козырька, ряды с 2.5 м над землёй, каркас тёмный, как строительные леса; публика плотная и пёстрая (без просветов фона,
      светлая палитра читалась пустыми креслами); ряд постоянной высоты 0.85 м (rowTile: 25 рядов на плитку 21.25 м). */
-  standStyle:{roof:false, base:2.5, frame:'#4a4f56', dense:true, rowTile:21.25, step:'#26282b',
+  /* v1.16.38 (владелец 04.10.2026): бок и цоколь — в тон домов (было '#4a4f56', «очень тёмный»); трибуна из прямых секций
+     (modular — длина секции, м; дуга складывалась у T и L); от отбойника на gap м дальше (было 2 м, стало 6: в жизни забор и проход). */
+  standStyle:{roof:false, base:2.5, frame:'#8792a0', dense:true, rowTile:21.25, step:'#26282b', modular:18, gap:4,
     pal:['#c8343e','#1f3a8a','#f2f2ee','#1b1b1d','#e0b02a','#2e7d4f','#e86f2c','#6d3b8c','#3fa0d8','#b8303b','#4a4f56','#d9798a','#7a5a3a','#ffffff'], face:0.5, shade:0.5},
   rng:26,   // трибуны строятся на своём зерне — общий поток Math.random и гонка не сдвигаются (withRng, v1.16.35)
   objects: [
@@ -3386,8 +3388,8 @@ const SCENERY_MONACO = {
     {kind:'grandstand', shape:'arc', name:'P', fromS:2633, toS:2681, side:'L', off:28, h:6, d:6, fromLatLon:[43.734520,7.422370], toLatLon:[43.734093,7.422469]},   // кадры 224–226: слева на понтоне; контур 28..36 м
     {kind:'grandstand', shape:'arc', name:'L', fromS:2653, toS:2709, side:'R', off:9, h:7, d:12, fromLatLon:[43.734342,7.422414], toLatLon:[43.733923,7.422223]},   // кадр 232: справа на выходе из бассейна, жёлтые ряды; контур 9..37 м
     {kind:'grandstand', shape:'arc', name:'T', fromS:2688, toS:2848, side:'L', off:9, h:8, d:14, fromLatLon:[43.734038,7.422430], toLatLon:[43.732853,7.423004]},   // кадры 236–240: слева перед Раскасс, полная; контур 5..37 м
-    {kind:'grandstand', shape:'arc', name:'K', fromS:2410, toS:2535, side:'R', off:9, h:9, d:11, fromLatLon:[43.736383,7.421906], toLatLon:[43.735327,7.421980]},   // кадры 206–214: справа за стеной MONACO — высокая трибуна во всю улицу; северный край на 8 м позже — иначе встык с A1; контур 8..49 м
-    {kind:'grandstand', shape:'arc', name:'M', fromS:2540, toS:2573, side:'R', off:14, h:6, d:9, fromLatLon:[43.735300,7.422030], toLatLon:[43.735055,7.422239]},   // у входа в бассейн справа, небольшая; контур 14..36 м
+    {kind:'grandstand', shape:'arc', name:'K', fromS:2410, toS:2530, side:'R', off:9, h:9, d:11, fromLatLon:[43.736383,7.421906], toLatLon:[43.735354,7.421930]},   // кадры 206–214: справа за стеной MONACO — высокая трибуна во всю улицу; северный край на 8 м позже — иначе встык с A1, южный на 7 м раньше — иначе заходит на M; контур 8..49 м
+    {kind:'grandstand', shape:'arc', name:'M', fromS:2538, toS:2573, side:'R', off:14, h:6, d:9, fromLatLon:[43.735311,7.422010], toLatLon:[43.735055,7.422239]},   // у входа в бассейн справа, небольшая; контур 14..36 м
     {kind:'grandstand', shape:'arc', name:'A1', fromS:183, toS:244, side:'R', off:14, h:5, d:6, fromLatLon:[43.736683,7.421458], toLatLon:[43.737006,7.421904]},   // внутри Сент-Девот; контур 14..22 м
     {kind:'grandstand', shape:'arc', name:'B', fromS:898, toS:929, side:'L', off:9, h:7, d:12, fromLatLon:[43.739490,7.427177], toLatLon:[43.739747,7.427322]},   // кадры 66–70: площадь Казино, слева в саду; контур 7..30 м
   ],
@@ -4473,6 +4475,61 @@ function arcStandFallback(o,h,mats){                            // an arc stand 
   const h2=Object.assign({},h,{track:Object.assign({},T,{P:P2,R:R2})});
   return makeGrandstandArc(THREE,o,mats,h2);}
 
+/* ТРИБУНА ИЗ ПРЯМЫХ СЕКЦИЙ (v1.16.38, Монако). Дуговая лента на постоянном отступе в тесном повороте складывается сама в себя
+   (у T и L Монако задний край заходил за передний — «перекрученный» кусок, «трибуна выбивается из ряда»). Настоящие временные
+   трибуны собраны из прямых секций — так и строим: участок режется на секции около SEC м, каждая идёт по хорде своего куска
+   осевой и отодвинута так, чтобы передний край не подходил к отбойнику ЛЮБОЙ ноги трассы ближе 2+gap м. Соседние секции
+   стыкуются «на ус» (по биссектрисе, как рамка картины) — ряды непрерывны. Внутри крутого изгиба «ус» сложил бы задний край —
+   там две секции сливаются в одну прямую (L и A1 стали прямыми целиком), а где прямая вышла бы длиннее 3.5 SEC, стык рвётся:
+   концы обрезаются поперёк, между секциями проход (у T на изломе выхода из бассейна). Каждая секция строится тем же
+   строителем, что дуговая (ряды, каркас, цоколь, торцы, рельеф), на «осевой» из двух точек. */
+function modularStand(o,h,mats,SEC,gap){
+  const T=h.track,M=T.M,L=T.length,sgn=o.side==='R'?1:-1,d=o.d||20;
+  const a=scenIndexAt(h,o.fromLatLon,o.fromS),b=scenIndexAt(h,o.toLatLon,o.toS);
+  const span=(b-a+M)%M; if(span>M/2||span<2)return null;
+  const len=(T.S[b]-T.S[a]+L)%L, n=Math.max(1,Math.round(len/SEC));
+  const cut=[];for(let k=0;k<=n;k++){const s=T.S[a]+len*k/n;let best=a,bd=1e9;
+    for(let t=0;t<=span;t++){const i=(a+t)%M,ds=Math.abs((T.S[i]-s+L*1.5)%L-L/2);if(ds<bd){bd=ds;best=i;}}
+    if(!cut.length||best!==cut[cut.length-1])cut.push(best);}
+  const layout=cut=>{const V=cut.map(i=>T.P[i]),sec=[];
+    for(let k=0;k<V.length-1;k++){
+      const A0=V[k],dx=V[k+1].x-A0.x,dz=V[k+1].z-A0.z,cl=Math.hypot(dx,dz)||1,ux=dx/cl,uz=dz/cl;
+      const sp=(cut[k+1]-cut[k]+M)%M,mid=(cut[k]+(sp>>1))%M;let nx=-uz,nz=ux;if(nx*T.R[mid].x+nz*T.R[mid].z<0){nx=-nx;nz=-nz;}
+      let shift=0;
+      const ns=Math.ceil(cl/2);for(let t=0;t<=ns;t++){const f=t/ns,qx=A0.x+dx*f+nx*sgn*o.off,qz=A0.z+dz*f+nz*sgn*o.off;   // передний край — не ближе 2+gap м к отбойнику любой ноги
+        for(let q=0;q<M;q++){const P=T.P[q],ex=qx-P.x,ez=qz-P.z;if(Math.abs(ex)>60||Math.abs(ez)>60)continue;
+          const w=(ex*T.R[q].x+ez*T.R[q].z>0)?track.WR[q]:track.WL[q];shift=Math.max(shift,2+gap+w-Math.hypot(ex,ez));}}
+      sec.push({ux,uz,cl,nx,nz,shift});}
+    const far=k=>o.off+d+sec[k].shift,join=[];
+    for(let k=1;k<sec.length;k++){const p=sec[k-1],q=sec[k];   // стык k (между секциями k-1 и k): «на ус», если задний край секции теряет меньше четверти
+      let mx=p.nx+q.nx,mz=p.nz+q.nz;const ml=Math.hypot(mx,mz)||1;mx/=ml;mz/=ml;const c=mx*p.nx+mz*p.nz;
+      const th=Math.acos(Math.max(-1,Math.min(1,p.nx*q.nx+p.nz*q.nz))),conv=(p.nx*sgn)*q.ux+(p.nz*sgn)*q.uz>0;
+      const lose=conv?Math.max(far(k-1),far(k))*Math.tan(th/2):0;
+      join[k]={mx:mx/c,mz:mz/c,bad:Math.max(lose/(0.25*Math.min(p.cl,q.cl)),c<0.75?2:0),s:Math.max(p.shift,q.shift)};}
+    return {V,sec,join};};
+  // худший плохой стык: две секции сливаются в одну прямую (хорда, отодвинутая от отбойника), но не длиннее 3.5 SEC —
+  // длинная хорда на изломе уходит далеко от стены; иначе стык рвётся. Повторять, пока плохих стыков не останется
+  let Lt=layout(cut);const broke=new Set();
+  for(;;){let wk=-1,wb=1;Lt.join.forEach((j,k)=>{if(j&&!broke.has(cut[k])&&j.bad>wb){wb=j.bad;wk=k;}});if(wk<0)break;
+    if(Lt.sec[wk-1].cl+Lt.sec[wk].cl<=3.5*SEC&&!broke.has(cut[wk-1])&&!broke.has(cut[wk+1])){cut.splice(wk,1);Lt=layout(cut);}else broke.add(cut[wk]);}
+  const {V,sec,join}=Lt,N=sec.length;
+  join.forEach((j,k)=>{if(j&&broke.has(cut[k]))join[k]=null;});
+  const tr0=k=>{const p=sec[k-1],q=sec[k],th=Math.acos(Math.max(-1,Math.min(1,p.nx*q.nx+p.nz*q.nz))),conv=(p.nx*sgn)*q.ux+(p.nz*sgn)*q.uz>0;
+    return (conv?(o.off+d+Math.max(p.shift,q.shift))*Math.tan(th/2):0)+1.0;};   // разорванный стык: на столько укоротить оба конца
+  const g=new THREE.Group();
+  for(let k=0;k<N;k++){const c=sec[k],ends=[];
+    for(const e of [0,1]){const J=join[k+e],P=V[k+e];
+      const t=(!J&&k+e>0&&k+e<N)?tr0(k+e):0;
+      ends.push(J?{x:P.x,z:P.z,rx:J.mx,rz:J.mz,s:J.s,t:0}:{x:P.x,z:P.z,rx:c.nx,rz:c.nz,s:c.shift,t});}
+    const [e0,e1]=ends;if(c.cl-e0.t-e1.t<3)continue;
+    const p0=new THREE.Vector3(e0.x+c.ux*e0.t+e0.rx*sgn*e0.s,0,e0.z+c.uz*e0.t+e0.rz*sgn*e0.s),
+          p1=new THREE.Vector3(e1.x-c.ux*e1.t+e1.rx*sgn*e1.s,0,e1.z-c.uz*e1.t+e1.rz*sgn*e1.s);
+    const L2=p0.distanceTo(p1),tr={P:[p0,p1],R:[new THREE.Vector3(e0.rx,0,e0.rz),new THREE.Vector3(e1.rx,0,e1.rz)],S:[0,L2],M:2,length:L2*4};
+    const RL=h.relief?Object.assign({},h.relief,{hy:i=>h.relief.hy(cut[k+i])}):null;
+    const sub=makeGrandstandArc(THREE,Object.assign({},o,{fromS:0,toS:L2}),mats,Object.assign({},h,{track:tr,relief:RL}));
+    while(sub.children.length)g.add(sub.children[0]);}
+  return g;}
+
 const SCEN_BEHIND_WALL=3.0;   // на столько КОРОБКА обязана уйти за линию барьера.
 // Было 0.5 по v1.15.93: здание в полуметре за метровым бортом сливается с ним,
 // борт перестаёт читаться отдельным предметом, а болид подъезжает колесом
@@ -4624,7 +4681,7 @@ function buildMappedScenery(sc){
         for(let t=0;t<=span;t++){const i=(a+t)%M,w=(o.side==='R')?track.WR[i]:track.WL[i];
           need=Math.max(need,w+2-ob.off);}
         if(need>0)ob.off+=need;}}
-    const st=(o.shape==='arc'&&o.fromLatLon&&o.toLatLon)?arcStandFallback(ob,hS,mats):null;   // use the barrier-corrected offset here too
+    const st=(o.shape==='arc'&&o.fromLatLon&&o.toLatLon)?(SS.modular?modularStand(Object.assign({},ob,{off:o.off}),hS,mats,SS.modular,SS.gap||0):arcStandFallback(ob,hS,mats)):null;   // use the barrier-corrected offset here too
     try{const g=st||buildSceneryObject(THREE,ob,mats,o.shape==='arc'?hS:h);
         if(g){if(!st&&o.latLon&&(o.kind==='building'||o.kind==='pit'))clearBehindWall(g,o,ob,h);grp.add(g);}}catch(e){}}));
   // --- braking-distance boards ---
@@ -4737,8 +4794,8 @@ function standFootprints(){const sc=SCENERY_BY_KEY[track.spec.key];if(!sc||!sc.o
   const h=scenHelpers(),M=track.M,out=[];
   for(const o of sc.objects){if(o.shape!=='arc'||!o.fromLatLon||!o.toLatLon)continue;
     const a=scenIndexAt(h,o.fromLatLon,o.fromS),b=scenIndexAt(h,o.toLatLon,o.toS),span=(b-a+M)%M;if(span>M/2)continue;
-    const sg=o.side==='R'?1:-1,L=[],R=[];
-    for(let t=0;t<=span;t++){const i=(a+t)%M,w=o.side==='R'?track.WR[i]:track.WL[i],n=Math.max(o.off,w+2)-3,f=Math.max(o.off,w+2)+(o.d||20)+3;
+    const sg=o.side==='R'?1:-1,L=[],R=[],SS=sc.standStyle||{},gp=SS.gap||0,sl=SS.modular?6:0;   // сборная трибуна (v1.16.38): дальше от стены на gap, хорда секции — ещё до 6 м
+    for(let t=0;t<=span;t++){const i=(a+t)%M,w=o.side==='R'?track.WR[i]:track.WL[i],n=Math.max(o.off,w+2+gp)-3,f=Math.max(o.off,w+2+gp)+(o.d||20)+3+sl;
       L.push([track.P[i].x+track.R[i].x*sg*n,track.P[i].z+track.R[i].z*sg*n]);R.push([track.P[i].x+track.R[i].x*sg*f,track.P[i].z+track.R[i].z*sg*f]);}
     out.push(L.concat(R.reverse()));}
   return out;}
