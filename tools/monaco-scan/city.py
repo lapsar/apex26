@@ -9,6 +9,12 @@
 casino.py) и без трёх домов тоннеля. Крыша абсолютная: полотно у ближайшей точки трассы + этажи OSM × 3.2 + 1
 (без этажей — 12 м, будка < 300 м² — 6 м, есть height — она); above:4 — крыша не ниже земли под домом + 4 м.
 Контур подрезан по ПОСТРОЕННОЙ стене + CLEAR. Проверка — casino-check.js и ground-gap.js по построенному миру.
+
+v1.16.40 (владелец 04.10.2026, вариант А+Б): (1) из контура вычитаются и СЛЕДЫ ТРИБУН (wall.json ST) — дом w161883155 стоял
+внутри трибуны A1 и торчал из её цоколя; (2) высота — от СВОЕЙ земли: h (этажи × 3.2 + 1 над самой низкой землёй под домом,
+считает игра), above:3 — крыша не тонет в склоне; прежде top = полотно у ближайшей точки трассы + этажи и above:4 — склон
+поднимал низкие дома до 40+ м (часовня Сент-Девот); (3) город выше по склону: дома дальше NEAR, до FAR м — окна полосами,
+а не проёмами (дешевле, издалека не различить). У площади Казино дома ближе CASINO_NEAR — строки casino.py.
 """
 import json, math, os, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -21,7 +27,17 @@ P, RR, S, WL, WR, HY = W['P'], W['R'], W['S'], W['WL'], W['WR'], W['HY']
 M = W['M']
 CASINO = (540, 1130)              # уже построено casino.py
 TUNNEL = {'r2093796', 'w112689159', 'w176722821'}   # Fairmont, Auditorium, Monte Carlo Star — строки тоннеля (v1.16.31)
-NEAR = 100
+NEAR = 100                        # м: ближе — окна проёмами (win:1)
+FAR = 260                         # м: город выше по склону — до сюда (v1.16.40); дальше гребень и дымка
+CASINO_NEAR = 85                  # м: у Казино дома ближе — строки casino.py
+SEA_BASE = 3.0                    # м над морем: низ дома, под серединой которого в игре море (Mareterra 2024 — карты её не знают;
+                                  #   набережные гавани — земля опущена под воду, сушу рисуют плиты) — top = SEA_BASE + высота (v1.16.40)
+import base64
+_RG = json.load(open(os.path.join(HERE, 'relief-grid.json')))
+_RD = base64.b64decode(_RG['dem'])
+def sea_at(x, z):
+    i = int(round((x - _RG['x0']) / _RG['step'])); j = int(round((z - _RG['z0']) / _RG['step']))
+    return 0 <= i < _RG['nx'] and 0 <= j < _RG['nz'] and _RD[j * _RG['nx'] + i] == 0
 # Между подъёмом Бо-Риваж и пит-прямой (справа от Бо-Риваж, S 150–560): дома на склоне — у пит-прямой высокий
 # фасад, крыша вровень с Бо-Риваж (онбоард 2025, кадры 26–42: справа над отбойником деревья и небо). Этажи OSM
 # считаются от нижней улицы, поэтому крыша — полотно Бо-Риваж рядом + LOW_OVER, без above.
@@ -103,6 +119,8 @@ for k in range(M):
     side = lambda t, sg: (t[0][0] + t[1][0] * sg * ((t[2] if sg < 0 else t[3]) + CLEAR), t[0][1] + t[1][1] * sg * ((t[2] if sg < 0 else t[3]) + CLEAR))
     _q.append(Polygon([side(a, -1), side(b, -1), side(b, 1), side(a, 1)]).buffer(0.05))
 CORRIDOR = unary_union(_q)
+STANDS = unary_union([Polygon(f).buffer(0) for f in W.get('ST', [])])   # следы трибун с запасом 3 м (v1.16.40)
+CUT = CORRIDOR
 
 
 def cut(pts):
@@ -110,7 +128,9 @@ def cut(pts):
     Дом, перекрывший улицу (Neuehouse у Портье), делится на куски по обе стороны; прежняя подрезка сдвигала точки
     наружу по нормали и такой дом выворачивала поперёк дороги (пробник clear, v1.16.39)."""
     poly = Polygon(pts).buffer(0)
-    d = poly.difference(CORRIDOR)
+    if poly.intersects(STANDS):
+        return []                                                   # дом в следе трибуны не ставится целиком: обрубок у трибуны (v1.16.40)
+    d = poly.difference(CUT)
     geoms = [d] if d.geom_type == 'Polygon' else list(getattr(d, 'geoms', []))
     out = []
     for g in geoms:
@@ -176,7 +196,7 @@ for cid, tags, ll in cands:
     pts = [xz(*p) for p in ll]
     k = road_at(pts)
     d = min(math.hypot(x - P[k][0], z - P[k][1]) for x, z in pts)
-    if CASINO[0] < S[k] < CASINO[1] or cid in TUNNEL or d > NEAR:
+    if (CASINO[0] < S[k] < CASINO[1] and d <= CASINO_NEAR) or cid in TUNNEL or d > FAR:
         continue
     if cid not in OVER and 'name' not in tags and area(pts) < 60:
         continue                                                    # будки меньше 60 м² без имени — с дороги не читаются
@@ -203,22 +223,27 @@ for cid, tags, ll in cands:
             hh = None
         over = hh if hh else float(lv) * (fl if fl else 3.2) + 1 if lv else (6 if area(pts) < 300 else 12)
     for j, (cp, nmoved) in enumerate(parts):
-        rows.append(dict(low=lo is not None, id=cid + ('' if len(parts) == 1 else '-%d' % (j + 1)), S=S[k], name=name or tags.get('name', ''),
+        rows.append(dict(sea=sea_at(sum(p[0] for p in cp) / len(cp), sum(p[1] for p in cp) / len(cp)), d=d, low=lo is not None, id=cid + ('' if len(parts) == 1 else '-%d' % (j + 1)), S=S[k], name=name or tags.get('name', ''),
                          road=HY[k] if lo is None else lo, over=over, col=col, band=band, fl=fl, roof=roof, pts=cp, moved=nmoved, tags=tags))
 
 rows.sort(key=lambda r: r['S'])
-print("    /* Город вдоль круга (v1.16.39) — строки считает tools/monaco-scan/city.py: все дома OSM ближе %d м к осевой," % NEAR)
-print("       кроме площади Казино и тоннеля; контуры подрезаны по построенной стене, top — полотно у дома + высота над улицей. */")
+print("    /* Город вдоль круга (v1.16.39; v1.16.40 — до %d м, высота от своей земли) — строки считает tools/monaco-scan/city.py:" % FAR)
+print("       дома OSM ближе %d м к осевой, кроме площади Казино (ближе %d м) и тоннеля; из контура вычтены коридор трассы и следы" % (FAR, CASINO_NEAR))
+print("       трибун; h — над самой низкой землёй под домом, above:3 — крыша не тонет в склоне; ближе %d м — окна проёмами (win)," % NEAR)
+print("       дальше — полосами. Между Бо-Риваж и пит-прямой — top: крыша вровень с Бо-Риваж; над морем (Mareterra, набережные) —")
+print("       top: %.0f м над морем + высота. */" % SEA_BASE)
 for r in rows:
-    top = r['road'] + r['over']
     extra = ''
     if r['fl'] and abs(r['fl'] - 3.2) > 1e-6:
         extra += ', floor:%.1f' % r['fl']
     if r['roof']:
         extra += ", roof:'%s'" % r['roof']
     poly = '[' + ','.join('[%.6f,%.6f]' % ll_of(x, z) for x, z in r['pts']) + ']'
-    print("    {name:'%s', top:%.1f, color:'%s', band:'%s'%s, win:1%s, poly:%s}," % (
-        (r['name'] or r['id']).replace("'", ''), top, r['col'], r['band'], extra, '' if r['low'] else ', above:4', poly))
-    print('#', r['id'], 'S%d' % r['S'], 'полотно %.1f +%.1f' % (r['road'], r['over']), 'точек', len(r['pts']),
-          'сдвинуто', r['moved'], {k: v for k, v in r['tags'].items() if k in ('building', 'building:levels', 'height', 'name')},
-          file=sys.stderr)
+    hgt = 'top:%.1f' % (r['road'] + r['over']) if r['low'] else 'top:%.1f' % (SEA_BASE + r['over']) if r['sea'] else 'h:%.1f' % r['over']
+    print("    {name:'%s', %s, color:'%s', band:'%s'%s%s%s, poly:%s}," % (
+        (r['name'] or r['id']).replace("'", ''), hgt, r['col'], r['band'], extra, ', win:1' if r['d'] <= NEAR else '',
+        '' if r['low'] or r['sea'] else ', above:3', poly))
+    print('#', r['id'], 'S%d' % r['S'], 'd%.0f' % r['d'], ('полотно %.1f +%.1f' % (r['road'], r['over'])) if r['low'] else 'h %.1f' % r['over'],
+          'точек', len(r['pts']), 'срезано', r['moved'],
+          {k: v for k, v in r['tags'].items() if k in ('building', 'building:levels', 'height', 'name')}, file=sys.stderr)
+print('# домов (кусков): %d, из них ближе %d м: %d' % (len(rows), NEAR, sum(1 for r in rows if r['d'] <= NEAR)), file=sys.stderr)

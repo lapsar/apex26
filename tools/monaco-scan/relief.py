@@ -2,7 +2,10 @@
 и сверка с высотой полотна из телеметрии (onboard/kadry.tsv, z openf1/10).
   python3 relief.py check     — высота карты под полотном против телеметрии (сдвиг нуля)
   python3 relief.py grid      — сетка высот для игры → relief-grid.json и строка RELIEF_BY_KEY (relief-monaco.js.txt)
-Тайлы кэшируются в tiles/ (как у tiles.py)."""
+Тайлы кэшируются в tiles/ (как у tiles.py).
+v1.16.40: высота СУШИ — из IGN RGE ALTI (земля без домов, сервис altimetrie data.geopf.fr, кэш tiles/ign.json);
+terrarium остался только маской моря (берег прежний). terrarium в городе меряет крыши: у Сент-Девот на ~20 м выше
+земли — склон накрывал дома (часовня Сент-Девот вставала на 44 м). IGN против телеметрии полотна — см. check."""
 import math, os, sys, json, re, urllib.request
 import numpy as np
 from PIL import Image
@@ -10,10 +13,12 @@ HERE = os.path.dirname(os.path.abspath(__file__)); TD = os.path.join(HERE, 'tile
 LAT0, LON0, MLON = 43.737145229, 7.425286371, 80430.825145      # SCEN_ORIGIN.Monaco
 Z = 15
 BASE = 45.0     # м: z openf1/10 минус BASE = высота над морем (бассейн 2.8 м, Казино 43.9 м)
-BIAS = 8.0      # м: карта высот в городе — крыши (выше полотна медианой на ~9 м), суша опускается
+IGN_OFF = 1.6   # м: (телеметрия − BASE) − IGN под полотном — медиана 1.62 (10 %…90 %: 1.27…1.83); IGN поднимается на столько,
+                #    чтобы земля сошлась с полотном, а нуль (море, гавань) остался прежним
+BIAS = 0.0      # м: v1.16.40 — земля IGN без домов, опускать нечего (у terrarium было 8: он меряет крыши)
 SIG_P = 15.0    # м: сглаживание профиля телеметрии
-STEP = 40       # м: шаг карты высот в игре
-SIG_D = 30.0    # м: сглаживание карты
+STEP = 20       # м: шаг карты высот в игре (v1.16.40: было 40 — обрыв за часовней Сент-Девот размазывался на неё)
+SIG_D = 15.0    # м: сглаживание карты (v1.16.40: было 30)
 PAD = 1500      # м: поле вокруг трассы (дальше туман 1300 м)
 def deg2num(lat, lon, z=Z):
     n = 2 ** z; la = math.radians(lat)
@@ -33,6 +38,28 @@ def elev(lat, lon):                     # билинейно по пикселя
     fx, fy = xt * 256, yt * 256; x0, y0 = math.floor(fx), math.floor(fy); tx, ty = fx - x0, fy - y0
     def p(x, y): return tile(x // 256, y // 256)[y % 256, x % 256]
     return (p(x0, y0) * (1 - tx) * (1 - ty) + p(x0 + 1, y0) * tx * (1 - ty) + p(x0, y0 + 1) * (1 - tx) * ty + p(x0 + 1, y0 + 1) * tx * ty)
+IGN = os.path.join(TD, 'ign.json')
+_I = json.load(open(IGN)) if os.path.exists(IGN) else {}
+def ign_fill(lls):                      # высоты IGN RGE ALTI пачками по 150 точек, кэш по 6 знакам
+    import time
+    need = sorted({'%.6f,%.6f' % ll for ll in lls} - set(_I))
+    for i in range(0, len(need), 150):
+        part = need[i:i + 150]
+        u = ('https://data.geopf.fr/altimetrie/1.0/calcul/alti/rest/elevation.json?lon=%s&lat=%s&resource=ign_rge_alti_wld&zonly=true'
+             % ('|'.join(p.split(',')[1] for p in part), '|'.join(p.split(',')[0] for p in part)))
+        for k in range(6):
+            try:
+                zs = json.loads(urllib.request.urlopen(u, timeout=60).read())['elevations']; break
+            except Exception:
+                time.sleep(3 + 3 * k)
+        else:
+            raise RuntimeError('IGN не отвечает')
+        for p, z in zip(part, zs): _I[p] = z if not isinstance(z, dict) else z['z']
+        if i % 1500 == 0: json.dump(_I, open(IGN, 'w')); print('IGN', i + len(part), '/', len(need), file=sys.stderr)
+    json.dump(_I, open(IGN, 'w'))
+def elev_ign(lat, lon):
+    z = _I['%.6f,%.6f' % (lat, lon)]
+    return None if z < -1000 else z
 def game2ll(x, z): return (LAT0 + z / 110540, LON0 - x / MLON)
 def track():                            # точки Монако в координатах игры (x уже отражён), от начала контура
     src = open(os.path.join(HERE, '..', '..', 'index.html'), encoding='utf-8').read()
@@ -52,10 +79,13 @@ if __name__ == '__main__':
             s = (S + SF) % tot; i = max(k for k in range(len(pts)) if L[k] <= s)
             a, b = pts[i], pts[(i + 1) % len(pts)]; t = (s - L[i]) / max(1e-9, L[i + 1] - L[i])
             x, z = a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t
-            e = elev(*game2ll(x, z)); out.append((S, h, e))
-        d = np.array([o[1] - o[2] for o in out])
-        for S, h, e in out[::10]: print('S %5.0f  телеметрия %5.1f  карта %6.1f  разница %5.1f' % (S, h, e, h - e))
-        print('разница: медиана %.1f, 10%% %.1f, 90%% %.1f' % (np.median(d), np.percentile(d, 10), np.percentile(d, 90)))
+            out.append((S, h, game2ll(x, z)))
+        ign_fill([o[2] for o in out])
+        out = [(S, h, elev(*ll), elev_ign(*ll)) for S, h, ll in out]
+        d = np.array([o[1] - o[2] for o in out]); di = np.array([o[1] - BASE - o[3] for o in out if o[3] is not None])
+        for S, h, e, g in out[::10]: print('S %5.0f  телеметрия %5.1f  terrarium %6.1f  IGN %6.1f  (полотно над морем %5.1f)' % (S, h, e, g if g is not None else -1, h - BASE))
+        print('telemetry - terrarium: медиана %.1f, 10%% %.1f, 90%% %.1f' % (np.median(d), np.percentile(d, 10), np.percentile(d, 90)))
+        print('(telemetry-BASE) - IGN: медиана %.2f, 10%% %.2f, 90%% %.2f, |…| 90%% %.2f' % (np.median(di), np.percentile(di, 10), np.percentile(di, 90), np.percentile(abs(di), 90)))
     elif cmd == 'grid':
         import base64
         pts = track(); tot = sum(math.hypot(pts[(i + 1) % len(pts)][0] - pts[i][0], pts[(i + 1) % len(pts)][1] - pts[i][1]) for i in range(len(pts)))
@@ -68,8 +98,12 @@ if __name__ == '__main__':
         X0, X1 = math.floor(xs.min() - PAD), math.ceil(xs.max() + PAD); Z0, Z1 = math.floor(zs.min() - PAD), math.ceil(zs.max() + PAD)
         nx, nz = int((X1 - X0) / STEP) + 1, int((Z1 - Z0) / STEP) + 1
         raw = np.array([[elev(*game2ll(X0 + i * STEP, Z0 + j * STEP)) for i in range(nx)] for j in range(nz)])
-        sea = raw < 0.5
-        land = np.where(sea, 0, np.maximum(raw - BIAS, 2))
+        sea = raw < 0.5                                                  # берег — по terrarium, как было
+        ign_fill([game2ll(X0 + i * STEP, Z0 + j * STEP) for j in range(nz) for i in range(nx)])
+        gi = np.array([[elev_ign(*game2ll(X0 + i * STEP, Z0 + j * STEP)) or np.nan for i in range(nx)] for j in range(nz)], dtype=float)
+        gi = np.where(np.isnan(gi), raw - 8.0, gi)                      # вне IGN (Италия у края поля) — terrarium, как было
+        print('IGN: нет данных в %.1f %% клеток суши' % (np.isnan(np.where(sea, 0, np.array([[elev_ign(*game2ll(X0 + i * STEP, Z0 + j * STEP)) or np.nan for i in range(nx)] for j in range(nz)], dtype=float))).mean() * 100))
+        land = np.where(sea, 0, np.maximum(gi + IGN_OFF - BIAS, 2))
         def blur(a):   # гаусс по сетке, края — повтор
             g = np.exp(-0.5 * (np.arange(-3, 4) * STEP / SIG_D) ** 2); g /= g.sum()
             a = np.apply_along_axis(lambda v: np.convolve(np.pad(v, 3, mode='edge'), g, 'valid'), 1, a)

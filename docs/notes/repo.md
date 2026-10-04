@@ -465,6 +465,9 @@ apex26/
     │                                   (v1.16.39): OSM ближе 100 м, без Казино и
     │                                   тоннеля, коридор трассы вычитается
     │                                   (shapely; pip install shapely);
+    │                                   relief.py — карта высот: с v1.16.40 суша
+    │                                   IGN RGE ALTI (земля без домов, кэш
+    │                                   tiles/ign.json), берег — terrarium;
     │                                   streetview.py — Google Street View без
     │                                   ключа: панорама у точки → кадр с курсом
     │                                   и полем зрения игры (04.10.2026; numpy,
