@@ -95,3 +95,12 @@
 отбойника S 1890–2935, минус коридор трассы), плиты суши зоны, понтоны OSM на воде, яхты по снимку Google z19 (места вдоль
 понтонов + белые пятна). `node dump-wall.js && python3 harbour.py` — строка целиком (вставить вместо блока `harbour`);
 `--map` → `plans/harbour_plan.png`; найденные яхты — `plans/yachts.png`. Нужны `shapely`, `scipy`, `numpy`, `Pillow`.
+
+## Деревья (v1.16.42)
+
+`trees.py` — строка `SCENERY_MONACO.trees`: кроны со снимка Google z19 (зелень с фактурой минус дома OSM, ближе 130 м к осевой),
+стволы OSM `natural=tree` (`osm/trees.json` — узлы с тегами, сняты 05.10.2026; в `osm/all.json` теги узлов не хранятся), пинии —
+`leaf_type=needleleaved` и кроны рядом, пальмы — звёзды на мостовой площади Казино и доля небольших крон в садах (Сент-Девот,
+Мирабо, сады Казино). `node dump-wall.js && python3 trees.py` — строка целиком (вставить вместо блока `trees`); `--map` →
+`plans/trees_<место>.jpg` (кроны пурпурные, пинии голубые, пальмы оранжевые). Что отсеивает и сдвигает игра — `treeGeom`
+в `index.html` и `docs/notes/tracks/monaco.md`. Нужны `numpy`, `scipy`, `Pillow`.
