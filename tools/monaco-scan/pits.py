@@ -8,6 +8,8 @@
 (кадры 4, 284 — справа высокая серо-белая стена боксов, над ней кроны пиний): ряд пиний, пит-лейн (OSM «Voie des stands»,
 w850261588), длинное белое здание боксов (~300 м, временное — в OSM его нет; контур обведён по белой крыше снимка),
 бассейн Stade Nautique Rainier III (OSM: чаша w167625723, площадка w197170037, вышка w952067351 — 10 м).
+v1.16.44 (владелец: «здание с окнами как у домов — это и есть боксы?», вариант Б): у боксов garage:1 — на стороне к трассе
+проёмы гаражей с полосой цвета команды, стекло лож, козырёк; paddock.fence — ограждение за правым отбойником S 3100–70.
 Из всех контуров вычитается коридор трассы (стена + CLEAR, все ноги), из пит-лейна — ещё боксы и следы трибун.
 """
 import json, math, os, sys
@@ -65,7 +67,7 @@ deck = Polygon(way('197170037')).buffer(0).difference(CORRIDOR).difference(box).
 print("    /* Боксы и вышка бассейна (v1.16.43) — строки считает tools/monaco-scan/pits.py: боксы — временное двухэтажное здание")
 print("       по белой крыше снимка z19 (в OSM его нет), вышка — OSM w952067351 (10 м). */")
 for i, p in enumerate(parts(box, 30)):
-    print("    {name:'Pit garages%s', h:%.1f, color:'#eeeeea', band:'#3f454c', floor:4.2, roof:'#e6e6e2', win:1, poly:%s}," % ('' if i == 0 else ' %d' % (i + 1), BOX_H, fmt(p)))
+    print("    {name:'Pit garages%s', h:%.1f, color:'#eeeeea', band:'#3f454c', floor:4.2, roof:'#e6e6e2', garage:1, poly:%s}," % ('' if i == 0 else ' %d' % (i + 1), BOX_H, fmt(p)))
 for p in parts(tower, 4):
     print("    {name:'Diving tower', h:10, color:'#d9d6cf', band:'#5f6368', poly:%s}," % fmt(p))
 print()
@@ -75,5 +77,6 @@ print("     боксы и следы трибун. Плоские плиты н�
 print("  paddock: {")
 for key, g in (('lane', lane), ('deck', deck), ('water', water)):
     print("    %s: [%s]," % (key, ','.join(fmt(p) for p in parts(g))))
+print("    fence: {fromS:3100, toS:70, side:'R'},   // ограждение за отбойником пит-прямой: онбоард 2025, кадры 276–290 (v1.16.44)")
 print("  },")
 print('# боксы %.0f м², пит-лейн %.0f м², площадка %.0f м², вода %.0f м²' % (box.area, lane.area, deck.area, water.area), file=sys.stderr)
