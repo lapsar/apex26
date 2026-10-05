@@ -167,7 +167,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.16.45</div>
+    <div class="verstamp">v1.16.46</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -306,7 +306,8 @@ const TRACKS=[
      v1.16.43: пинии крупнее (крона по шагу ряда, шапка из клубков), лиственные гуще, маленькие ниже; перед трибунами деревьев нет;
      лес на обрыве Скалы и старый город до 650 м; боксы, пит-лейн, бассейн с вышкой (tools/monaco-scan/pits.py).
      v1.16.44: фасад боксов — проёмы гаражей с полосой цвета команды, стекло лож, козырёк; ограждение за отбойником пит-прямой.
-     v1.16.45: фасад боксов от одного уровня (полосы шли лесенкой), гаражи только к пит-лейну, к порту — серая стена; ограждение и у бассейна. */
+     v1.16.45: фасад боксов от одного уровня (полосы шли лесенкой), гаражи только к пит-лейну, к порту — серая стена; ограждение и у бассейна.
+     v1.16.46: сторона боксов к порту — того же белого цвета, что фасад к пит-прямой. */
   {name:"Monaco",key:"Monaco",railAds:[[0,-1],[176,12],[270,14],[500,2],[790,13],[900,4],[1150,12],[1430,14],[1545,-1],[1925,8],[2400,14],[2730,-1],[2840,3],[2990,12],[3200,-1]],cc:"Монако",c:"#C6A15B",half:6.0,style:"street",runoff:1.6,grip:.94,twist:6,speed:2,sfShift:2416,
    desc:"Улицы княжества: сплошной Armco, барьеры из покрышек, права на ошибку нет."},
   {name:"Montreal",key:"Montreal",cc:"Канада",c:"#D52B1E",half:7.0,style:"park",runoff:3,grip:0.98,twist:4,speed:4,sfShift:196,
@@ -4585,7 +4586,7 @@ function buildTunnel(){const T=track.tunnel;if(!T)return;
         let bk=0,bd=1e18;for(let k=0;k<track.M;k++){const d=(mx-track.P[k].x)**2+(mz-track.P[k].z)**2;if(d<bd){bd=d;bk=k;}}
         const gS=o.garage.fromS!=null?o.garage:{fromS:0,toS:track.length},sk=track.S[bk],inS=gS.fromS<=gS.toS?(sk>=gS.fromS&&sk<=gS.toS):(sk>=gS.fromS||sk<=gS.toS);
         const toLane=len>=4&&Math.sqrt(bd)<45&&inS&&nx*(track.P[bk].x-mx)+nz*(track.P[bk].z-mz)>0;   // v1.16.45: только сторона к пит-прямой (garage.fromS–toS)
-        if(!toLane&&len>=4)quad(bp,F(0,0.05,garLvl-1.5),F(len,0.05,garLvl-1.5),F(len,0.05,top-0.2),F(0,0.05,top-0.2),C('#8e9297'),bc);   // сторона к порту — гладкая серая (онбоард, кадры 216–226)
+        // сторона к порту — гладкая стена цвета здания (v1.16.46, владелец: «как со стороны стартовой прямой»; в v1.16.45 была серая)
         if(toLane){
           const gq=()=>garLvl;                                       // v1.16.45: весь фасад от одного уровня — земля под зданием гуляет на 2 м, полосы шли лесенкой
           const nb=Math.max(1,Math.round(len/GAR_BAY)),bw=len/nb,DARK=C('#24272b'),GLASS=C('#2f3b46'),CAN=C('#f4f4f1');
