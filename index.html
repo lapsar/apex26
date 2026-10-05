@@ -167,7 +167,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.16.46</div>
+    <div class="verstamp">v1.16.47</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -307,8 +307,9 @@ const TRACKS=[
      лес на обрыве Скалы и старый город до 650 м; боксы, пит-лейн, бассейн с вышкой (tools/monaco-scan/pits.py).
      v1.16.44: фасад боксов — проёмы гаражей с полосой цвета команды, стекло лож, козырёк; ограждение за отбойником пит-прямой.
      v1.16.45: фасад боксов от одного уровня (полосы шли лесенкой), гаражи только к пит-лейну, к порту — серая стена; ограждение и у бассейна.
-     v1.16.46: сторона боксов к порту — того же белого цвета, что фасад к пит-прямой. */
-  {name:"Monaco",key:"Monaco",railAds:[[0,-1],[176,12],[270,14],[500,2],[790,13],[900,4],[1150,12],[1430,14],[1545,-1],[1925,8],[2400,14],[2730,-1],[2840,3],[2990,12],[3200,-1]],cc:"Монако",c:"#C6A15B",half:6.0,style:"street",runoff:1.6,grip:.94,twist:6,speed:2,sfShift:2416,
+     v1.16.46: сторона боксов к порту — того же белого цвета, что фасад к пит-прямой.
+     v1.16.47: поребрик у шпильки не свисает к нижней ноге (reliefRibbon); реклама — целым числом плиток в зоне (railAdsFit). */
+  {name:"Monaco",key:"Monaco",railAdsFit:true,railAds:[[0,-1],[176,12],[270,14],[500,2],[790,13],[900,4],[1150,12],[1430,14],[1545,-1],[1925,8],[2400,14],[2730,-1],[2840,3],[2990,12],[3200,-1]],cc:"Монако",c:"#C6A15B",half:6.0,style:"street",runoff:1.6,grip:.94,twist:6,speed:2,sfShift:2416,
    desc:"Улицы княжества: сплошной Armco, барьеры из покрышек, права на ошибку нет."},
   {name:"Montreal",key:"Montreal",cc:"Канада",c:"#D52B1E",half:7.0,style:"park",runoff:3,grip:0.98,twist:4,speed:4,sfShift:196,
    desc:"Остров на реке: длинные прямые, шпилька, тесные шиканы и стены у самой кромки."},
@@ -948,7 +949,20 @@ function railAdsSetup(spec){                                   // null — тр�
   /* Зона с полосой -1 — голый отбойник (полоса изнанки), v1.16.26: у Монако рекламы нет на пит-прямой,
      в тоннеле и у выхода бассейна. Номером её не записать: изнанка — ПОСЛЕДНЯЯ строка таблицы
      и уезжает с каждой новой полосой. */
-  return {tex:tx,back:RAIL_ADS.length-1,
+  /* ЗОНА — ЦЕЛЫМ ЧИСЛОМ ПЛИТОК (ключ railAdsFit трассы, v1.16.47, Монако). Плитка идёт с шагом 16 м от старта,
+     а граница зоны стоит где придётся — новая зона начиналась посреди плитки, и щит резался на полуслове
+     («MONA|DE MONACO» у Портье, скриншот владельца 05.10.2026). Здесь зона от первой точки осевой за своей
+     границей до первой точки за следующей укладывает round(длина/16) плиток, каждая длиннее или короче
+     на несколько процентов. Меняются только UV — геометрия та же. У трасс без ключа — как было. */
+  let fitB=null;
+  const fit=!spec.railAdsFit?null:S=>{const L=track.length;
+    if(!fitB)fitB=z.map(q=>{for(let i=0;i<track.M;i++)if(track.S[i]>=q[0])return track.S[i];return L+track.S[0];});
+    let q=z.length-1;while(q>=0&&S<fitB[q])q--;
+    if(q<0){q=z.length-1;S+=L;}                                  // до первой границы — хвост последней зоны круга
+    const a=fitB[q],b=q+1<z.length?fitB[q+1]:fitB[0]+L;
+    const n=Math.max(1,Math.round((b-a)/RAIL_AD_PERIOD)),k=n/(b-a);
+    return {u:(S-a)*k,k};};
+  return {tex:tx,back:RAIL_ADS.length-1,fit,
     zoneAt:S=>{let k=z[0][1];for(let q=0;q<z.length;q++)if(S>=z[q][0])k=z[q][1];return k<0?RAIL_ADS.length-1:k;}};
 }
 function armcoTex(c){const a=c||'#c9ccd0',b=c?'#0d2f52':'#9aa0a6';   // c — цвет борта из spec: у Майами борта не стальные, а рекламные щиты
@@ -1136,7 +1150,8 @@ function wallRibbon(sign,W,V,height,mat,ads){const M=track.M,pos=[],uv=[],idx=[]
          и без разворота надпись на ней читается зеркально (та же ловушка §8 п.3,
          из-за которой когда-то пропали левые зоны вылета). */
       const su=sign>0?-1:1;
-      v=su*track.S[k]/RAIL_AD_PERIOD;v2=v+su*ds/RAIL_AD_PERIOD;
+      const f=ads.fit&&ads.fit(track.S[k]);
+      if(f){v=su*f.u;v2=v+su*ds*f.k;}else{v=su*track.S[k]/RAIL_AD_PERIOD;v2=v+su*ds/RAIL_AD_PERIOD;}
       const bd=railAdBand(ads.zoneAt(track.S[k]));t0=bd[0];t1=bd[1];}
     pos.push(b.x,b.y,b.z, b.x,b.y+height,b.z, b2.x,b2.y,b2.z, b2.x,b2.y+height,b2.z);
     uv.push(v,t0,v,t1,v2,t0,v2,t1);
@@ -4639,6 +4654,18 @@ function tunnelLight(){if(!TUN_LIGHTS.hemi)return;let k=0,h=0;const T=track&&tra
 /* Высота рельефа с памятью по точке (v1.16.40): у стены дома десятки вершин стоят над одной точкой земли на разной
    высоте — без памяти reliefY считалась для каждой (город по склону удваивал сборку мира). Ключ — точные x,z: ответ тот же. */
 function reliefYMemo(){const m=new Map();return (x,z)=>{const k=x+','+z;let y=m.get(k);if(y===undefined){y=reliefY(x,z);m.set(k,y);}return y;};}
+/* Лента вдоль осевой (cornerRibbon) — на высоту СВОЕГО сечения HY[k], а не ближайшей ноги (v1.16.47, поребрик).
+   Где ноги сведены сужением (buildWidth: кромки в 1.4 м друг от друга), внешний край поребрика (HW+0.9) ближе к ЧУЖОЙ
+   осевой: у шпильки он брал высоту выезда, на 10 м ниже, и свисал красно-белым клином (скриншот владельца 05.10.2026).
+   Своё сечение — только там, где ближайшая нога дала высоту дальше 1 м от него (чужая нога): в остальных местах высота
+   прежняя, как у асфальта под поребриком (сечение и ближайший отрезок расходятся до 9 см — поребрик утонул бы в полотне).
+   Порядок четвёрок вершин — как в cornerRibbon: a,b на сечении k, c,d на k+1. */
+function reliefRibbon(m,test){if(!m)return;const pa=m.geometry.attributes.position,HY=track.relief.HY,M=track.M;let v=0;
+  const up=(n,own)=>{const r=reliefY(pa.getX(n),pa.getZ(n));pa.setY(n,pa.getY(n)+(Math.abs(r-own)>1?own:r));};
+  for(let i=0;i<M;i++){if(!test(i))continue;const h0=HY[i],h1=HY[(i+1)%M];
+    up(v,h0);up(v+1,h0);up(v+2,h1);up(v+3,h1);v+=4;}
+  pa.needsUpdate=true;m.geometry.computeVertexNormals();m.geometry.computeBoundingSphere();m.geometry.computeBoundingBox();
+  m.userData.reliefDone=true;}
 function reliefApply(skip){const seen=new Set(),v=new THREE.Vector3(),ry=reliefYMemo();
   scene.updateMatrixWorld(true);
   scene.traverse(o=>{if(!o.isMesh||skip.indexOf(o)>=0||o.userData.reliefDone)return;
@@ -5643,6 +5670,7 @@ function buildWorld(){
   const kerbMat=new THREE.MeshLambertMaterial({map:kerbTex()});
   const kIn=cornerRibbon(i=>-track.HW[i]-0.9,HL,0.03,kerbMat,i=>!!track.kerbL[i]); if(kIn)scene.add(kIn);
   const kOut=cornerRibbon(HR,i=>track.HW[i]+0.9,0.03,kerbMat,i=>!!track.kerbR[i]); if(kOut)scene.add(kOut);
+  if(track.relief){reliefRibbon(kIn,i=>!!track.kerbL[i]);reliefRibbon(kOut,i=>!!track.kerbR[i]);}
   // gravel on outside of sharp corners (park/open only)
   const scAll=SCENERY_BY_KEY[track.spec.key];
   const hasRunoff=!!(scAll&&scAll.runoff&&scAll.runoff.length);            // partial markup must not switch off what it does not replace
