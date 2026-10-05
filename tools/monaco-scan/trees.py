@@ -14,7 +14,7 @@
     leaf_type=needleleaved — пиния (зонтичная крона);
   * ПАЛЬМЫ — светло-зелёные звёзды на мостовой (g − (r+b)/2 > 6, 0.6–14 м²) в зонах PALM_ZONES, сверенных по снимку,
     онбоарду 2025 и Street View; кроны лиственных их не видят (тонкие листья съедает очистка маски).
-Высота — по радиусу кроны (снимок высоты не знает): лиственное 1.6r+3 (5–16 м), пиния 1.6r+6, пальма 4r (7–13 м).
+Высота — по радиусу кроны (снимок высоты не знает): лиственное 2r+1.5 (4.5–16 м), пиния 1.2r+9 (12–19), пальма 4r (7–13 м) — v1.16.43.
 Что отсеивает игра сама (treesSetup / treeGeom): ствол на полотне и у стены, в доме, в следе трибуны, над тоннелем, в воде.
 """
 import json, math, os, sys
@@ -42,6 +42,16 @@ PALM_ZONES = {'Place du Casino': [[43.739707, 7.427227], [43.739707, 7.427911], 
 PALM_MIX = {'Sainte-Devote': (43.737268, 7.421672, 40, 0.5), 'Mirabeau': (43.740466, 7.428642, 70, 0.3),
             'Casino gardens': (43.738441, 7.428071, 45, 0.4)}
 PINE_NEAR = 12       # м: крона снимка ближе к пинии OSM — тоже пиния (пит-прямая, Табак, Ноге — Street View: ряды пиний)
+# v1.16.43 (владелец 05.10.2026: «зонтики» мелкие, ряд не сливается): крона пинии — не меньше PINE_R0 и 0.62 шага ряда (соседние
+# кроны срастаются, Street View: 10–14 м в поперечнике), не больше PINE_R1; крона снимка под разросшейся пинией — её же кусок.
+PINE_R0, PINE_R1, PINE_ROW = 4.0, 7.0, 0.62
+# Скала (Le Rocher, v1.16.43): обрыв к гавани в сплошном лесу виден через гавань от Раскасс и бассейна — деревья здесь и дальше ROI.
+ROCK = [[43.73262, 7.41790], [43.73262, 7.42610], [43.73120, 7.42610], [43.73120, 7.41790]]
+# Лес на обрыве в тени снимок по цвету не ловит — контуры OSM natural=wood / landuse=forest в зоне Скалы засаживаются
+# сеткой FOREST_STEP м со сдвигом от координат (без случайности), кроны 3–4.5 м; мимо домов, дорог и уже найденных крон.
+FOREST_STEP = 6.0
+# Густота (v1.16.43): радиус кроны по расстоянию до края зелени крупнее, кроны теснее — у Мирабо оставались просветы.
+CROWN_K, CROWN_B, CROWN_GAP = 1.35, 0.6, 0.72
 
 
 def xz(lat, lon): return (-(lon - LON0) * MLON, (lat - LAT0) * 110540)
@@ -49,7 +59,7 @@ def ll(x, z): return (LAT0 + z / 110540, LON0 - x / MLON)
 
 
 ll_ = [ll(*p) for p in P]
-LA0, LA1 = min(a for a, b in ll_) - 0.0014, max(a for a, b in ll_) + 0.0014
+LA0, LA1 = min(43.7300, min(a for a, b in ll_) - 0.0014), max(a for a, b in ll_) + 0.0014
 LO0, LO1 = min(b for a, b in ll_) - 0.0019, max(b for a, b in ll_) + 0.0019
 _x0, _y1 = tiles.deg2num(LA0, LO0, Z); _x1, _y0 = tiles.deg2num(LA1, LO1, Z)
 X0, X1, Y0, Y1 = int(_x0), int(_x1), int(_y0), int(_y1)
@@ -90,6 +100,7 @@ def roi_mask(shape):
     d.line(pts + [pts[0]], fill=1, width=int(2 * r))
     for p in pts:
         d.ellipse([p[0] - r, p[1] - r, p[0] + r, p[1] + r], fill=1)
+    d.polygon([ll2px(*q) for q in ROCK], fill=1)                      # Скала — целиком (v1.16.43)
     return np.asarray(m).astype(bool)
 
 
@@ -102,7 +113,7 @@ def crowns(m):
         for dy in (-1, 0, 1):
             for dx in (-1, 0, 1):
                 for (yy, xx, rr) in grid.get((gy + dy, gx + dx), []):
-                    if math.hypot(yy - y, xx - x) * MPP < 0.8 * (rr + r):
+                    if math.hypot(yy - y, xx - x) * MPP < CROWN_GAP * (rr + r):
                         return True
         return False
     rest = m.copy()
@@ -111,7 +122,7 @@ def crowns(m):
         pk = np.argwhere((dt == nd.maximum_filter(dt, size=15)) & (dt >= (1.2 if rnd == 0 else 1.0)))
         v = dt[pk[:, 0], pk[:, 1]]; o = np.argsort(-v)
         for (y, x), d in zip(pk[o], v[o]):
-            r = min(1.25 * d + 0.4, 7.5)
+            r = min(CROWN_K * d + CROWN_B, 7.5)
             if near(y, x, r):
                 continue
             out.append((float(x), float(y), r)); grid.setdefault((int(y * MPP // 10), int(x * MPP // 10)), []).append((y, x, r))
@@ -120,6 +131,43 @@ def crowns(m):
             R = r / MPP * 0.9; dr.ellipse([x - R, y - R, x + R, y + R], fill=1)
         rest = m & ~np.asarray(cov).astype(bool)
         rest = nd.binary_opening(rest, structure=np.ones((7, 7)))
+    return out
+
+
+def forest(T, bm):
+    """лес Скалы по контурам OSM: [px, py, 0, r]"""
+    from shapely.geometry import Polygon, Point, LineString
+    from shapely.ops import unary_union
+    D = osm.load(); N = D['nodes']; zone = Polygon([xz(*q) for q in ROCK])
+    woods, roads = [], []
+    for w in D['ways'].values():
+        t = w['tags']; pts = [xz(*N[n]) for n in w['nodes'] if n in N]
+        if (t.get('natural') == 'wood' or t.get('landuse') == 'forest') and len(pts) >= 4:
+            g = Polygon(pts).buffer(0)
+            if g.intersects(zone):
+                woods.append(g.intersection(zone))
+        elif t.get('highway') and t.get('highway') not in ('steps', 'path', 'footway') and len(pts) >= 2:
+            roads.append(LineString(pts).buffer(4))
+    W_ = unary_union(woods).difference(unary_union(roads)) if woods else None
+    out = []
+    if W_ is None:
+        return out
+    x0, z0, x1, z1 = W_.bounds; i = 0
+    zz = z0
+    while zz <= z1:
+        xx = x0 + (i % 2) * FOREST_STEP / 2
+        while xx <= x1:
+            h1 = (math.sin(xx * 12.9898 + zz * 78.233) * 43758.5453) % 1
+            h2 = (math.sin(xx * 39.346 + zz * 11.135) * 23421.631) % 1
+            q = (xx + (h1 - 0.5) * 2.5, zz + (h2 - 0.5) * 2.5)
+            if W_.contains(Point(q)):
+                px, py = xz2px(*q)
+                if 0 <= int(py) < bm.shape[0] and 0 <= int(px) < bm.shape[1] and not bm[int(py), int(px)]:
+                    r = 3.0 + 1.5 * h1
+                    if not any(math.hypot(t[0] - px, t[1] - py) * MPP < 0.7 * (t[3] + r) for t in T if abs(t[0] - px) < 60 and abs(t[1] - py) < 60):
+                        out.append([px, py, 0, r])
+            xx += FOREST_STEP
+        zz += FOREST_STEP * 0.866; i += 1
     return out
 
 
@@ -214,6 +262,13 @@ def main():
     for t in T:                                                     # ряды пиний: соседние кроны снимка — пинии
         if t[2] == 0 and t[3] >= 2.5 and any(math.hypot(px - t[0], py - t[1]) * MPP < PINE_NEAR for px, py in pines):
             t[2] = 1
+    FO = forest(T, bm); T += FO                                      # лес Скалы (v1.16.43)
+    print('# лес Скалы по OSM: %d' % len(FO), file=sys.stderr)
+    PI = [t for t in T if t[2] == 1]                                # пинии: крона по ряду (v1.16.43)
+    for t in PI:
+        nn = min([math.hypot(q[0] - t[0], q[1] - t[1]) * MPP for q in PI if q is not t] or [99])
+        t[3] = min(PINE_R1, max(t[3], PINE_R0, PINE_ROW * nn if nn < 16 else 0))
+    T = [t for t in T if t[2] == 1 or not any(math.hypot(q[0] - t[0], q[1] - t[1]) * MPP < 0.8 * q[3] for q in PI)]
     for name, (la, lo, rad, share) in PALM_MIX.items():
         cx, cy = ll2px(la, lo)
         for t in T:
@@ -228,10 +283,10 @@ def main():
     rows = []
     for x, y, k, cr in T:
         la, lo = px2ll(x, y)
-        h = (min(16, max(5, 1.6 * cr + 3)) if k == 0 else min(18, max(8, 1.6 * cr + 6)) if k == 1 else min(13, max(7, 4 * cr)))
+        h = (min(16, max(4.5, 2 * cr + 1.5)) if k == 0 else min(19, max(12, 1.2 * cr + 9)) if k == 1 else min(13, max(7, 4 * cr)))
         rows.append((la, lo, k, cr, h))
     rows.sort(key=lambda t: (round(t[0], 4), t[1]))
-    print("  /* Деревья (v1.16.42) — строку считает tools/monaco-scan/trees.py: кроны снимка Google z19 ближе %d м к осевой," % ROI)
+    print("  /* Деревья (v1.16.42; v1.16.43 — пинии по ряду, гуще, лес Скалы) — строку считает tools/monaco-scan/trees.py: кроны снимка Google z19 ближе %d м к осевой," % ROI)
     print("     стволы OSM natural=tree, пальмы — звёзды на мостовой в зонах, сверенных по онбоарду и Street View.")
     print("     [широта, долгота, вид: 0 лиственное, 1 пиния, 2 пальма, радиус кроны м, высота м]. */")
     print("  trees: [")
@@ -248,9 +303,9 @@ def main():
 def draw(IM, T):
     os.makedirs(os.path.join(HERE, 'plans'), exist_ok=True)
     for name, S0 in [('pit', 100), ('devote', 220), ('massenet', 650), ('casino', 850), ('mirabeau', 1060),
-                     ('portier', 1400), ('tabac', 2262), ('piscine', 2600), ('noghes', 3070)]:
-        k = min(range(len(S)), key=lambda i: abs(S[i] - S0))
-        cx, cy = xz2px(*P[k]); h = int(120 / MPP)
+                     ('portier', 1400), ('tabac', 2262), ('piscine', 2600), ('noghes', 3070), ('rock', None)]:
+        k = min(range(len(S)), key=lambda i: abs(S[i] - S0)) if S0 is not None else 0
+        cx, cy = xz2px(*P[k]) if S0 is not None else ll2px(43.7318, 7.4220); h = int((120 if S0 is not None else 210) / MPP)
         im = Image.fromarray(IM[int(cy - h):int(cy + h), int(cx - h):int(cx + h)].astype(np.uint8)); d = ImageDraw.Draw(im)
         pts = [xz2px(*p) for p in P]
         d.line([(x - cx + h, y - cy + h) for x, y in pts], fill=(255, 255, 0), width=3)

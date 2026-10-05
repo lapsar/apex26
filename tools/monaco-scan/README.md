@@ -104,3 +104,12 @@
 Мирабо, сады Казино). `node dump-wall.js && python3 trees.py` — строка целиком (вставить вместо блока `trees`); `--map` →
 `plans/trees_<место>.jpg` (кроны пурпурные, пинии голубые, пальмы оранжевые). Что отсеивает и сдвигает игра — `treeGeom`
 в `index.html` и `docs/notes/tracks/monaco.md`. Нужны `numpy`, `scipy`, `Pillow`.
+v1.16.43: пинии — крона по шагу ряда; кроны крупнее и теснее; зона Скалы (`ROCK`) целиком и лес по контурам OSM `natural=wood`
+(тёмный лес в тени снимок не ловит); `--map` рисует и `plans/trees_rock.jpg`.
+
+## Боксы, пит-лейн, бассейн (v1.16.43)
+
+`pits.py` — строки домов (здание боксов по белой крыше снимка z19 — в OSM его нет; вышка бассейна OSM) и ключ `paddock`
+(асфальт пит-лейна по OSM «Voie des stands», площадка и чаша Stade Nautique). `node dump-wall.js && python3 pits.py` —
+первый блок вставить в конец `buildings`, второй — перед `trees`. `city.py` (v1.16.43): Скала до 650 м; `relief-grid.json`
+можно собрать из строки `RELIEF_BY_KEY.Monaco` самой игры.

@@ -30,6 +30,10 @@ TUNNEL = {'r2093796', 'w112689159', 'w176722821'}   # Fairmont, Auditorium, Mont
 NEAR = 100                        # м: ближе — окна проёмами (win:1)
 FAR = 260                         # м: город выше по склону — до сюда (v1.16.40); дальше гребень и дымка
 CASINO_NEAR = 85                  # м: у Казино дома ближе — строки casino.py
+# Скала (v1.16.43, владелец 05.10.2026 — «пустое место» у Раскасс): старый город Монако-Вилль и дворец видны через гавань
+# от бассейна, Раскасс и Ноге целиком, а FAR обрезал их на 260 м. На Скале — до FAR_ROCK.
+ROCK_CITY = [(43.7326, 7.4160), (43.7326, 7.4285), (43.7288, 7.4285), (43.7288, 7.4160)]
+FAR_ROCK = 650
 SEA_BASE = 3.0                    # м над морем: низ дома, под серединой которого в игре море (Mareterra 2024 — карты её не знают;
                                   #   набережные гавани — земля опущена под воду, сушу рисуют плиты) — top = SEA_BASE + высота (v1.16.40)
 import base64
@@ -196,7 +200,9 @@ for cid, tags, ll in cands:
     pts = [xz(*p) for p in ll]
     k = road_at(pts)
     d = min(math.hypot(x - P[k][0], z - P[k][1]) for x, z in pts)
-    if (CASINO[0] < S[k] < CASINO[1] and d <= CASINO_NEAR) or cid in TUNNEL or d > FAR:
+    cla, clo = sum(p[0] for p in ll) / len(ll), sum(p[1] for p in ll) / len(ll)
+    rock = ROCK_CITY[2][0] < cla < ROCK_CITY[0][0] and ROCK_CITY[0][1] < clo < ROCK_CITY[1][1]
+    if (CASINO[0] < S[k] < CASINO[1] and d <= CASINO_NEAR) or cid in TUNNEL or d > (FAR_ROCK if rock else FAR):
         continue
     if cid not in OVER and 'name' not in tags and area(pts) < 60:
         continue                                                    # будки меньше 60 м² без имени — с дороги не читаются
@@ -212,7 +218,7 @@ for cid, tags, ll in cands:
     if cid in OVER:
         name, over, col, band, fl, roof = OVER[cid]
     else:
-        name, over, col, band, fl, roof = tags.get('name', ''), None, PALETTE[len(rows) % len(PALETTE)], '#5f6368', 3.2, None
+        name, over, col, band, fl, roof = tags.get('name', ''), None, (PALETTE[int(cid[1:]) % len(PALETTE)] if d > FAR else PALETTE[sum(1 for r in rows if r['d'] <= FAR) % len(PALETTE)]), '#5f6368', 3.2, None   # Скала дальше FAR — цвет по id: прежние дома цвет не меняют (v1.16.43)
     if lo is not None:
         over = LOW_OVER
     if over is None:
@@ -221,13 +227,17 @@ for cid, tags, ll in cands:
             hh = float(tags.get('height', '').replace('m', '').strip())
         except ValueError:
             hh = None
-        over = hh if hh else float(lv) * (fl if fl else 3.2) + 1 if lv else (6 if area(pts) < 300 else 12)
+        try:
+            lvf = float(lv.replace(',', '.')) if lv else None
+        except ValueError:                                          # «RDC» (rez-de-chaussée) и т. п. на Скале — один этаж (v1.16.43)
+            lvf = 1.0 if lv.strip().upper().startswith('RDC') else None
+        over = hh if hh else lvf * (fl if fl else 3.2) + 1 if lvf else (6 if area(pts) < 300 else 12)
     for j, (cp, nmoved) in enumerate(parts):
         rows.append(dict(sea=sea_at(sum(p[0] for p in cp) / len(cp), sum(p[1] for p in cp) / len(cp)), d=d, low=lo is not None, id=cid + ('' if len(parts) == 1 else '-%d' % (j + 1)), S=S[k], name=name or tags.get('name', ''),
                          road=HY[k] if lo is None else lo, over=over, col=col, band=band, fl=fl, roof=roof, pts=cp, moved=nmoved, tags=tags))
 
 rows.sort(key=lambda r: r['S'])
-print("    /* Город вдоль круга (v1.16.39; v1.16.40 — до %d м, высота от своей земли) — строки считает tools/monaco-scan/city.py:" % FAR)
+print("    /* Город вдоль круга (v1.16.39; v1.16.40 — до %d м, высота от своей земли; v1.16.43 — Скала до %d м) — строки считает tools/monaco-scan/city.py:" % (FAR, FAR_ROCK))
 print("       дома OSM ближе %d м к осевой, кроме площади Казино (ближе %d м) и тоннеля; из контура вычтены коридор трассы и следы" % (FAR, CASINO_NEAR))
 print("       трибун; h — над самой низкой землёй под домом, above:3 — крыша не тонет в склоне; ближе %d м — окна проёмами (win)," % NEAR)
 print("       дальше — полосами. Между Бо-Риваж и пит-прямой — top: крыша вровень с Бо-Риваж; над морем (Mareterra, набережные) —")
