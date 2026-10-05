@@ -113,3 +113,4 @@ v1.16.43: пинии — крона по шагу ряда; кроны круп�
 (асфальт пит-лейна по OSM «Voie des stands», площадка и чаша Stade Nautique). `node dump-wall.js && python3 pits.py` —
 первый блок вставить в конец `buildings`, второй — перед `trees`. `city.py` (v1.16.43): Скала до 650 м; `relief-grid.json`
 можно собрать из строки `RELIEF_BY_KEY.Monaco` самой игры.
+v1.16.44: у боксов `garage:1` (фасад гаражей в цветах команд), `paddock.fence` — ограждение за правым отбойником S 3100–70.
