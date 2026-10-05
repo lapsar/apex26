@@ -1,0 +1,79 @@
+#!/usr/bin/env python3
+"""Боксы, пит-лейн и бассейн Монако — строки SCENERY_MONACO (v1.16.43).
+
+    node dump-wall.js            # wall.json — осевая, ПОСТРОЕННЫЙ барьер, следы трибун (ST)
+    python3 pits.py              # печатает: строки домов (боксы, вышка бассейна) и ключ paddock:{lane, deck, water}
+
+Владелец 05.10.2026: «у нас совсем нет здания боксов, забыли?». Справа от пит-прямой по снимку Google z19 и онбоарду 2025
+(кадры 4, 284 — справа высокая серо-белая стена боксов, над ней кроны пиний): ряд пиний, пит-лейн (OSM «Voie des stands»,
+w850261588), длинное белое здание боксов (~300 м, временное — в OSM его нет; контур обведён по белой крыше снимка),
+бассейн Stade Nautique Rainier III (OSM: чаша w167625723, площадка w197170037, вышка w952067351 — 10 м).
+Из всех контуров вычитается коридор трассы (стена + CLEAR, все ноги), из пит-лейна — ещё боксы и следы трибун.
+"""
+import json, math, os, sys
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import osm
+from shapely.geometry import Polygon, LineString
+from shapely.ops import unary_union
+
+LAT0, LON0, MLON = 43.737145229, 7.425286371, 80430.825145   # SCEN_ORIGIN.Monaco
+W = json.load(open(os.path.join(HERE, 'wall.json')))
+P, RR, WL, WR, M = W['P'], W['R'], W['WL'], W['WR'], W['M']
+CLEAR = 1.0                       # м за линией стены (как city.py)
+LANE_HW = 8.0                     # м: полоса асфальта вокруг оси пит-лейна OSM (она идёт под крышей боксов; асфальт — от стены до боксов)
+BOX_H = 8.5                       # м: боксы — два этажа (онбоард: стена вровень с отбойником пит-уолла и выше вдвое)
+
+
+def xz(lat, lon): return (-(lon - LON0) * MLON, (lat - LAT0) * 110540)
+def ll(x, z): return (LAT0 + z / 110540, LON0 - x / MLON)
+
+
+# Контур белой крыши боксов по снимку z19 (обведён по кадру 300×300 м с центром 43.7342, 7.4216; 0.3 м/пкс), по часовой.
+_PX = [(460, 205), (545, 205), (548, 262), (568, 300), (578, 400), (600, 500), (622, 580), (640, 700), (638, 735), (605, 735),
+       (585, 640), (545, 560), (510, 470), (483, 360), (463, 270)]
+BOX_LL = [(43.7342 - (py - 500) * 0.3 / 110540, 7.4216 + (px - 500) * 0.3 / 80430.8) for px, py in _PX]
+
+_q = []
+for k in range(M):
+    k2 = (k + 1) % M
+    a, b = (P[k], RR[k], WL[k], WR[k]), (P[k2], RR[k2], WL[k2], WR[k2])
+    side = lambda t, sg: (t[0][0] + t[1][0] * sg * ((t[2] if sg < 0 else t[3]) + CLEAR), t[0][1] + t[1][1] * sg * ((t[2] if sg < 0 else t[3]) + CLEAR))
+    _q.append(Polygon([side(a, -1), side(b, -1), side(b, 1), side(a, 1)]).buffer(0.05))
+CORRIDOR = unary_union(_q)
+STANDS = unary_union([Polygon(f).buffer(0) for f in W.get('ST', [])])
+
+
+def parts(g, min_area=4):
+    gs = [g] if g.geom_type == 'Polygon' else list(getattr(g, 'geoms', []))
+    return [list(p.simplify(0.15).exterior.coords)[:-1] for p in gs if p.geom_type == 'Polygon' and p.area >= min_area]
+
+
+def fmt(pts):
+    return '[' + ','.join('[%.6f,%.6f]' % ll(x, z) for x, z in pts) + ']'
+
+
+D = osm.load(); N, WY = D['nodes'], D['ways']
+way = lambda k: [xz(*N[n]) for n in WY[k]['nodes'] if n in N]
+
+box = Polygon([xz(*p) for p in BOX_LL]).buffer(0).difference(CORRIDOR).difference(STANDS)
+tower = Polygon(way('952067351')).buffer(0).difference(CORRIDOR)
+lane = LineString(way('850261588')).buffer(LANE_HW, cap_style=2).difference(CORRIDOR).difference(box).difference(STANDS)
+water = Polygon(way('167625723')).buffer(0).difference(CORRIDOR)
+deck = Polygon(way('197170037')).buffer(0).difference(CORRIDOR).difference(box).difference(water).difference(STANDS)
+
+print("    /* Боксы и вышка бассейна (v1.16.43) — строки считает tools/monaco-scan/pits.py: боксы — временное двухэтажное здание")
+print("       по белой крыше снимка z19 (в OSM его нет), вышка — OSM w952067351 (10 м). */")
+for i, p in enumerate(parts(box, 30)):
+    print("    {name:'Pit garages%s', h:%.1f, color:'#eeeeea', band:'#3f454c', floor:4.2, roof:'#e6e6e2', win:1, poly:%s}," % ('' if i == 0 else ' %d' % (i + 1), BOX_H, fmt(p)))
+for p in parts(tower, 4):
+    print("    {name:'Diving tower', h:10, color:'#d9d6cf', band:'#5f6368', poly:%s}," % fmt(p))
+print()
+print("  /* Пит-лейн и бассейн (v1.16.43) — строку считает tools/monaco-scan/pits.py: lane — полотно пит-лейна по OSM «Voie des")
+print("     stands» (± %.1f м — от стены до боксов), deck — площадка Stade Nautique Rainier III, water — чаша бассейна; минус коридор трассы," % LANE_HW)
+print("     боксы и следы трибун. Плоские плиты на видимой земле, в меш домов (вершинный цвет). */")
+print("  paddock: {")
+for key, g in (('lane', lane), ('deck', deck), ('water', water)):
+    print("    %s: [%s]," % (key, ','.join(fmt(p) for p in parts(g))))
+print("  },")
+print('# боксы %.0f м², пит-лейн %.0f м², площадка %.0f м², вода %.0f м²' % (box.area, lane.area, deck.area, water.area), file=sys.stderr)

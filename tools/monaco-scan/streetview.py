@@ -10,7 +10,7 @@ API Street View с ключом закрыт (403); поиск панорамы 
 «decommissioned» — повторять с паузой; тайлы streetviewpixels-pa — без ключа, с User-Agent. Нужны numpy и pillow
 (pip install numpy pillow). СМОТРЕТЬ ДАТУ: у Монако панорамы 2021–2022 (пит-прямая 2011), Mareterra на них — стройка.
 """
-import sys,re,io,math,json,urllib.request
+import sys,re,io,math,json,urllib.request,urllib.error
 import numpy as np
 from PIL import Image
 lat,lon,hd,pt,fov=map(float,sys.argv[1:6]);out=sys.argv[6]
@@ -27,11 +27,16 @@ pid=mm.group(1)
 m=re.search(r'\[\[null,null,([\d.]+),([\d.]+)\],\[[^\]]*\],\[([\d.\-]+),([\d.\-]+),([\d.\-]+)\]',t)
 plat,plon,yaw,tilt=float(m.group(1)),float(m.group(2)),float(m.group(3)),float(m.group(4))
 dates=re.findall(r'\[(20\d\d),(\d{1,2})\]',t)
-Z=3;W,H=512*8,512*4
-img=Image.new('RGB',(W,H))
-for y in range(4):
-  for x in range(8):
-    img.paste(Image.open(io.BytesIO(get('https://streetviewpixels-pa.googleapis.com/v1/tile?cb_client=maps_sv.tactile&panoid=%s&x=%d&y=%d&zoom=%d&nbt=1&fover=2'%(pid,x,y,Z)))),(x*512,y*512))
+for Z in (3,2):                      # у части панорам (снимки пользователей) нет зума 3 — ответ 400; тогда 2048×1024
+  try:
+    W,H=512*2**Z,256*2**Z
+    img=Image.new('RGB',(W,H))
+    for y in range(2**(Z-1)):
+      for x in range(2**Z):
+        img.paste(Image.open(io.BytesIO(get('https://streetviewpixels-pa.googleapis.com/v1/tile?cb_client=maps_sv.tactile&panoid=%s&x=%d&y=%d&zoom=%d&nbt=1&fover=2'%(pid,x,y,Z)))),(x*512,y*512))
+    break
+  except urllib.error.HTTPError:
+    if Z==2: raise
 E=np.asarray(img)
 ow,oh=1000,460;f=(ow/2)/math.tan(math.radians(fov)/2)
 xs,ys=np.meshgrid(np.arange(ow)-ow/2+0.5,np.arange(oh)-oh/2+0.5)
