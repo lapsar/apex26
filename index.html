@@ -167,7 +167,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.16.44</div>
+    <div class="verstamp">v1.16.45</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -305,7 +305,8 @@ const TRACKS=[
      (Сент-Девот, Мирабо, сады Казино); в меш домов, вызовов не прибавляет; tools/monaco-scan/trees.py.
      v1.16.43: пинии крупнее (крона по шагу ряда, шапка из клубков), лиственные гуще, маленькие ниже; перед трибунами деревьев нет;
      лес на обрыве Скалы и старый город до 650 м; боксы, пит-лейн, бассейн с вышкой (tools/monaco-scan/pits.py).
-     v1.16.44: фасад боксов — проёмы гаражей с полосой цвета команды, стекло лож, козырёк; ограждение за отбойником пит-прямой. */
+     v1.16.44: фасад боксов — проёмы гаражей с полосой цвета команды, стекло лож, козырёк; ограждение за отбойником пит-прямой.
+     v1.16.45: фасад боксов от одного уровня (полосы шли лесенкой), гаражи только к пит-лейну, к порту — серая стена; ограждение и у бассейна. */
   {name:"Monaco",key:"Monaco",railAds:[[0,-1],[176,12],[270,14],[500,2],[790,13],[900,4],[1150,12],[1430,14],[1545,-1],[1925,8],[2400,14],[2730,-1],[2840,3],[2990,12],[3200,-1]],cc:"Монако",c:"#C6A15B",half:6.0,style:"street",runoff:1.6,grip:.94,twist:6,speed:2,sfShift:2416,
    desc:"Улицы княжества: сплошной Armco, барьеры из покрышек, права на ошибку нет."},
   {name:"Montreal",key:"Montreal",cc:"Канада",c:"#D52B1E",half:7.0,style:"park",runoff:3,grip:0.98,twist:4,speed:4,sfShift:196,
@@ -3812,7 +3813,7 @@ const SCENERY_MONACO = {
     {name:'Social Funds of Monaco', h:20.2, color:'#dcd2bf', band:'#5f6368', win:1, above:3, poly:[[43.734924,7.420162],[43.734952,7.420362],[43.735193,7.420297],[43.735165,7.420097]]},
     /* Боксы и вышка бассейна (v1.16.43) — строки считает tools/monaco-scan/pits.py: боксы — временное двухэтажное здание
        по белой крыше снимка z19 (в OSM его нет), вышка — OSM w952067351 (10 м). */
-    {name:'Pit garages', h:8.5, color:'#eeeeea', band:'#3f454c', floor:4.2, roof:'#e6e6e2', garage:1, poly:[[43.734580,7.421537],[43.734281,7.421637],[43.734037,7.421768],[43.733820,7.421917],[43.733562,7.421992],[43.733562,7.422115],[43.733657,7.422122],[43.733983,7.422055],[43.734018,7.422042],[43.734101,7.421878],[43.734178,7.421981],[43.734471,7.421891],[43.734743,7.421854],[43.734846,7.421779],[43.735001,7.421768],[43.735001,7.421451],[43.734824,7.421462]]},
+    {name:'Pit garages', h:8.5, color:'#eeeeea', band:'#3f454c', floor:4.2, roof:'#e6e6e2', garage:{fromS:2950, toS:120}, poly:[[43.734580,7.421537],[43.734281,7.421637],[43.734037,7.421768],[43.733820,7.421917],[43.733562,7.421992],[43.733562,7.422115],[43.733657,7.422122],[43.733983,7.422055],[43.734018,7.422042],[43.734101,7.421878],[43.734178,7.421981],[43.734471,7.421891],[43.734743,7.421854],[43.734846,7.421779],[43.735001,7.421768],[43.735001,7.421451],[43.734824,7.421462]]},
     {name:'Diving tower', h:10, color:'#d9d6cf', band:'#5f6368', poly:[[43.734341,7.422108],[43.734395,7.422094],[43.734390,7.422057],[43.734336,7.422071]]},
   ],
   /* Гавань (v1.16.36) — строку считает tools/monaco-scan/harbour.py: зона (вода гавани и суша до 70 м от неё по эту
@@ -3906,7 +3907,8 @@ const SCENERY_MONACO = {
     lane: [[[43.732460,7.422951],[43.732476,7.422935],[43.732488,7.422927],[43.732519,7.422917],[43.732562,7.422911],[43.732738,7.422904],[43.732806,7.422867],[43.732826,7.422849],[43.732993,7.422644],[43.733054,7.422577],[43.733115,7.422516],[43.733210,7.422430],[43.733312,7.422356],[43.733414,7.422292],[43.733563,7.422205],[43.733709,7.422126],[43.733770,7.422099],[43.733657,7.422122],[43.733562,7.422115],[43.733562,7.421992],[43.733506,7.422023],[43.733309,7.422142],[43.733133,7.422275],[43.733001,7.422385],[43.732899,7.422493],[43.732739,7.422690],[43.732707,7.422708],[43.732550,7.422713],[43.732473,7.422727],[43.732430,7.422745],[43.732437,7.422832],[43.732456,7.422967]],[[43.735001,7.421529],[43.735142,7.421456],[43.735191,7.421423],[43.735293,7.421332],[43.735059,7.421361],[43.734857,7.421392],[43.734678,7.421507],[43.734824,7.421462],[43.735001,7.421451]],[[43.733884,7.421838],[43.733662,7.421938],[43.733565,7.421991],[43.733820,7.421917],[43.733997,7.421796]]],
     deck: [[[43.734828,7.421792],[43.734743,7.421854],[43.734471,7.421891],[43.734352,7.421927],[43.734353,7.421934],[43.734177,7.421981],[43.734197,7.422007],[43.734204,7.422020],[43.734287,7.421998],[43.734327,7.422291],[43.734216,7.422322],[43.734219,7.422343],[43.734994,7.422137],[43.735030,7.422108],[43.734986,7.421769],[43.734900,7.421775]]],
     water: [[[43.734358,7.421962],[43.734388,7.422196],[43.734826,7.422087],[43.734796,7.421853]]],
-    fence: {fromS:3100, toS:70, side:'R'},   // ограждение за отбойником пит-прямой: онбоард 2025, кадры 276–290 (v1.16.44)
+    fence: [{fromS:3100, toS:70, side:'R'},     // ограждение за отбойником пит-прямой: онбоард 2025, кадры 276–290 (v1.16.44)
+            {fromS:2490, toS:2740, side:'R'}],  // и у бассейна, напротив задней стены боксов: кадры 216–226 (v1.16.45)
   },
   /* Деревья (v1.16.42; v1.16.43 — пинии по ряду, гуще, лес Скалы) — строку считает tools/monaco-scan/trees.py: кроны снимка Google z19 ближе 130 м к осевой,
      стволы OSM natural=tree, пальмы — звёзды на мостовой в зонах, сверенных по онбоарду и Street View.
@@ -4444,7 +4446,8 @@ function paddockGeom(bp,bc,C){const PD=track.paddock;if(!PD)return;
   lay(PD.lane,0.15,C('#5d6066'));lay(PD.deck,0.15,C('#d9d3c6'));lay(PD.water,0.22,C('#3b9fc9'));
   /* Ограждение (v1.16.44): стойки, три перекладины и белая полоса поверху — непрозрачные (прозрачных сеток в игре нет, CLAUDE.md §3).
      Высота от полотна рядом (дома и всё в этом меше — в абсолютной высоте). */
-  const FE=PD.fence;if(!FE)return;const M=track.M,sg=FE.side==='L'?-1:1,POST=C('#5a5f66'),RAIL=C('#7b8088'),BAN=C('#f1f1ee'),ry=reliefYMemo();
+  const POST=C('#5a5f66'),RAIL=C('#7b8088'),BAN=C('#f1f1ee'),ry=reliefYMemo();
+  for(const FE of [].concat(PD.fence||[])){const M=track.M,sg=FE.side==='L'?-1:1;   // v1.16.45: ограждений может быть несколько
   const at=i=>{const w=(sg<0?track.WL[i]:track.WR[i])+PIT_FENCE.off;return [track.P[i].x+track.R[i].x*sg*w,track.P[i].z+track.R[i].z*sg*w];};
   let i0=0,i1=0;for(let k=0;k<M;k++){if(Math.abs(track.S[k]-FE.fromS)<Math.abs(track.S[i0]-FE.fromS))i0=k;if(Math.abs(track.S[k]-FE.toS)<Math.abs(track.S[i1]-FE.toS))i1=k;}
   const n=(i1-i0+M)%M,H=FE.h||PIT_FENCE.h;let acc=PIT_FENCE.post;
@@ -4453,7 +4456,7 @@ function paddockGeom(bp,bc,C){const PD=track.paddock;if(!PD)return;
     for(const y of [1.6,2.7]) q4(A,B,y,y+0.07,RAIL);q4(A,B,H-0.75,H,BAN);
     acc+=Math.hypot(B[0]-A[0],B[1]-A[1]);
     if(acc>=PIT_FENCE.post){acc=0;const rx=track.R[i].x*0.07,rz=track.R[i].z*0.07,fx=track.F[i].x*0.07,fz=track.F[i].z*0.07;
-      q4([A[0]-fx,A[1]-fz],[A[0]+fx,A[1]+fz],0,H,POST);q4([A[0]-rx,A[1]-rz],[A[0]+rx,A[1]+rz],0,H,POST);}}}
+      q4([A[0]-fx,A[1]-fz],[A[0]+fx,A[1]+fz],0,H,POST);q4([A[0]-rx,A[1]-rz],[A[0]+rx,A[1]+rz],0,H,POST);}}}}
 function treesSetup(){track.trees=null;const sc=SCENERY_BY_KEY[track.spec.key];if(!sc||!sc.trees||!SCEN_ORIGIN[track.spec.key])return;
   track.trees=sc.trees.map(t=>{const q=scenXZ(t[0],t[1]);return {x:q[0],z:q[1],k:t[2],r:t[3],h:t[4]};});}
 const TREE_SHIFT=4;          // м: ствол ближе стены + 0.6 м сдвигается за неё, если нужно не больше (v1.16.42: 44 дерева, медиана 1.9 м, наибольший 3.9 — пинии пит-прямой)
@@ -4556,8 +4559,9 @@ function buildTunnel(){const T=track.tunnel;if(!T)return;
   /* Дома: высоты абсолютные. Стена — кусками ≤2.5 м (у тоннеля 0.5 м), низ — земля под куском минус 1 м,
      а над полотном в тоннеле — верх плиты потолка. Полосы: парапет, затем окна/перекрытие на этаж 3.2 м. */
   const ryB=reliefYMemo();                                         // высота рельефа с памятью (v1.16.40)
-  let garN2=0;                                                     // боксы: сквозной номер гаража — цвета команд по порядку (v1.16.44)
+  let garN2=0,garLvl=0;                                            // боксы: сквозной номер гаража — цвета команд по порядку (v1.16.44)
   for(const B of track.tunnelBld){const o=B.o,pts=B.pts,n=pts.length;
+    if(o.garage){const gs=pts.map(p=>Math.max(reliefGroundSurf(p[0],p[1]),reliefGroundY(p[0],p[1]))).sort((u,v)=>u-v);garLvl=gs[gs.length>>1]+0.15;}   // уровень фасада — медиана земли (v1.16.45)
     let gmin=1e9,gmax=-1e9;for(const p of pts){const y=ryB(p[0],p[1]);gmin=Math.min(gmin,y);gmax=Math.max(gmax,y);}
     const top=Math.max(o.top!=null?o.top:gmin+o.h,o.above!=null?gmax+o.above:-1e9),cA=C(o.color),cB=C(o.band),FL=o.floor||3.2,WB=FL*1.5/3.2;   // этаж и полоса окон (v1.16.33)
     /* win — окна проёмами (v1.16.33): стена одного цвета, на ней через WG м по ребру — тёмные прямоугольники
@@ -4576,11 +4580,14 @@ function buildTunnel(){const T=track.tunnel;if(!T)return;
         if(ov!=null){if(j>j0)wall(at(j0),u,low);wall(u,w,ov+H+SL);j0=j+1;low=1e9;continue;}
         low=Math.min(low,ryB(u[0],u[1])-1,ryB(w[0],w[1])-1,reliefGroundY(u[0],u[1]),reliefGroundY(w[0],w[1]));   // до видимой земли (v1.16.34)
         if(j+1===m||(j+1-j0)*len/m>=(near<90?6:12)){wall(at(j0),w,low);j0=j+1;low=1e9;}}   // дальше 90 м от дороги — куски по 12 м (v1.16.40, город по склону)
-      if(o.garage){const nx=(b[1]-a[1])/len*sg,nz=-(b[0]-a[0])/len*sg,mx=(a[0]+b[0])/2,mz=(a[1]+b[1])/2;   // боксы (v1.16.44): фасад к трассе
+      if(o.garage){const nx=(b[1]-a[1])/len*sg,nz=-(b[0]-a[0])/len*sg,mx=(a[0]+b[0])/2,mz=(a[1]+b[1])/2;   // боксы (v1.16.44): фасад к пит-лейну
+        const ux=(b[0]-a[0])/len,uz=(b[1]-a[1])/len,F=(t,o2,y)=>[a[0]+ux*t+nx*o2,y,a[1]+uz*t+nz*o2];
         let bk=0,bd=1e18;for(let k=0;k<track.M;k++){const d=(mx-track.P[k].x)**2+(mz-track.P[k].z)**2;if(d<bd){bd=d;bk=k;}}
-        if(len>=4&&Math.sqrt(bd)<45&&nx*(track.P[bk].x-mx)+nz*(track.P[bk].z-mz)>0){
-          const ux=(b[0]-a[0])/len,uz=(b[1]-a[1])/len,F=(t,o2,y)=>[a[0]+ux*t+nx*o2,y,a[1]+uz*t+nz*o2];
-          const gq=t=>{const x=a[0]+ux*t,z=a[1]+uz*t;return Math.max(reliefGroundSurf(x,z),reliefGroundY(x,z))+0.15;};
+        const gS=o.garage.fromS!=null?o.garage:{fromS:0,toS:track.length},sk=track.S[bk],inS=gS.fromS<=gS.toS?(sk>=gS.fromS&&sk<=gS.toS):(sk>=gS.fromS||sk<=gS.toS);
+        const toLane=len>=4&&Math.sqrt(bd)<45&&inS&&nx*(track.P[bk].x-mx)+nz*(track.P[bk].z-mz)>0;   // v1.16.45: только сторона к пит-прямой (garage.fromS–toS)
+        if(!toLane&&len>=4)quad(bp,F(0,0.05,garLvl-1.5),F(len,0.05,garLvl-1.5),F(len,0.05,top-0.2),F(0,0.05,top-0.2),C('#8e9297'),bc);   // сторона к порту — гладкая серая (онбоард, кадры 216–226)
+        if(toLane){
+          const gq=()=>garLvl;                                       // v1.16.45: весь фасад от одного уровня — земля под зданием гуляет на 2 м, полосы шли лесенкой
           const nb=Math.max(1,Math.round(len/GAR_BAY)),bw=len/nb,DARK=C('#24272b'),GLASS=C('#2f3b46'),CAN=C('#f4f4f1');
           for(let q=0;q<nb;q++){const t0=q*bw+0.5,t1=(q+1)*bw-0.5,g0=gq(t0),g1=gq(t1),tc=C(TEAMS[Math.floor((garN2+q)/GAR_PER)%TEAMS.length].c);
             quad(bp,F(t0,0.06,g0),F(t1,0.06,g1),F(t1,0.06,g1+3.4),F(t0,0.06,g0+3.4),DARK,bc);          // проём гаража
