@@ -130,7 +130,8 @@ apex26/
 │   ├── v1.16.38.html
 │   ├── v1.16.39.html
 │   ├── v1.16.40.html
-│   └── v1.16.41.html
+│   ├── v1.16.41.html
+│   └── v1.16.42.html
 ├── docs/
 │   ├── BRIEF-model-bolida.md           задание на доводку 3D-модели болида:
 │   │                                   контракт, ограничения r128, бюджет
@@ -470,6 +471,11 @@ apex26/
     │                                   relief.py — карта высот: с v1.16.40 суша
     │                                   IGN RGE ALTI (земля без домов, кэш
     │                                   tiles/ign.json), берег — terrarium;
+    │                                   trees.py — строка деревьев (v1.16.42):
+    │                                   кроны снимка z19, стволы OSM
+    │                                   (osm/trees.json — узлы natural=tree с
+    │                                   тегами), пинии, пальмы; --map — проверка
+    │                                   на снимке (numpy, scipy, Pillow);
     │                                   streetview.py — Google Street View без
     │                                   ключа: панорама у точки → кадр с курсом
     │                                   и полем зрения игры (04.10.2026; numpy,
