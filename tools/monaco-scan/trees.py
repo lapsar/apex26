@@ -12,8 +12,10 @@
   * OSM natural=tree (561 точка в рамке, тайлы API 0.6 — osm/trees.json; в osm/all.json теги узлов не хранятся) и
     natural=tree_row — ствол там, где он в OSM: крона снимка, накрывшая точку OSM, переезжает на неё;
     leaf_type=needleleaved — пиния (зонтичная крона);
-  * ПАЛЬМЫ — светло-зелёные звёзды на мостовой (g − (r+b)/2 > 6, 0.6–14 м²) в зонах PALM_ZONES, сверенных по снимку,
-    онбоарду 2025 и Street View; кроны лиственных их не видят (тонкие листья съедает очистка маски).
+  * ПАЛЬМЫ (v1.16.54) — по месту, из palms.tsv: снимок Google z20 в садах и скверах OSM ближе 70 м к трассе и на площади
+    Казино, кандидаты — светлая зелень с резкой фактурой (palms-scan.py), каждый проверен глазом, пропущенные добавлены;
+    крона снимка, на которой стоит пальма, становится ею. До v1.16.54 — звёзды на мостовой площади Казино (14 из 33 —
+    кусты в кадках и мостовая) и доля небольших крон в трёх садах, без места.
 Высота — по радиусу кроны (снимок высоты не знает): лиственное 2r+1.5 (4.5–16 м), пиния 1.2r+9 (12–19), пальма 4r (7–13 м) — v1.16.43.
 Что отсеивает игра сама (treesSetup / treeGeom): ствол на полотне и у стены, в доме, в следе трибуны, над тоннелем, в воде.
 """
@@ -33,14 +35,11 @@ EXG, BR, TEX = 18, 150, 12
 W = json.load(open(os.path.join(HERE, 'wall.json')))
 P, S = W['P'], W['S']
 MPP = 156543.03392 * math.cos(math.radians(LAT0)) / 2 ** Z
-# Пальмы: зона, где светлые звёзды на мостовой — пальмы (площадь Казино, снимок z19: ~25 штук). [широта, долгота] по кругу.
-PALM_ZONES = {'Place du Casino': [[43.739707, 7.427227], [43.739707, 7.427911], [43.739436, 7.428097], [43.739164, 7.427911],
-                                  [43.739191, 7.427538], [43.739409, 7.427252]]}
-# Сады, где среди лиственных пальмы (Street View 2021–2024, онбоард 2025 — кадры 300–304 у Сент-Девот): снимок их не отличает
-# от крон — доля SHARE небольших крон (r ≤ 3.2 м) становится пальмами, выбор по координатам (без случайности).
-# (широта, долгота, радиус м, доля)
-PALM_MIX = {'Sainte-Devote': (43.737268, 7.421672, 40, 0.5), 'Mirabeau': (43.740466, 7.428642, 70, 0.3),
-            'Casino gardens': (43.738441, 7.428071, 45, 0.4)}
+# Пальмы по месту (v1.16.54): palms.tsv — [широта, долгота] каждой пальмы (снимок z20, проверено глазом, palms-scan.py).
+# Крона снимка (лиственная, r ≤ PALM_TAKE_R), центр которой ближе max(2, 0.9r) к пальме (пальма под кроной), становится этой пальмой; иначе пальма
+# добавляется. Радиус кроны пальмы — от кроны снимка в пределах PALM_R, без кроны — PALM_R0.
+PALMS = os.path.join(HERE, 'palms.tsv')
+PALM_TAKE_R, PALM_R, PALM_R0 = 4.5, (2.2, 3.5), 2.8
 PINE_NEAR = 12       # м: крона снимка ближе к пинии OSM — тоже пиния (пит-прямая, Табак, Ноге — Street View: ряды пиний)
 # v1.16.43 (владелец 05.10.2026: «зонтики» мелкие, ряд не сливается): крона пинии — не меньше PINE_R0 и 0.62 шага ряда (соседние
 # кроны срастаются, Street View: 10–14 м в поперечнике), не больше PINE_R1; крона снимка под разросшейся пинией — её же кусок.
@@ -171,18 +170,14 @@ def forest(T, bm):
     return out
 
 
-def palms(IM, zones, block):
-    a = IM.astype(float); r, g, b = a[..., 0], a[..., 1], a[..., 2]
-    zm = raster([[ll2px(*q) for q in z] for z in zones.values()], IM.shape)
-    m = (g - (r + b) / 2 > 6) & (g > 80) & zm & ~block
-    m = nd.binary_closing(m, np.ones((3, 3)))
-    lab, n = nd.label(m); out = []
-    for i, s in enumerate(nd.find_objects(lab)):
-        comp = lab[s] == i + 1; A = comp.sum() * MPP ** 2
-        if not (0.6 <= A <= 14):
+def palms():
+    """пальмы по месту из palms.tsv — [(px, py)] в пикселях мозаики"""
+    out = []
+    for line in open(PALMS):
+        if line.startswith('#') or not line.strip():
             continue
-        cy, cx = nd.center_of_mass(comp)
-        out.append((s[1].start + cx, s[0].start + cy, A))
+        la, lo = map(float, line.split('\t')[:2])
+        out.append(ll2px(la, lo))
     return out
 
 
@@ -248,11 +243,8 @@ def main():
         n = len(used[j])
         for i in used[j]:
             T.append([O[i][0], O[i][1], 1 if O[i][2] == 'needleleaved' else 0, max(2.0, cr / math.sqrt(n))])
-    # пальмы по снимку; дерево OSM вне крон рядом с пальмой — та же пальма
-    block = bm | m
-    PL = palms(IM, PALM_ZONES, block) if PALM_ZONES else []
-    for x, y, A in PL:
-        T.append([x, y, 2, max(1.8, min(3.5, math.sqrt(A / math.pi) * 1.6))])
+    # пальмы по месту (palms.tsv) ставятся в конце; дерево OSM вне крон рядом с пальмой — та же пальма
+    PL = palms()
     for i in free:
         x, y, lt = O[i]
         if any(math.hypot(p[0] - x, p[1] - y) * MPP < 2.5 for p in PL):
@@ -269,15 +261,20 @@ def main():
         nn = min([math.hypot(q[0] - t[0], q[1] - t[1]) * MPP for q in PI if q is not t] or [99])
         t[3] = min(PINE_R1, max(t[3], PINE_R0, PINE_ROW * nn if nn < 16 else 0))
     T = [t for t in T if t[2] == 1 or not any(math.hypot(q[0] - t[0], q[1] - t[1]) * MPP < 0.8 * q[3] for q in PI)]
-    for name, (la, lo, rad, share) in PALM_MIX.items():
-        cx, cy = ll2px(la, lo)
+    took = 0
+    for x, y in PL:                                                 # пальма по месту: крона снимка под ней становится ею (v1.16.54)
+        best = None
         for t in T:
-            if t[2] == 0 and t[3] <= 3.2 and math.hypot(t[0] - cx, t[1] - cy) * MPP < rad:
-                a, b = px2ll(t[0], t[1])
-                if int(round(a * 1e6) + round(b * 1e6)) * 7919 % 100 < share * 100:
-                    t[2] = 2; t[3] = max(1.8, min(3.5, t[3]))
-    print('# OSM: %d в %d м, из них в кронах снимка %d, отдельно %d; пальм на площади %d; всего %d: лиственных %d, пиний %d, пальм %d'
-          % (len(O), ROI, sum(len(u) for u in used), len(free), len(PL), len(T), *[sum(1 for t in T if t[2] == k) for k in range(3)]), file=sys.stderr)
+            if t[2] == 0 and t[3] <= PALM_TAKE_R:
+                d = math.hypot(t[0] - x, t[1] - y) * MPP
+                if d < max(2.0, 0.9 * t[3]) and (best is None or d < best[0]):
+                    best = (d, t)
+        if best:
+            t = best[1]; t[0], t[1], t[2], t[3] = x, y, 2, max(PALM_R[0], min(PALM_R[1], t[3])); took += 1
+        else:
+            T.append([x, y, 2, PALM_R0])
+    print('# OSM: %d в %d м, из них в кронах снимка %d, отдельно %d; пальм по месту %d (из крон снимка %d); всего %d: лиственных %d, пиний %d, пальм %d'
+          % (len(O), ROI, sum(len(u) for u in used), len(free), len(PL), took, len(T), *[sum(1 for t in T if t[2] == k) for k in range(3)]), file=sys.stderr)
     if '--map' in sys.argv:
         draw(IM, T)
     rows = []
@@ -286,8 +283,8 @@ def main():
         h = (min(16, max(4.5, 2 * cr + 1.5)) if k == 0 else min(19, max(12, 1.2 * cr + 9)) if k == 1 else min(13, max(7, 4 * cr)))
         rows.append((la, lo, k, cr, h))
     rows.sort(key=lambda t: (round(t[0], 4), t[1]))
-    print("  /* Деревья (v1.16.42; v1.16.43 — пинии по ряду, гуще, лес Скалы) — строку считает tools/monaco-scan/trees.py: кроны снимка Google z19 ближе %d м к осевой," % ROI)
-    print("     стволы OSM natural=tree, пальмы — звёзды на мостовой в зонах, сверенных по онбоарду и Street View.")
+    print("  /* Деревья (v1.16.42; v1.16.43 — пинии по ряду, гуще, лес Скалы; v1.16.54 — пальмы по месту) — строку считает tools/monaco-scan/trees.py: кроны снимка Google z19 ближе %d м к осевой," % ROI)
+    print("     стволы OSM natural=tree, пальмы по месту — palms.tsv (снимок z20, каждая проверена глазом, v1.16.54).")
     print("     [широта, долгота, вид: 0 лиственное, 1 пиния, 2 пальма, радиус кроны м, высота м]. */")
     print("  trees: [")
     line = []

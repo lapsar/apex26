@@ -305,8 +305,9 @@ const OBJ_INSIDE = 0.0;   // объект вообще не вправе ока�
 // их не видела: она меряет до кромки полотна, а асфальт выезда лежит за кромкой.
 // Здесь — по-другому, без перпендикуляров: отрезок «ствол → ближайшая точка осевой» обязан
 // пересечь линию стены (P + R·W, обе стороны) нечётное число раз. Ноль — ствол по нашу сторону.
-const TREES = `(function(){
-  var T=track.treeAt; if(!T||!T.length)return {n:0,bad:[],near:null};
+// v1.16.54: то же для кустов (track.bushAt) — газоны и кусты из lawns.py, коридор трассы вычтен там же.
+const TREES = (list) => `(function(){
+  var T=track.${list}; if(!T||!T.length)return {n:0,bad:[],near:null};
   var M=track.M,P=track.P,R=track.R,L=[];
   for(var sg=-1;sg<=1;sg+=2){var W=sg<0?track.WL:track.WR,a=[];
     for(var k=0;k<M;k++)a.push([P[k].x+R[k].x*sg*W[k],P[k].z+R[k].z*sg*W[k]]);L.push(a);}
@@ -362,14 +363,16 @@ function run(opt) {
   for (const T of H.tracks()) {                       // ствол дерева не стоит перед отбойником (v1.16.53)
     const env = H.loadGame({ seed: opt.seed || 3 });
     H.setupWorld(env, { trackIdx: T.idx });
-    const s = env.evalIn(TREES);
-    if (!s.n) continue;
-    r.line(`${T.name.padEnd(12)} деревьев ${s.n} · перед стеной ${s.bad.length}`
-      + (s.near ? ` · ближе всех ствол в ${s.near.d.toFixed(2)} м за стеной (${s.near.S} м от старта)` : ''));
-    for (const t of s.bad) {
-      const say = T.hidden ? r.note.bind(r) : r.fail.bind(r);
-      say(`${T.name}: ствол дерева стоит ПЕРЕД отбойником, ${t.off} м от осевой, ${t.S} м от старта — `
-        + `на асфальте выезда или обочины, из болида виден целиком`);
+    for (const [list, what, one] of [['treeAt', 'деревьев', 'ствол дерева'], ['bushAt', 'кустов', 'куст']]) {
+      const s = env.evalIn(TREES(list));
+      if (!s.n) continue;
+      r.line(`${T.name.padEnd(12)} ${what} ${s.n} · перед стеной ${s.bad.length}`
+        + (s.near ? ` · ближе всех в ${s.near.d.toFixed(2)} м за стеной (${s.near.S} м от старта)` : ''));
+      for (const t of s.bad) {
+        const say = T.hidden ? r.note.bind(r) : r.fail.bind(r);
+        say(`${T.name}: ${one} стоит ПЕРЕД отбойником, ${t.off} м от осевой, ${t.S} м от старта — `
+          + `на асфальте выезда или обочины, из болида виден целиком`);
+      }
     }
   }
   for (const T of H.tracks()) {
