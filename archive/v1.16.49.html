@@ -167,7 +167,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.16.52</div>
+    <div class="verstamp">v1.16.49</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -422,14 +422,12 @@ const REV_MAX=20/3.6, REV_ACC=3.0, REV_ARM=1.5, REV_RANGE=10;
                   1° — минус ~2 %, 5° — ~14 %, 10° — ~37 %, 15° — ~70 %, 20° и круче — «упёрся». Квадратичный
                   член нужен: с одним линейным удар под 15–20° был лучше тормоза — Мирабо без торможения,
                   стена забирала половину скорости и доворачивала нос (+1.0 с на повороте, wall-ride-audit);
-   WALL_BOUNCE  — доля скорости поперёк, с которой болид отскакивает (0.3 в v1.16.49 — «отбрасывало», v1.16.50 — 0.15);
+   WALL_BOUNCE  — доля скорости поперёк, с которой болид отскакивает (нос уходит вдоль стены и чуть от неё);
    WALL_RUB     — м/с², трение бортом, пока касаешься: «ехать на стене» вместо тормоза не выгодно;
    WALL_CRAWL / WALL_PRESS — удар, после которого осталось бы меньше 5 м/с (круче ~20°), — «упёрся»: как
                   прежде, без отскока, скорость гаснет за секунду в e^5.58 раз — ровно прежние 10 % за кадр
                   на iPad при 53 кадрах/с (решение владельца: цена на iPad прежняя); с газом ползёт ~2.5 м/с. */
-const WALL_IMPACT=1.0, WALL_HARD=6, WALL_BOUNCE=0.15, WALL_RUB=10, WALL_CRAWL=5, WALL_PRESS=53*Math.log(1/0.9);
-const WALL_PUSH=14, WALL_NEAR=0.05, WALL_PUSH_MIN=2.5;   // м/с², м, м/с: прижатие к стене рулём — трение шин о стену (v1.16.52)
-const WALL_YAW_TAU=0.1, WALL_YAW_MAX=0.35;   // с, рад: нос догоняет курс после стены (картинка); 0.35 рад = 20°
+const WALL_IMPACT=1.0, WALL_HARD=6, WALL_BOUNCE=0.3, WALL_RUB=10, WALL_CRAWL=5, WALL_PRESS=53*Math.log(1/0.9);
 let player,field=[],cars=[];
 let controls={left:0,right:0,gas:0,brake:0}, keys={left:0,right:0,gas:0,brake:0};
 let phase='',camMode='cockpit';
@@ -6227,12 +6225,12 @@ function makeState(name,num,color,skill,isPlayer){
       wheels:(low.userData.wheels||[]).concat(high.userData.wheels||[])};
   }
   return {mesh:meshObj,name:name.toUpperCase(),code:code3(name),num,color,skill,isPlayer:!!isPlayer,
-    x:0,z:0,hdg:0,speed:0,u:0,lane:0,lap:0,dist:0,lapT:0,best:Infinity,last:0,started:false,prevIdx:0,hint:0,base:0,steerVis:0,steerAmt:0,yawLag:0,lapLock:0,revArm:0,revLeft:0,lapMark:0,
+    x:0,z:0,hdg:0,speed:0,u:0,lane:0,lap:0,dist:0,lapT:0,best:Infinity,last:0,started:false,prevIdx:0,hint:0,base:0,steerVis:0,steerAmt:0,lapLock:0,revArm:0,revLeft:0,lapMark:0,
     retired:false,retireAt:0,lapStart:undefined,arcPrev:0,settle:0,react:0,ovSide:1,ovLock:null,ovDir:1,laneJit:0,gridLane:0,free:0,pace:0,lanePrev:undefined,crab:0,
     paceAvg:0,spdAvg:0,duel:null,duelDir:1,duelT:0,neutFloor:null};}
 
 // place player from x,z,hdg ; place AI from u,lane
-function placePlayer(c){c.mesh.position.set(c.x,0,c.z);c.mesh.rotation.set(0,c.hdg+(c.yawLag||0),0);reliefSit(c);   // yawLag — доворот носа после стены, только картинка
+function placePlayer(c){c.mesh.position.set(c.x,0,c.z);c.mesh.rotation.set(0,c.hdg,0);reliefSit(c);
   const fw=c.mesh.userData.frontWheels;if(fw)for(const w of fw)w.rotation.y=c.steerVis;}
 function placeAI(c,dt){if(c.retired)return;const u=((c.u%1)+1)%1;const fi=u*track.M;const i=Math.floor(fi)%track.M;const i2=(i+1)%track.M;const t=fi-Math.floor(fi);
   const p=track.P[i].clone().lerp(track.P[i2],t);
@@ -6264,7 +6262,7 @@ function placeAI(c,dt){if(c.retired)return;const u=((c.u%1)+1)%1;const fi=u*trac
 function beginQuali(){phase='quali';raceOver=false;cars=[player];towerOrd=null;field=[];wallTouch=false;AUDIO.stopScrape();
   neutral={mode:'',left:0,secs:[],cars:[]};zoneOut=0;wasInZone=false;greenSeen=false;renderFlagUI();
   // start on the S/F line
-  const f=track.F[0],p=track.P[0];player.x=p.x;player.z=p.z;player.hdg=Math.atan2(f.x,f.z);player.yawLag=0;
+  const f=track.F[0],p=track.P[0];player.x=p.x;player.z=p.z;player.hdg=Math.atan2(f.x,f.z);
   player.speed=0;player.lap=0;player.lapT=0;player.best=Infinity;player.last=0;player.started=false;player.prevIdx=0;player.hint=0;player.dist=0;player.arcPrev=0;
   // provisional field (as if everyone has already set a time and you run last)
   qualiField=ROSTER.filter((_,i)=>i!==sel.roster).map(r=>{
@@ -6352,7 +6350,7 @@ function startRace(){document.getElementById('s-quali').classList.remove('active
   wallTouch=false;AUDIO.stopScrape();
   // player on grid (same geometry as the painted boxes)
   const gs=gridSpot(gridPos);const back=gs.back,gi=gs.gi,gp=gs.pos;         // same continuous spot as the painted box and as the rivals
-  player.x=gp.x;player.z=gp.z;player.hdg=gs.hdg;player.yawLag=0;player.speed=0;player.lap=0;player.lapT=0;player.best=Infinity;player.last=0;
+  player.x=gp.x;player.z=gp.z;player.hdg=gs.hdg;player.speed=0;player.lap=0;player.lapT=0;player.best=Infinity;player.last=0;
   player.started=false;player.hint=gi;player.prevIdx=gi;player.dist=-back;player.lapLock=0;player.spdAvg=0;
   player.arcPrev=track.S[gi]+((player.x-track.P[gi].x)*track.F[gi].x+(player.z-track.P[gi].z)*track.F[gi].z);
   cars=[player];field=[];towerOrd=null;
@@ -6493,46 +6491,24 @@ function update(dt){
   player.x+=fx*player.speed*dt;player.z+=fz*player.speed*dt;
   // wall collision — keep every wheel inside the barrier, even when the car sits at an angle
   const pr2=project(player.x,player.z,player.hint);player.hint=pr2.idx;
-  {const s=Math.sin(player.hdg),co=Math.cos(player.hdg);let hitWall=false,maxEx=0,wIdx=0,wSign=1,nearEx=-1e9,nearSign=1;
-    /* Нормаль стены в точке i (внутрь стены): линия барьера по соседям P±R·W, в разрыве ленты — хорда перемычки. */
-    const M=track.M,wallN=(i,sg)=>{const Wa=sg>0?track.WR:track.WL,i0=(i+M-1)%M,i1=(i+1)%M,Ra=track.R[i0],Rb=track.R[i1];
-      let tx=track.P[i1].x+Rb.x*sg*Wa[i1]-track.P[i0].x-Ra.x*sg*Wa[i0],tz=track.P[i1].z+Rb.z*sg*Wa[i1]-track.P[i0].z-Ra.z*sg*Wa[i0];
-      const tl=Math.hypot(tx,tz)||1;let nx=tz/tl,nz=-tx/tl;const Ri=track.R[i];if((nx*Ri.x+nz*Ri.z)*sg<0)nx=-nx,nz=-nz;return [nx,nz];};
-    /* Ближайшая точка ЛИНИИ стены (ломаная P±R·(W−0.35) на ±2 шага) — куда вытолкнуть точку корпуса. */
-    const wallNear=(px,pz,i,sg)=>{const Wa=sg>0?track.WR:track.WL;let bx=0,bz=0,bd=Infinity,ax,az;
-      for(let k=-2;k<=2;k++){const j=(i+k+M)%M,P=track.P[j],Rj=track.R[j],w=sg*(Wa[j]-0.35),cx=P.x+Rj.x*w,cz=P.z+Rj.z*w;
-        if(k>-2){const ux=cx-ax,uz=cz-az,uu=ux*ux+uz*uz;let t=uu>1e-9?((px-ax)*ux+(pz-az)*uz)/uu:0;t=t<0?0:t>1?1:t;
-          const qx=ax+ux*t,qz=az+uz*t,d=(qx-px)*(qx-px)+(qz-pz)*(qz-pz);if(d<bd){bd=d;bx=qx;bz=qz;}}
-        ax=cx;az=cz;}
-      return [bx-px,bz-pz,Math.sqrt(bd)];};
+  {const s=Math.sin(player.hdg),co=Math.cos(player.hdg);let hitWall=false,maxEx=0,wIdx=0,wSign=1;
     for(const wc of [[1.05,2.0],[-1.05,2.0],[1.05,-1.7],[-1.05,-1.7],
                      [1.0,3.25],[-1.0,3.25],[0.78,-2.55],[-0.78,-2.55]]){   // wings overhang the wheels by ~1.3 m: without these the nose passed through the rail and the hit (and its sound) landed a beat late
       const wx=player.x+wc[0]*co+wc[1]*s, wz=player.z-wc[0]*s+wc[1]*co;
       const pw=project(wx,wz,player.hint);const right=pw.off>=0;
       const wl=(right?track.WR:track.WL)[pw.idx]-0.35;             // в разрыве ленты стена идёт по хорде перемычки (wallSpanFill)
-      const ex=Math.abs(pw.off)-wl;if(ex>nearEx){nearEx=ex;nearSign=Math.sign(pw.off||1);}
-      /* Выталкивание — к ближайшей точке ЛИНИИ стены (v1.16.50): ex меряется поперёк дороги, и там, где стена идёт
-         наискось или ступенькой (конец кармана выезда: 18–25 м → 7 м на 20 м; у Сент-Девот 10.1 → 7.0 м на одном шаге),
-         толчок поперёк дороги бросал скользящий вдоль стены болид вбок до 5.5 м за кадр («телепортация от борта»).
-         На ровной стене это тот же толчок поперёк на ex; длиннее ex не бывает — тогда прежний. */
-      if(ex>0){const sign=Math.sign(pw.off||1),R=track.R[pw.idx],q=wallNear(wx,wz,pw.idx,sign);
-        if(q[2]<=ex+1e-3){player.x+=q[0];player.z+=q[1];}else{player.x-=R.x*sign*ex;player.z-=R.z*sign*ex;}
-        hitWall=true;
+      const ex=Math.abs(pw.off)-wl;
+      if(ex>0){const sign=Math.sign(pw.off||1),R=track.R[pw.idx];player.x-=R.x*sign*ex;player.z-=R.z*sign*ex;hitWall=true;
         if(ex>maxEx){maxEx=ex;wIdx=pw.idx;wSign=sign;}}}
-    /* Прижатие (v1.16.52, владелец: «вдоль борта с рулём в стену болид тащится ~20 км/ч, вибрируя»): у стены (точка
-       корпуса ближе WALL_NEAR) и руль В неё — шины трутся о стену, WALL_PUSH м/с² каждый кадр. Касание без этого шло
-       лишь каждый третий кадр (стена выталкивала ровно на линию, два кадра болид разгонялся), трение работало треть
-       времени, и газ держал 20–30 км/ч, нос дёргался ~40 раз/с. С прижатием 108 км/ч → стоит за ~2 с; отпустил руль — едет.
-       Ниже WALL_PUSH_MIN (2.5 м/с — «упёрся и ползёт», как с v1.16.48) прижатие не гасит: до нуля — и в шпильке Монако,
-       где руль внутрь нужен до упора, болид у внутреннего отбойника вставал намертво (автопилот, зерно 3: круг 282 с вместо 113). */
-    if(nearEx>-WALL_NEAR){const pushA=WALL_PUSH*Math.max(0,player.steerAmt*nearSign);
-      if(pushA>0&&Math.abs(player.speed)>WALL_PUSH_MIN)player.speed=player.speed>0?Math.max(WALL_PUSH_MIN,player.speed-pushA*dt):Math.min(-WALL_PUSH_MIN,player.speed+pushA*dt);}
     if(hitWall){
       /* Удар по углу (v1.16.49), всё — на событие или на секунду, не на кадр. Стена — линия барьера по точкам
          соседей (в разрыве ленты — хорда перемычки), n — внутрь стены. Скорость раскладывается на «вдоль»
          и «поперёк»: поперёк гасится, вдоль теряет WALL_IMPACT×поперёк, нос доворачивается вдоль стены
          с отскоком WALL_BOUNCE — на долю оставшейся скорости, поэтому лобовой удар нос не разворачивает. */
-      const [nx,nz]=wallN(wIdx,wSign);
+      const M=track.M,Wa=wSign>0?track.WR:track.WL,i0=(wIdx+M-1)%M,i1=(wIdx+1)%M,Ra=track.R[i0],Rb=track.R[i1];
+      let tx=track.P[i1].x+Rb.x*wSign*Wa[i1]-track.P[i0].x-Ra.x*wSign*Wa[i0],tz=track.P[i1].z+Rb.z*wSign*Wa[i1]-track.P[i0].z-Ra.z*wSign*Wa[i0];
+      const tl=Math.hypot(tx,tz)||1;tx/=tl;tz/=tl;
+      let nx=tz,nz=-tx;const Rw=track.R[wIdx];if((nx*Rw.x+nz*Rw.z)*wSign<0)nx*=-1,nz*=-1;
       if(!wallTouch)AUDIO.crash(Math.min(1,Math.max(0,player.speed*(Math.sin(player.hdg)*nx+Math.cos(player.hdg)*nz))/16));   // громкость — от скорости поперёк стены
       const vx=player.speed*Math.sin(player.hdg),vz=player.speed*Math.cos(player.hdg),vn=vx*nx+vz*nz,av=Math.abs(player.speed);
       const ux=vx-vn*nx,uz=vz-vn*nz,vt=Math.hypot(ux,uz),keep=Math.max(0,vt-(WALL_IMPACT+WALL_HARD*vn/Math.max(av,1e-6))*vn);
@@ -6545,15 +6521,11 @@ function update(dt){
         const w=vt>1e-6?keep/vt:0,fw=player.speed>0?1:-1;
         const want=Math.atan2(fw*(ux-WALL_BOUNCE*vn*nx),fw*(uz-WALL_BOUNCE*vn*nz));
         let dh=want-player.hdg;while(dh>Math.PI)dh-=2*Math.PI;while(dh<-Math.PI)dh+=2*Math.PI;
-        player.hdg+=dh*w;player.yawLag-=dh*w;player.speed=fw*keep;}   // курс — сразу, нос и камера догоняют (yawLag)
+        player.hdg+=dh*w;player.speed=fw*keep;}
       if(!pressed)player.speed=player.speed>0?Math.max(0,player.speed-WALL_RUB*dt):Math.min(0,player.speed+WALL_RUB*dt);   // упёршегося трение не держит — иначе ему не отползти
       AUDIO.scrape(Math.min(1,0.22+player.speed/MAXSPEED));                    // grinding along the rail
       wallTouch=true;
-    } else if(wallTouch){AUDIO.stopScrape();wallTouch=false;}
-    /* Нос и камера догоняют курс после стены за WALL_YAW_TAU (v1.16.50, владелец: «картинка прыгает, как телепортация
-       от борта»). В v1.16.49 курс доворачивался вдоль стены за ОДИН кадр — камера кокпита прыгала на 4–9°. Физика
-       прежняя: болид уходит вдоль стены сразу, видимый нос идёт следом; разрыв не больше WALL_YAW_MAX. */
-    const yl=Math.max(-WALL_YAW_MAX,Math.min(WALL_YAW_MAX,player.yawLag||0));player.yawLag=Math.abs(yl)<1e-5?0:yl*Math.exp(-dt/WALL_YAW_TAU);}
+    } else if(wallTouch){AUDIO.stopScrape();wallTouch=false;}}
   // progress = true arc position along the track (bar matches the car you actually see)
   const arcNow=track.S[pr2.idx]+((player.x-track.P[pr2.idx].x)*track.F[pr2.idx].x+(player.z-track.P[pr2.idx].z)*track.F[pr2.idx].z);
   let dArc=arcNow-player.arcPrev;if(dArc<-track.length*0.5)dArc+=track.length;else if(dArc>track.length*0.5)dArc-=track.length;
@@ -7046,7 +7018,7 @@ function addSmoke(x,z){const g=new THREE.Group();
   g.position.set(x,reliefY(x,z),z);g.userData={born:raceTime};scene.add(g);smokes.push(g);}
 
 /* ---------- camera ---------- */
-function updateCamera(dt){const c=player,vh=c.hdg+(c.yawLag||0);const fx=Math.sin(vh),fz=Math.cos(vh);let ex,ey,ez,lx,ly,lz;   // взгляд — по видимому носу (yawLag, v1.16.50)
+function updateCamera(dt){const c=player;const fx=Math.sin(c.hdg),fz=Math.cos(c.hdg);let ex,ey,ez,lx,ly,lz;
   const gy=c.gy||0;                                                // рельеф: камера едет с болидом (без рельефа ноль)
   /* Камера-голова (v1.16.29): кивок камеры догоняет кивок болида за CAM_HEAD — кузов кивает,
      взгляд сглажен, как у человека. Скачок болида (решётка, перенос) — без догоняния. Без рельефа slope=0. */

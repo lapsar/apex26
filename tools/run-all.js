@@ -48,12 +48,13 @@ const PROBES = [
   { key: 'audio',     mod: './probe-audio-resume.js',       secs: 1 },
   { key: 'taps',      mod: './probe-tap-through.js',        secs: 0 },
   { key: 'dispose',   mod: './probe-scene-dispose.js',      secs: 19 },
+  { key: 'sit',       mod: './probe-player-sit.js',         secs: 60 },
 ];
 
 /* Быстрая проверка правки окружения (цвета, реклама, трибуны, щиты):
    поломку на других трассах ловят именно они, гонки окружения не видят.
    Полный прогон перед выдачей сборки всё равно обязателен (docs/notes/checklist.md). */
-const SCENERY = ['pole', 'print', 'load', 'materials', 'clear', 'wall', 'solid', 'dispose'];
+const SCENERY = ['pole', 'print', 'load', 'materials', 'clear', 'wall', 'solid', 'dispose', 'sit'];
 
 function defaultJobs() {
   return os.availableParallelism ? os.availableParallelism() : os.cpus().length;
