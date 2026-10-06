@@ -297,6 +297,34 @@ const BEHIND_WALL = `(function(){
 })()`;
 const OBJ_INSIDE = 0.0;   // объект вообще не вправе оказаться внутри линии барьера
 
+// Шестая проверка: СТВОЛ ДЕРЕВА НЕ СТОИТ ПЕРЕД ОТБОЙНИКОМ (v1.16.53). Владелец увидел на
+// iPhone стволы на асфальте выездов Сент-Девот и Мирабо, перед стеной (Монако, v1.16.42–52).
+// Игра сдвигала ствол за стену, но меряла отступ перпендикуляром к отрезкам осевой, а снаружи
+// излома между перпендикулярами соседних отрезков остаётся клин — у выезда, где стена отодвинута
+// на 10–11 м, клин в метры шириной, и 4 дерева в нём уцелели. Первая проверка (MEASURE)
+// их не видела: она меряет до кромки полотна, а асфальт выезда лежит за кромкой.
+// Здесь — по-другому, без перпендикуляров: отрезок «ствол → ближайшая точка осевой» обязан
+// пересечь линию стены (P + R·W, обе стороны) нечётное число раз. Ноль — ствол по нашу сторону.
+const TREES = `(function(){
+  var T=track.treeAt; if(!T||!T.length)return {n:0,bad:[],near:null};
+  var M=track.M,P=track.P,R=track.R,L=[];
+  for(var sg=-1;sg<=1;sg+=2){var W=sg<0?track.WL:track.WR,a=[];
+    for(var k=0;k<M;k++)a.push([P[k].x+R[k].x*sg*W[k],P[k].z+R[k].z*sg*W[k]]);L.push(a);}
+  function o(p,q,r){return (q[0]-p[0])*(r[1]-p[1])-(q[1]-p[1])*(r[0]-p[0]);}
+  function segd(x,z,a,b){var ex=b[0]-a[0],ez=b[1]-a[1],L2=ex*ex+ez*ez||1,u=Math.max(0,Math.min(1,((x-a[0])*ex+(z-a[1])*ez)/L2));
+    return Math.hypot(x-a[0]-ex*u,z-a[1]-ez*u);}
+  var bad=[],near=null;
+  T.forEach(function(t){var bk=0,bd=1e18;
+    for(var k=0;k<M;k++){var dx=t[0]-P[k].x,dz=t[1]-P[k].z,d=dx*dx+dz*dz;if(d<bd){bd=d;bk=k;}}
+    var B=[P[bk].x,P[bk].z],n=0,dw=1e9;
+    for(var s=0;s<2;s++)for(var k=0;k<M;k++){var a=L[s][k],b=L[s][(k+1)%M];
+      if(o(t,B,a)*o(t,B,b)<0&&o(a,b,t)*o(a,b,B)<0)n++;
+      if(bd<3600)dw=Math.min(dw,segd(t[0],t[1],a,b));}
+    var e={S:Math.round(track.S[bk]),d:+dw.toFixed(2),off:+Math.sqrt(bd).toFixed(1)};
+    if(n%2===0)bad.push(e); else if(!near||e.d<near.d)near=e;});
+  return {n:T.length,bad:bad,near:near};
+})()`;
+
 function run(opt) {
   opt = opt || {};
   const r = R.result('Окружение не заходит на полотно');
@@ -329,6 +357,19 @@ function run(opt) {
       say(`${T.name}: ${o.name} (${o.kind}) стоит ВНУТРИ ограждения на ${o.w.intr} м — `
         + `ближайшая точка в ${o.w.off} м от осевой, борт на ${o.w.W} м, ${o.w.S} м от старта`
         + (T.hidden ? ' — скрытая трасса, в зачёт не идёт' : ''));
+    }
+  }
+  for (const T of H.tracks()) {                       // ствол дерева не стоит перед отбойником (v1.16.53)
+    const env = H.loadGame({ seed: opt.seed || 3 });
+    H.setupWorld(env, { trackIdx: T.idx });
+    const s = env.evalIn(TREES);
+    if (!s.n) continue;
+    r.line(`${T.name.padEnd(12)} деревьев ${s.n} · перед стеной ${s.bad.length}`
+      + (s.near ? ` · ближе всех ствол в ${s.near.d.toFixed(2)} м за стеной (${s.near.S} м от старта)` : ''));
+    for (const t of s.bad) {
+      const say = T.hidden ? r.note.bind(r) : r.fail.bind(r);
+      say(`${T.name}: ствол дерева стоит ПЕРЕД отбойником, ${t.off} м от осевой, ${t.S} м от старта — `
+        + `на асфальте выезда или обочины, из болида виден целиком`);
     }
   }
   for (const T of H.tracks()) {
