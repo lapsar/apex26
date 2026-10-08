@@ -49,6 +49,7 @@ const PROBES = [
   { key: 'taps',      mod: './probe-tap-through.js',        secs: 0 },
   { key: 'dispose',   mod: './probe-scene-dispose.js',      secs: 19 },
   { key: 'sit',       mod: './probe-player-sit.js',         secs: 60 },
+  { key: 'chase',     mod: './probe-chase-cam.js',          secs: 60 },
 ];
 
 /* Быстрая проверка правки окружения (цвета, реклама, трибуны, щиты):

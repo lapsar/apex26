@@ -167,7 +167,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.16.55</div>
+    <div class="verstamp">v1.16.54</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -3846,8 +3846,7 @@ const SCENERY_MONACO = {
     {name:'Social Funds of Monaco', h:20.2, color:'#dcd2bf', band:'#5f6368', win:1, above:3, poly:[[43.734924,7.420162],[43.734952,7.420362],[43.735193,7.420297],[43.735165,7.420097]]},
     /* Боксы и вышка бассейна (v1.16.43) — строки считает tools/monaco-scan/pits.py: боксы — временное двухэтажное здание
        по белой крыше снимка z19 (в OSM его нет), вышка — OSM w952067351 (10 м). */
-    {name:'Pit garages', h:8.5, color:'#eeeeea', band:'#3f454c', floor:4.2, roof:'#e6e6e2', garage:{lane:1}, poly:[[43.733798,7.421944],[43.733951,7.421913],[43.733986,7.421900],[43.734066,7.421748],[43.733796,7.421934]]},
-    {name:'Pit garages 2', h:8.5, color:'#eeeeea', band:'#3f454c', floor:4.2, roof:'#e6e6e2', garage:{lane:1}, poly:[[43.734158,7.421835],[43.734458,7.421744],[43.734697,7.421711],[43.734732,7.421704],[43.734831,7.421633],[43.734972,7.421621],[43.734985,7.421452],[43.734824,7.421462],[43.734580,7.421537],[43.734281,7.421637],[43.734070,7.421750],[43.734111,7.421787]]},
+    {name:'Pit garages', h:8.5, color:'#eeeeea', band:'#3f454c', floor:4.2, roof:'#e6e6e2', garage:{fromS:2950, toS:120}, poly:[[43.734580,7.421537],[43.734281,7.421637],[43.734037,7.421768],[43.733820,7.421917],[43.733562,7.421992],[43.733562,7.422115],[43.733657,7.422122],[43.733983,7.422055],[43.734018,7.422042],[43.734101,7.421878],[43.734178,7.421981],[43.734471,7.421891],[43.734743,7.421854],[43.734846,7.421779],[43.735001,7.421768],[43.735001,7.421451],[43.734824,7.421462]]},
     {name:'Diving tower', h:10, color:'#d9d6cf', band:'#5f6368', poly:[[43.734341,7.422108],[43.734395,7.422094],[43.734390,7.422057],[43.734336,7.422071]]},
   ],
   /* Гавань (v1.16.36) — строку считает tools/monaco-scan/harbour.py: зона (вода гавани и суша до 70 м от неё по эту
@@ -3935,11 +3934,11 @@ const SCENERY_MONACO = {
       [43.738684,7.430067,11.8,3.8,213],
     ]},
   /* Пит-лейн и бассейн (v1.16.43) — строку считает tools/monaco-scan/pits.py: lane — полотно пит-лейна по OSM «Voie des
-     stands» (± 6.0 м — от стены до боксов), deck — площадка Stade Nautique Rainier III, water — чаша бассейна; минус коридор трассы,
+     stands» (± 8.0 м — от стены до боксов), deck — площадка Stade Nautique Rainier III, water — чаша бассейна; минус коридор трассы,
      боксы и следы трибун. Плоские плиты на видимой земле, в меш домов (вершинный цвет). */
   paddock: {
-    lane: [[[43.732482,7.422904],[43.732516,7.422893],[43.732561,7.422886],[43.732729,7.422881],[43.732744,7.422876],[43.732799,7.422844],[43.732814,7.422831],[43.732981,7.422625],[43.733075,7.422526],[43.733195,7.422426],[43.733362,7.422300],[43.733556,7.422183],[43.733674,7.422119],[43.733983,7.422055],[43.734018,7.422042],[43.734101,7.421878],[43.734178,7.421981],[43.734471,7.421891],[43.734743,7.421854],[43.734846,7.421779],[43.735001,7.421768],[43.735001,7.421503],[43.735140,7.421430],[43.735189,7.421396],[43.735255,7.421336],[43.734929,7.421380],[43.734872,7.421409],[43.734759,7.421482],[43.734824,7.421462],[43.734985,7.421452],[43.734972,7.421621],[43.734831,7.421633],[43.734732,7.421704],[43.734697,7.421711],[43.734458,7.421744],[43.734158,7.421835],[43.734111,7.421787],[43.734070,7.421750],[43.734063,7.421754],[43.733986,7.421900],[43.733951,7.421913],[43.733798,7.421944],[43.733796,7.421934],[43.733914,7.421852],[43.733673,7.421960],[43.733562,7.421992],[43.733562,7.422019],[43.733513,7.422045],[43.733312,7.422168],[43.733141,7.422296],[43.733016,7.422401],[43.732911,7.422512],[43.732748,7.422711],[43.732711,7.422732],[43.732552,7.422738],[43.732476,7.422751],[43.732432,7.422771],[43.732437,7.422832],[43.732450,7.422930],[43.732467,7.422913]]],
-    deck: [[[43.734353,7.421934],[43.734177,7.421981],[43.734197,7.422007],[43.734204,7.422020],[43.734287,7.421998],[43.734327,7.422291],[43.734216,7.422322],[43.734219,7.422343],[43.734994,7.422137],[43.735030,7.422108],[43.734986,7.421769],[43.734900,7.421775],[43.734828,7.421792],[43.734743,7.421854],[43.734471,7.421891],[43.734352,7.421927]]],
+    lane: [[[43.732460,7.422951],[43.732476,7.422935],[43.732488,7.422927],[43.732519,7.422917],[43.732562,7.422911],[43.732738,7.422904],[43.732806,7.422867],[43.732826,7.422849],[43.732993,7.422644],[43.733054,7.422577],[43.733115,7.422516],[43.733210,7.422430],[43.733312,7.422356],[43.733414,7.422292],[43.733563,7.422205],[43.733709,7.422126],[43.733770,7.422099],[43.733657,7.422122],[43.733562,7.422115],[43.733562,7.421992],[43.733506,7.422023],[43.733309,7.422142],[43.733133,7.422275],[43.733001,7.422385],[43.732899,7.422493],[43.732739,7.422690],[43.732707,7.422708],[43.732550,7.422713],[43.732473,7.422727],[43.732430,7.422745],[43.732437,7.422832],[43.732456,7.422967]],[[43.735001,7.421529],[43.735142,7.421456],[43.735191,7.421423],[43.735293,7.421332],[43.735059,7.421361],[43.734857,7.421392],[43.734678,7.421507],[43.734824,7.421462],[43.735001,7.421451]],[[43.733884,7.421838],[43.733662,7.421938],[43.733565,7.421991],[43.733820,7.421917],[43.733997,7.421796]]],
+    deck: [[[43.734828,7.421792],[43.734743,7.421854],[43.734471,7.421891],[43.734352,7.421927],[43.734353,7.421934],[43.734177,7.421981],[43.734197,7.422007],[43.734204,7.422020],[43.734287,7.421998],[43.734327,7.422291],[43.734216,7.422322],[43.734219,7.422343],[43.734994,7.422137],[43.735030,7.422108],[43.734986,7.421769],[43.734900,7.421775]]],
     water: [[[43.734358,7.421962],[43.734388,7.422196],[43.734826,7.422087],[43.734796,7.421853]]],
     /* Ограждение за отбойником — там, где на онбоарде 2025 видна сетка (v1.16.48, вариант 2 владельца; разметка по кадрам через 3,
        tracks/monaco.md). Нет её у Казино, на спуске к Мирабо, в шпильке, у Портье, в тоннеле, у шиканы и Табака. */
@@ -4488,7 +4487,6 @@ const RELIEF_SEA=-6;                       // м: дно в клетках мо�
 const RELIEF_SKIRT=18;                     // м: подпорная стена под отбойником вниз — где соседняя нога трассы или берег ниже
 const RELIEF_SMOOTH=8;                     // м: σ сглаживания профиля полотна по S — профиль в дециметрах через 10 м, без него нос кивал от округления (v1.16.29)
 const CAM_HEAD=0.15;                       // с: камера-голова — наклон камеры догоняет наклон болида (глаза гасят кивки кузова), v1.16.29
-const CAM_CHASE=0.1,CHASE_PULL=0.1-1/60;   // с; с: камера «за болидом» — сглаживание поворота и отъезда; отъезд v·0.083 — как было на 60 кадрах (v1.16.55)
 function reliefSetup(){track.relief=null;const rl=RELIEF_BY_KEY[track.spec.key];if(!rl)return;
   const M=track.M,HY=new Float32Array(M),n=rl.prof.length;
   for(let i=0;i<M;i++){const f=track.S[i]/track.length*rl.len/10,k=Math.floor(f),t=f-k;
@@ -4745,26 +4743,13 @@ function harbourGeom(bp,bc,C){const H=track.harbour;if(!H)return;
    и домов (вершинный цвет) — вызовов не прибавляют. Само здание боксов — обычный дом в buildings. */
 function paddockSetup(){track.paddock=null;const sc=SCENERY_BY_KEY[track.spec.key];if(!sc||!sc.paddock||!SCEN_ORIGIN[track.spec.key])return;
   const poly=a=>a.map(ll=>scenXZ(ll[0],ll[1]));track.paddock={lane:(sc.paddock.lane||[]).map(poly),deck:(sc.paddock.deck||[]).map(poly),water:(sc.paddock.water||[]).map(poly),fence:sc.paddock.fence||null};}
-function paddockLaneIn(x,z){const PD=track.paddock;return !!PD&&PD.lane.some(F=>tunnelInPoly(x,z,F));}   // на асфальте пит-лейна (v1.16.55)
 const GAR_BAY=8.5,GAR_PER=3;          // боксы (v1.16.44): гараж 8.5 м по фасаду, у команды по 3 подряд
 const PIT_FENCE={post:4,h:4.3,off:0.3};  // ограждение за отбойником пит-прямой (онбоард 2025, кадры 276–290): стойка через 4 м, 0.3 м за стеной
 function paddockGeom(bp,bc,C){const PD=track.paddock;if(!PD)return;
-  const lay=(list,dy,cl,flat)=>{for(const pts of list){if(pts.length<3)continue;   // плита на видимой земле, треугольники не крупнее
-    const t=THREE.ShapeUtils.triangulateShape(pts.map(p=>new THREE.Vector2(p[0],p[1])),[]);   // LAWN_STEP: длинная грань пит-лейна (300 м)
-    const g0=(x,z)=>Math.max(reliefGroundSurf(x,z),reliefGroundY(x,z));                  // шла по углам и тонула в склоне (v1.16.55)
-    let yF=-1e9;if(flat){let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;for(const p of pts){x0=Math.min(x0,p[0]);x1=Math.max(x1,p[0]);z0=Math.min(z0,p[1]);z1=Math.max(z1,p[1]);yF=Math.max(yF,g0(p[0],p[1]));}
-      for(let x=x0;x<=x1;x+=3)for(let z=z0;z<=z1;z+=3)if(tunnelInPoly(x,z,pts))yF=Math.max(yF,g0(x,z));}   // flat: плоская плита на наибольшей земле
-    const gy=(x,z)=>(flat?yF:g0(x,z))+dy;                                                 // под ней (пит-лейн ровный; земля 2.45–2.9 м)
-    const emit=(a,b,c,dep)=>{const ab=Math.hypot(b[0]-a[0],b[1]-a[1]),bc_=Math.hypot(c[0]-b[0],c[1]-b[1]),ca=Math.hypot(a[0]-c[0],a[1]-c[1]),mx=Math.max(ab,bc_,ca);
-      if(mx>LAWN_STEP&&dep<16){
-        if(mx===ab){const m=[(a[0]+b[0])/2,(a[1]+b[1])/2];emit(a,m,c,dep+1);emit(m,b,c,dep+1);}
-        else if(mx===bc_){const m=[(b[0]+c[0])/2,(b[1]+c[1])/2];emit(a,b,m,dep+1);emit(a,m,c,dep+1);}
-        else{const m=[(c[0]+a[0])/2,(c[1]+a[1])/2];emit(a,b,m,dep+1);emit(m,b,c,dep+1);}return;}
-      const up=(b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0])<0;                       // гранью вверх
-      for(const p of up?[a,b,c]:[a,c,b]){bp.push(p[0],gy(p[0],p[1]),p[1]);bc.push(...cl);}};
-    for(const f of t)emit(pts[f[0]],pts[f[1]],pts[f[2]],0);}};
-  lay(PD.lane,0.15,C('#3a3c41'),true);                                 // пит-лейн: свет меша домов светлит вдвое — темнее полотна (v1.16.55)
-  lay(PD.deck,0.15,C('#d9d3c6'));lay(PD.water,0.22,C('#3b9fc9'));
+  const lay=(list,dy,cl)=>{for(const pts of list){if(pts.length<3)continue;
+    const t=THREE.ShapeUtils.triangulateShape(pts.map(p=>new THREE.Vector2(p[0],p[1])),[]),ys=pts.map(p=>Math.max(reliefGroundSurf(p[0],p[1]),reliefGroundY(p[0],p[1]))+dy);
+    for(const f of t){for(const v of f)bp.push(pts[v][0],ys[v],pts[v][1]);for(let q=0;q<3;q++)bc.push(...cl);}}};
+  lay(PD.lane,0.15,C('#5d6066'));lay(PD.deck,0.15,C('#d9d3c6'));lay(PD.water,0.22,C('#3b9fc9'));
   /* Ограждение (v1.16.44): стойки, перекладины и тонкая труба поверху — непрозрачные (прозрачных сеток в игре нет, CLAUDE.md §3).
      Белая полоса 0.75 м поверху убрана (v1.16.48, владелец): на онбоарде у бассейна её нет, сплошной лентой она лезла в глаза.
      Высота от полотна рядом (дома и всё в этом меше — в абсолютной высоте). */
@@ -4799,7 +4784,7 @@ function lawnGeom(bp,bc,C){const LW=track.lawns;if(!LW)return;
   const hv=(i,j)=>{const v=Math.sin(i*12.9898+j*78.233)*43758.5453;return v-Math.floor(v);};
   const inBld=(x,z)=>BL.some(B=>x>=B.bb[0]&&x<=B.bb[1]&&z>=B.bb[2]&&z<=B.bb[3]&&tunnelInPoly(x,z,B.pts));
   const badM=new Map(),bad=(x,z)=>{const k=Math.round(x)+','+Math.round(z);let v=badM.get(k);   // по сетке 1 м: у газона — центр треугольника
-    if(v===undefined){v=tunnelOver(x,z)!=null||ST.some(F=>tunnelInPoly(x,z,F))||paddockLaneIn(x,z)||(harbourIn(x,z)&&!harbourHit(track.harbour.deck,x,z))
+    if(v===undefined){v=tunnelOver(x,z)!=null||ST.some(F=>tunnelInPoly(x,z,F))||(harbourIn(x,z)&&!harbourHit(track.harbour.deck,x,z))
       ||(!harbourIn(x,z)&&!!track.relief&&reliefY(x,z)<1);badM.set(k,v);}return v;};
   const memo=new Map(),gy=(x,z)=>{const k=Math.round(x*20)+','+Math.round(z*20);let y=memo.get(k);
     if(y===undefined){y=!track.relief?0:harbourIn(x,z)?harbourDeckY(x,z):Math.max(reliefGroundSurf(x,z),reliefGroundY(x,z));memo.set(k,y);}return y;};
@@ -4849,7 +4834,6 @@ function treeGeom(bp,bc,C){const T=track.trees;if(!T||!T.length)return;
     if(ST.some(F=>tunnelInPoly(x0,z0,F)))return;
     if(BL.some(B=>x0>=B.bb[0]&&x0<=B.bb[1]&&z0>=B.bb[2]&&z0<=B.bb[3]&&tunnelInPoly(x0,z0,B.pts)))return;
     if(harbourIn(x0,z0)&&!harbourHit(track.harbour.deck,x0,z0))return;                       // гавань: только на плите набережной
-    if(paddockLaneIn(x0,z0))return;                                                          // не на пит-лейне (v1.16.55)
     if(!harbourIn(x0,z0)&&track.relief&&reliefY(x0,z0)<1)return;                             // море (Mareterra карты не знают)
     let g,gv;
     const road=(x,z)=>{let edge=1e9,ry=0,mv=null;                  // до кромки асфальта по всем ногам; высота полотна там;
@@ -4957,8 +4941,7 @@ function buildTunnel(){const T=track.tunnel;if(!T)return;
         const ux=(b[0]-a[0])/len,uz=(b[1]-a[1])/len,F=(t,o2,y)=>[a[0]+ux*t+nx*o2,y,a[1]+uz*t+nz*o2];
         let bk=0,bd=1e18;for(let k=0;k<track.M;k++){const d=(mx-track.P[k].x)**2+(mz-track.P[k].z)**2;if(d<bd){bd=d;bk=k;}}
         const gS=o.garage.fromS!=null?o.garage:{fromS:0,toS:track.length},sk=track.S[bk],inS=gS.fromS<=gS.toS?(sk>=gS.fromS&&sk<=gS.toS):(sk>=gS.fromS||sk<=gS.toS);
-        const toLane=len>=4&&(o.garage.lane?paddockLaneIn(mx+nx*3,mz+nz*3)   // v1.16.55: ворота — на стороне, за которой асфальт пит-лейна
-          :Math.sqrt(bd)<45&&inS&&nx*(track.P[bk].x-mx)+nz*(track.P[bk].z-mz)>0);   // v1.16.45–54: сторона к пит-прямой (garage.fromS–toS)
+        const toLane=len>=4&&Math.sqrt(bd)<45&&inS&&nx*(track.P[bk].x-mx)+nz*(track.P[bk].z-mz)>0;   // v1.16.45: только сторона к пит-прямой (garage.fromS–toS)
         // сторона к порту — гладкая стена цвета здания (v1.16.46, владелец: «как со стороны стартовой прямой»; в v1.16.45 была серая)
         if(toLane){
           const gq=()=>garLvl;                                       // v1.16.45: весь фасад от одного уровня — земля под зданием гуляет на 2 м, полосы шли лесенкой
@@ -4982,11 +4965,9 @@ function buildTunnel(){const T=track.tunnel;if(!T)return;
   treeGeom(bp,bc,C);                                               // деревья — в тот же меш (v1.16.42)
   paddockGeom(bp,bc,C);                                            // пит-лейн и бассейн — в тот же меш (v1.16.43); ограждение (v1.16.44)
   lawnGeom(bp,bc,C);                                               // газоны и кусты — в тот же меш (v1.16.54)
+  {const ry=reliefYMemo();for(let i=0;i<bp.length;i+=3)bp[i+1]-=ry(bp[i],bp[i+2]);}   // дома заданы в абсолютной высоте: reliefApply прибавит её обратно
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos.concat(bp),3));
   g.setAttribute('color',new THREE.Float32BufferAttribute(col.concat(bc),3));g.computeVertexNormals();
-  /* Дома заданы в абсолютной высоте: reliefApply прибавит её обратно — вычитаем ПОСЛЕ нормалей (v1.16.55). До v1.16.55
-     нормали считались по вычтенной геометрии: ровная плита (пит-лейн, газон, крыша) освещалась буграми склона — тёмные грани. */
-  {const ry=reliefYMemo(),pa=g.attributes.position;for(let i=pos.length/3;i<pa.count;i++)pa.setY(i,pa.getY(i)-ry(pa.getX(i),pa.getZ(i)));}
   scene.add(new THREE.Mesh(g,new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide})));
   /* Лампы — в обе стороны (видны снизу при любом обходе). */
   const lc=[],nl=lp.length;for(let i=0;i<nl;i+=9){lp.push(lp[i],lp[i+1],lp[i+2],lp[i+6],lp[i+7],lp[i+8],lp[i+3],lp[i+4],lp[i+5]);}
@@ -7395,17 +7376,8 @@ function updateCamera(dt){const c=player,vh=c.hdg+(c.yawLag||0);const fx=Math.si
   c.camX=c.x;c.camZ=c.z;const sl=c.camSl;
   if(camMode==='cockpit'){const back=-0.62;ey=1.42+gy+sl*back;ex=c.x+fx*back;ez=c.z+fz*back;lx=c.x+fx*14;ly=1.18+gy+sl*14;lz=c.z+fz*14;
     cam.position.set(ex,ey,ez);}
-  else{/* «За болидом» (v1.16.55): камера — от САМОГО болида на сглаженном направлении и отъезде. До v1.16.55 она догоняла
-     точку за болидом долей dt*10 за кадр: отставание v·(0.1−dt) зависело от длины кадра, и на iPad пропущенный кадр
-     (33 мс вместо 16.7) бросал болид вперёд-назад на 30–50 см (владелец: «болид подёргивается, мир нет»). Теперь
-     сглаживаются только направление и отъезд на скорости, по exp(−dt/CAM_CHASE) — одинаково при любой длине кадра;
-     отъезд — прежний на 60 кадрах (v·CHASE_PULL), поэтому картинка та же. */
-    const a=1-Math.exp(-(dt>0?dt:0)/CAM_CHASE),pullT=Math.abs(c.speed||0)*CHASE_PULL;
-    if(c.chDx===undefined||Math.hypot(c.x-c.chX,c.z-c.chZ)>5||!(dt>0)){c.chDx=fx;c.chDz=fz;c.chPull=pullT;}
-    else{c.chDx+=(fx-c.chDx)*a;c.chDz+=(fz-c.chDz)*a;c.chPull+=(pullT-c.chPull)*a;}
-    c.chX=c.x;c.chZ=c.z;const dl=Math.hypot(c.chDx,c.chDz)||1,dx=c.chDx/dl,dz=c.chDz/dl,back=-4.45;
-    ey=2.7+gy+sl*back;ex=c.x+dx*(back-c.chPull);ez=c.z+dz*(back-c.chPull);lx=c.x+fx*8.5;ly=1.1+gy+sl*8.5;lz=c.z+fz*8.5;
-    cam.position.set(ex,ey,ez);}
+  else{const back=-4.45;ey=2.7+gy+sl*back;ex=c.x+fx*back;ez=c.z+fz*back;lx=c.x+fx*8.5;ly=1.1+gy+sl*8.5;lz=c.z+fz*8.5;
+    cam.position.lerp(new THREE.Vector3(ex,ey,ez),Math.min(1,dt*10));}
   cam.lookAt(lx,ly,lz);
   if(skyMesh)skyMesh.position.set(cam.position.x,gy,cam.position.z);
   tunnelLight();}
