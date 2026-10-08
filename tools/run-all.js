@@ -50,12 +50,13 @@ const PROBES = [
   { key: 'dispose',   mod: './probe-scene-dispose.js',      secs: 19 },
   { key: 'sit',       mod: './probe-player-sit.js',         secs: 60 },
   { key: 'chase',     mod: './probe-chase-cam.js',          secs: 60 },
+  { key: 'kerb',      mod: './probe-kerb-gap.js',           secs: 90 },
 ];
 
 /* Быстрая проверка правки окружения (цвета, реклама, трибуны, щиты):
    поломку на других трассах ловят именно они, гонки окружения не видят.
    Полный прогон перед выдачей сборки всё равно обязателен (docs/notes/checklist.md). */
-const SCENERY = ['pole', 'print', 'load', 'materials', 'clear', 'wall', 'solid', 'dispose', 'sit'];
+const SCENERY = ['pole', 'print', 'load', 'materials', 'clear', 'wall', 'solid', 'dispose', 'sit', 'kerb'];
 
 function defaultJobs() {
   return os.availableParallelism ? os.availableParallelism() : os.cpus().length;
