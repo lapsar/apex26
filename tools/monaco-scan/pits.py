@@ -75,7 +75,8 @@ axis = LineString(way('850261588'))   # ось OSM «Voie des stands»: въез
 #  * со стороны бассейна — стена пит-лейна WALL_H по его дальнему краю, от S_WALL до выезда: из гавани ворота гаражей не видны.
 FACADE, BOX_D, LANE_W = 23.5, 12.0, 11.0
 S_A, S_B, S_BLEND, S_EXIT, S_WALL = 3160, 3262, 3110, 24, 3140
-WALL_H, WALL_RAMP = 7.5, 20.0      # м: высота над пит-лейном; у южного конца стена поднимается от 2 м на этой длине (иначе — плита в поле)
+LEVEL_S = (2940, 40)           # S трассы, по высоте которой идёт пит-лейн (v1.16.57)
+WALL_H, WALL_RAMP = 5.5, 20.0      # м: высота над пит-лейном (v1.16.57: пит-лейн на уровне трассы, на 2.5 м выше набережной — было 7.5); у южного конца стена поднимается от 2 м на этой длине (иначе — плита в поле)
 
 
 def st(s): return min(range(M), key=lambda k: abs(W['S'][k] - s))
@@ -114,6 +115,29 @@ _far = lambda g: g.interpolate(0.5, normalized=True).distance(Point(*P[kM]))
 wall_line = max((_side, _other), key=_far)
 wall_line = wall_line.difference(CORRIDOR.buffer(0.3))
 wall_line = max(getattr(wall_line, 'geoms', [wall_line]), key=lambda g: g.length)
+# Терраса (v1.16.57): в игре земля между пит-прямой и трассой у бассейна — нижняя огибающая обеих ног (не выше дороги у бассейна,
+# 2.6 м), а по IGN там уступ 4–6 м: пит-лейн и боксы стоят на нём, к дороге у бассейна — подпорная стена (OSM barrier=retaining_wall,
+# низкой стороной к ней). Терраса — от стены пит-прямой до дальнего края пит-лейна минус TERR_IN (клетка земли 10 м: склон к
+# низкой земле уходит под плиту пит-лейна, а не на площадку бассейна).
+TERR_IN = 10.0
+_q = []
+for k in range(M):
+    if not (W['S'][k] >= LEVEL_S[0] or W['S'][k] <= LEVEL_S[1]):
+        continue
+    k2 = (k + 1) % M
+    def far(kk):
+        r = LineString([P[kk], (P[kk][0] + RR[kk][0] * 90, P[kk][1] + RR[kk][1] * 90)]).intersection(lane_full)
+        return None if r.is_empty else max(Point(c).distance(Point(*P[kk])) for g in getattr(r, 'geoms', [r]) for c in g.coords)
+    f1, f2 = far(k), far(k2)
+    if f1 is None or f2 is None:
+        continue
+    a1, a2 = WR[k] + CLEAR, WR[k2] + CLEAR
+    b1, b2 = f1 - TERR_IN, f2 - TERR_IN
+    if b1 <= a1 + 1 or b2 <= a2 + 1:
+        continue
+    _q.append(Polygon([(P[k][0] + RR[k][0] * a1, P[k][1] + RR[k][1] * a1), (P[k2][0] + RR[k2][0] * a2, P[k2][1] + RR[k2][1] * a2),
+                       (P[k2][0] + RR[k2][0] * b2, P[k2][1] + RR[k2][1] * b2), (P[k][0] + RR[k][0] * b1, P[k][1] + RR[k][1] * b1)]).buffer(0.05))
+terrace = unary_union(_q).buffer(1.0).buffer(-1.0)
 tower = Polygon(way('952067351')).buffer(0).difference(CORRIDOR)
 STANDS_REAL = unary_union([Polygon(f).buffer(0).buffer(-2.5) for f in W.get('ST', [])])   # след трибуны без запаса 3 м (+0.5)
 lane = lane_full.difference(CORRIDOR).difference(box).difference(STANDS_REAL)
@@ -137,6 +161,8 @@ print("  paddock: {")
 for key, g in (('lane', lane), ('deck', deck), ('water', water)):
     print("    %s: [%s]," % (key, ','.join(fmt(p) for p in parts(g))))
 print("    wall: {h:%.1f, ramp:%.0f, line:%s}," % (WALL_H, WALL_RAMP, fmt(list(wall_line.simplify(0.1).coords))))
+print("    level: {fromS:%d, toS:%d},    // пит-лейн — на уровне трассы этого отрезка (въезд, пит-прямая, выезд): площадка боксов — уступ на уровне пит-прямой (v1.16.57)" % LEVEL_S)
+print("    terrace: [%s],   // земля площадки боксов — на уровне пит-лейна (v1.16.57)" % ','.join(fmt(p) for p in parts(terrace)))
 print("""    /* Ограждение за отбойником — там, где на онбоарде 2025 видна сетка (v1.16.48, вариант 2 владельца; разметка по кадрам через 3,
        tracks/monaco.md). Нет её у Казино, на спуске к Мирабо, в шпильке, у Портье, в тоннеле, у шиканы и Табака. */
     fence: [{fromS:3060, toS:170, side:'R'},    // пит-прямая: кадры 272–296 (v1.16.44 — 3100–70)
