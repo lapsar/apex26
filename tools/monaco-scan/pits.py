@@ -32,6 +32,7 @@ LAT0, LON0, MLON = 43.737145229, 7.425286371, 80430.825145   # SCEN_ORIGIN.Monac
 W = json.load(open(os.path.join(HERE, 'wall.json')))
 P, RR, WL, WR, M = W['P'], W['R'], W['WL'], W['WR'], W['M']
 CLEAR = 1.0                       # м за линией стены (как city.py)
+CLEAR_LANE = 0.15                 # м: пит-лейн — вплотную за отбойником (v1.16.59, владелец: «начало въезда не вплотную к стене»; с CLEAR — полоса травы 1 м)
 BOX_H = 8.5                       # м: боксы — два этажа (онбоард: стена вровень с отбойником пит-уолла и выше вдвое)
 
 
@@ -40,13 +41,17 @@ def ll(x, z): return (LAT0 + z / 110540, LON0 - x / MLON)
 
 
 
-_q = []
-for k in range(M):
-    k2 = (k + 1) % M
-    a, b = (P[k], RR[k], WL[k], WR[k]), (P[k2], RR[k2], WL[k2], WR[k2])
-    side = lambda t, sg: (t[0][0] + t[1][0] * sg * ((t[2] if sg < 0 else t[3]) + CLEAR), t[0][1] + t[1][1] * sg * ((t[2] if sg < 0 else t[3]) + CLEAR))
-    _q.append(Polygon([side(a, -1), side(b, -1), side(b, 1), side(a, 1)]).buffer(0.05))
-CORRIDOR = unary_union(_q)
+def corridor(clear):
+    q = []
+    for k in range(M):
+        k2 = (k + 1) % M
+        a, b = (P[k], RR[k], WL[k], WR[k]), (P[k2], RR[k2], WL[k2], WR[k2])
+        side = lambda t, sg: (t[0][0] + t[1][0] * sg * ((t[2] if sg < 0 else t[3]) + clear), t[0][1] + t[1][1] * sg * ((t[2] if sg < 0 else t[3]) + clear))
+        q.append(Polygon([side(a, -1), side(b, -1), side(b, 1), side(a, 1)]).buffer(0.05))
+    return unary_union(q)
+
+
+CORRIDOR = corridor(CLEAR)
 STANDS = unary_union([Polygon(f).buffer(0) for f in W.get('ST', [])])
 
 
@@ -140,7 +145,7 @@ for k in range(M):
 terrace = unary_union(_q).buffer(1.0).buffer(-1.0)
 tower = Polygon(way('952067351')).buffer(0).difference(CORRIDOR)
 STANDS_REAL = unary_union([Polygon(f).buffer(0).buffer(-2.5) for f in W.get('ST', [])])   # след трибуны без запаса 3 м (+0.5)
-lane = lane_full.difference(CORRIDOR).difference(box).difference(STANDS_REAL)
+lane = lane_full.difference(corridor(CLEAR_LANE)).difference(box).difference(STANDS_REAL)
 water = Polygon(way('167625723')).buffer(0).difference(CORRIDOR)
 deck = Polygon(way('197170037')).buffer(0).difference(CORRIDOR).difference(box).difference(water).difference(STANDS).difference(lane_full.buffer(0.4))
 
