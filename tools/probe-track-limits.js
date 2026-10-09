@@ -14,7 +14,9 @@
      • неаккуратный проезд ничего не включает ни в квале, ни в гонке;
      • квала: срезка → круг удалён, на линии попытка 2 и лучшего нет; вторая срезка → без времени, последний;
      • гонка: предупреждение → штраф 5 → штраф 10; круг со срезкой не стал лучшим;
-     • финиш: соперник в 3.1 с позади встаёт впереди игрока со штрафом 5 с, в 6.5 с — нет.
+     • финиш: соперник в 4.6 с позади (по журналу пробника) встаёт впереди игрока со штрафом 5 с, в 5.4 с — нет;
+       секундомер точек трассы называет их отставание с точностью 0.02 с (v1.16.63; до неё — подстановка
+       дистанции по paceSpeed, 3.1 и 6.5 с).
    ========================================================================== */
 'use strict';
 
@@ -80,8 +82,14 @@ function run() {
         __L.pass(z,'sloppy');o.sloppy=tlCount;
         __L.pass(z,'cut');o.k1=tlKind;o.c1=tlCount;o.p1=tlPen;o.cutLap=!!player.lapCutR;__L.cross();o.best=isFinite(player.best);o.fl=!!fastestLap.you;
         __L.pass(z,'cut');o.k2=tlKind;o.p2=tlPen;__L.pass(z,'cut');o.p3=tlPen;
-        tlPen=5;var srt=cars.filter(function(c){return !c.isPlayer&&!c.retired;}).sort(function(a,b){return b.dist-a.dist;}),pace=track.paceSpeed||(track.length/100);
-        player.dist=srt[1].dist-0.5;srt[2].dist=player.dist-pace*3.1;for(var i=3;i<srt.length;i++)srt[i].dist=player.dist-pace*(6.5+2*(i-3));
+        /* финиш (v1.16.63): штраф — по секундомеру точек трассы. Игрок честно едет 50 с, пробник пишет свой журнал
+           «время, дистанция»; соперники встают туда, где игрок был 4.6 и 5.4 с назад (прежняя мерка на финише Монако
+           называла 4.6 настоящих секунды больше чем 5 — штраф его не пропускал), остальные — дальше 7 с */
+        var lt=[raceTime],ld=[player.dist];for(var k=0;k<60*50;k++){__AP.drive();update(1/60);lt.push(raceTime);ld.push(player.dist);}
+        function at(sec){var T=raceTime-sec;for(var j=lt.length-1;j>0;j--)if(lt[j-1]<=T&&T<=lt[j])return ld[j-1]+(ld[j]-ld[j-1])*(T-lt[j-1])/(lt[j]-lt[j-1]);return NaN;}
+        tlPen=5;var srt=cars.filter(function(c){return !c.isPlayer&&!c.retired;});
+        srt[0].dist=player.dist+80;srt[1].dist=player.dist+40;srt[2].dist=at(4.6);srt[3].dist=at(5.4);for(var i=4;i<srt.length;i++)srt[i].dist=at(7+2*(i-4));
+        o.g46=gapSec(player,srt[2]);o.g54=gapSec(player,srt[3]);o.old46=(player.dist-srt[2].dist)/(track.paceSpeed||(track.length/100));
         var before=cars.slice().sort(rankCmp).indexOf(player)+1;finishRace();clearTimeout(raceOutroTimer);o.before=before;o.after=window.__raceOrder.indexOf(player)+1;
         o.ahead=window.__raceOrder[before-1]===srt[2];return o;})()`);
       if (!g.started) r.fail(`${tag}: гонка — секундомер круга не запустился, проверка лучшего круга пустая`);
@@ -89,8 +97,10 @@ function run() {
       if (g.k1 !== 'warn' || g.c1 !== 1 || g.p1 !== 0) r.fail(`${tag}: гонка — первая срезка: ждали предупреждение без штрафа, вышло ${g.k1}, срезок ${g.c1}, штраф ${g.p1}`);
       if (!g.cutLap || g.best || g.fl) r.fail(`${tag}: гонка — круг со срезкой ${g.best ? 'стал лучшим кругом игрока' : ''}${g.fl ? ' и быстрым кругом гонки' : ''}${g.cutLap ? '' : 'не помечен'}`);
       if (g.k2 !== 'pen' || g.p2 !== 5 || g.p3 !== 10) r.fail(`${tag}: гонка — штрафы: ждали 5 и 10 с, вышло ${g.p2} и ${g.p3}`);
-      if (g.after !== g.before + 1 || !g.ahead) r.fail(`${tag}: финиш со штрафом 5 с — ждали P${g.before} → P${g.before + 1} (вперёд только отстававший на 3.1 с), вышло P${g.after}`);
+      if (!(Math.abs(g.g46 - 4.6) < 0.02 && Math.abs(g.g54 - 5.4) < 0.02)) r.fail(`${tag}: секундомер на финише — соперники в 4.6 и 5.4 с позади названы ${g.g46.toFixed(3)} и ${g.g54.toFixed(3)} с`);
+      if (g.after !== g.before + 1 || !g.ahead) r.fail(`${tag}: финиш со штрафом 5 с — ждали P${g.before} → P${g.before + 1} (вперёд только отстававший на 4.6 с, не на 5.4), вышло P${g.after}`);
       r.line(`  гонка: предупреждение → +5 → +10 с; круг со срезкой не лучший; финиш P${g.before} → P${g.after}`);
+      r.line(`  финиш: позади 4.6 и 5.4 с — секундомер ${g.g46.toFixed(3)} и ${g.g54.toFixed(3)} с (прежняя мерка назвала бы 4.6 с ${g.old46.toFixed(2)})`);
     });
   }
   if (!n) r.fail('ни на одной трассе нет зоны срезки (ключ cuts) — пробник ничего не проверил');
