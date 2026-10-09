@@ -52,6 +52,7 @@ const PROBES = [
   { key: 'chase',     mod: './probe-chase-cam.js',          secs: 60 },
   { key: 'kerb',      mod: './probe-kerb-gap.js',           secs: 90 },
   { key: 'wallvis',   mod: './probe-wall-visual.js',        secs: 300 },
+  { key: 'limits',    mod: './probe-track-limits.js',       secs: 40 },
 ];
 
 /* Быстрая проверка правки окружения (цвета, реклама, трибуны, щиты):
