@@ -91,7 +91,11 @@ function run() {
         srt[0].dist=player.dist+80;srt[1].dist=player.dist+40;srt[2].dist=at(4.6);srt[3].dist=at(5.4);for(var i=4;i<srt.length;i++)srt[i].dist=at(7+2*(i-4));
         o.g46=gapSec(player,srt[2]);o.g54=gapSec(player,srt[3]);o.old46=(player.dist-srt[2].dist)/(track.paceSpeed||(track.length/100));
         var before=cars.slice().sort(rankCmp).indexOf(player)+1;finishRace();clearTimeout(raceOutroTimer);o.before=before;o.after=window.__raceOrder.indexOf(player)+1;
-        o.ahead=window.__raceOrder[before-1]===srt[2];return o;})()`);
+        o.ahead=window.__raceOrder[before-1]===srt[2];
+        /* башня после финиша (v1.16.64): отставания — по итоговому времени игрока с +5 с, а не по месту на трассе
+           (было: у игрока +0.000, у идущего следом — полный разрыв, без вычета штрафа) */
+        raceOutro=true;var ro=window.__raceOrder,ip=ro.indexOf(player);o.tUp=towerGap(ro[ip-1],player);o.tDn=towerGap(player,ro[ip+1]);o.dn=ro[ip+1]===srt[3];
+        raceOutro=false;return o;})()`);
       if (!g.started) r.fail(`${tag}: гонка — секундомер круга не запустился, проверка лучшего круга пустая`);
       if (g.sloppy) r.fail(`${tag}: гонка — неаккуратный проезд засчитан как срезка`);
       if (g.k1 !== 'warn' || g.c1 !== 1 || g.p1 !== 0) r.fail(`${tag}: гонка — первая срезка: ждали предупреждение без штрафа, вышло ${g.k1}, срезок ${g.c1}, штраф ${g.p1}`);
@@ -99,6 +103,8 @@ function run() {
       if (g.k2 !== 'pen' || g.p2 !== 5 || g.p3 !== 10) r.fail(`${tag}: гонка — штрафы: ждали 5 и 10 с, вышло ${g.p2} и ${g.p3}`);
       if (!(Math.abs(g.g46 - 4.6) < 0.02 && Math.abs(g.g54 - 5.4) < 0.02)) r.fail(`${tag}: секундомер на финише — соперники в 4.6 и 5.4 с позади названы ${g.g46.toFixed(3)} и ${g.g54.toFixed(3)} с`);
       if (g.after !== g.before + 1 || !g.ahead) r.fail(`${tag}: финиш со штрафом 5 с — ждали P${g.before} → P${g.before + 1} (вперёд только отстававший на 4.6 с, не на 5.4), вышло P${g.after}`);
+      if (!g.dn || !(Math.abs(g.tUp - 0.4) < 0.02 && Math.abs(g.tDn - 0.4) < 0.02)) r.fail(`${tag}: башня после финиша со штрафом — ждали у игрока +0.400 (5 − 4.6) и у следующего +0.400 (5.4 − 5), вышло ${g.tUp.toFixed(3)} и ${g.tDn.toFixed(3)}`);
+      else r.line(`  башня после финиша: игрок +${g.tUp.toFixed(3)} от вставшего вперёд, следующий +${g.tDn.toFixed(3)} — с учётом штрафа`);
       r.line(`  гонка: предупреждение → +5 → +10 с; круг со срезкой не лучший; финиш P${g.before} → P${g.after}`);
       r.line(`  финиш: позади 4.6 и 5.4 с — секундомер ${g.g46.toFixed(3)} и ${g.g54.toFixed(3)} с (прежняя мерка назвала бы 4.6 с ${g.old46.toFixed(2)})`);
     });
