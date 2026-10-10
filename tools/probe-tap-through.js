@@ -37,6 +37,15 @@
    а залипшая кнопка руля означает, что руль перестал слушаться и болид едет
    в стену. Проверяется правило игры: состояние кнопок обязано сходиться
    со списком живых касаний в каждом touch-событии.
+
+   РАЗДЕЛ 4 (v1.16.65). Кнопки экранов итогов обязаны срабатывать по ОТПУСКАНИЮ
+   ПАЛЬЦА на них, а не ждать клика. Клик браузер делает из касания, только если
+   на стекле нет другого пальца, а итоги появляются сами, через 3 с после финиша,
+   когда пальцы ещё лежат на месте педалей: в Chromium настоящими касаниями
+   v1.16.64 даёт «Старт гонки» и «В меню» 0 из 5, если лежит хоть один палец.
+   Проверяется и обратное: запоздалый клик того же касания гасится (иначе «В меню»
+   проскакивает титул — там на месте кнопки «Начать уик-энд»), палец, уведённый
+   с кнопки, ничего не нажимает, мышь кликает сама и дважды не срабатывает.
    ========================================================================== */
 'use strict';
 
@@ -140,7 +149,61 @@ function run(opts) {
   if (!txtPadKilled) r.fail('педаль вышла из-под гасителя через текстовый узел — вернётся залипание газа');
 
   stuck(r, file);
+  resultButtons(r, file);
   return r;
+}
+
+/* Раздел 4: кнопки итогов — по отпусканию пальца, при любом числе пальцев на стекле. */
+function resultButtons(r, file) {
+  const env = H.loadGame(file ? { file } : {});
+  const doc = env.evalIn('document');
+  const btns = doc._resBtns || [];
+  const docClick = (doc._listeners.click || []);
+  let now = 50000;
+  env.evalIn('this').__now = now;
+  env.evalIn('Date.now=function(){return __now;};');
+  const tick = ms => { now += ms; env.evalIn('this').__now = now; };
+  const fire = (b, type, ev) => (b._listeners[type] || []).forEach(fn => fn(ev));
+  const mid = b => { const q = b.getBoundingClientRect(); return { x: (q.left + q.right) / 2, y: (q.top + q.bottom) / 2 }; };
+  const nativeClick = () => {                               // клик, который браузер шлёт сам после касания
+    const e = { type: 'click', isTrusted: true, stopped: false, prevented: false,
+      stopPropagation() { this.stopped = true; }, stopImmediatePropagation() { this.stopped = true; }, preventDefault() { this.prevented = true; } };
+    docClick.forEach(fn => fn(e)); return !e.stopped;      // дошёл ли он до цели
+  };
+  const touchTap = (b, id, upAt) => { const m = mid(b), u = upAt || m;
+    fire(b, 'pointerdown', { pointerId: id, pointerType: 'touch', clientX: m.x, clientY: m.y });
+    tick(70); fire(b, 'pointerup', { pointerId: id, pointerType: 'touch', clientX: u.x, clientY: u.y }); };
+
+  const names = { 's-quali ghost': '«В меню» (квала)', 's-quali primary': '«Старт гонки»', 's-result ghost': '«В меню» (финиш)', 's-result primary': '«Ещё заезд»' };
+  if (btns.length !== 4) { r.fail('стенд не выдал кнопки экранов итогов — раздел 4 не проверен'); return; }
+  for (const b of btns) {
+    const nm = names[b._screen + ' ' + (b._classes.has('primary') ? 'primary' : 'ghost')];
+    if (!(b._listeners.pointerup || []).length) { r.fail(`${nm}: не слушает отпускание пальца — пока на стекле лежит другой палец, кнопка молчит`); continue; }
+    // другой палец лежит на месте газа: клика браузер не пришлёт вовсе
+    tick(1000); b._clicks = 0; touchTap(b, 21);
+    r.line(`${(nm + ', второй палец на стекле').padEnd(38)} срабатываний ${b._clicks} из 1`);
+    if (b._clicks !== 1) r.fail(`${nm}: тап при лежащем втором пальце не сработал (${b._clicks})`);
+    // один палец: браузер пришлёт и свой клик — он обязан погаснуть, второго срабатывания нет
+    tick(1000); b._clicks = 0; touchTap(b, 22); tick(30);
+    const leaked = nativeClick();
+    if (b._clicks !== 1 || leaked) r.fail(`${nm}: один палец — срабатываний ${b._clicks}, запоздалый клик ${leaked ? 'прошёл (проскок на следующий экран)' : 'погашен'}`);
+    // палец уведён с кнопки — передумал
+    tick(1000); b._clicks = 0; touchTap(b, 23, { x: mid(b).x, y: mid(b).y - 250 });
+    if (b._clicks) r.fail(`${nm}: палец увели с кнопки и отпустили мимо, а она сработала`);
+  }
+  // мышь кликает сама: нажатие по отпусканию её не трогает, и родной клик не гасится
+  const b0 = btns[1]; tick(2000); b0._clicks = 0; const m = mid(b0);
+  fire(b0, 'pointerdown', { pointerId: 1, pointerType: 'mouse', clientX: m.x, clientY: m.y });
+  tick(80); fire(b0, 'pointerup', { pointerId: 1, pointerType: 'mouse', clientX: m.x, clientY: m.y });
+  const mouseClick = nativeClick();
+  r.line(`${'мышь по «Старт гонки»'.padEnd(38)} по отпусканию ${b0._clicks}, родной клик ${mouseClick ? 'дошёл' : 'погашен'}`);
+  if (b0._clicks || !mouseClick) r.fail('мышь: кнопка сработает дважды или не сработает вовсе');
+  // клик через секунду после тапа — уже чужой, гасить его нельзя
+  tick(2000); touchTap(btns[1], 24); tick(1000);
+  if (!nativeClick()) r.fail('погашен клик, пришедший через секунду после тапа — съедаем чужое нажатие');
+  // скрытый экран не нажимается
+  const hid = btns[0]; tick(1000); hid._clicks = 0; hid.offsetParent = null; touchTap(hid, 25); hid.offsetParent = {};
+  if (hid._clicks) r.fail('кнопка скрытого экрана сработала по касанию');
 }
 
 /* Раздел 3: кнопка руля обязана отпускаться, как только под ней нет пальца. */

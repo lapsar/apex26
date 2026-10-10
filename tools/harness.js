@@ -126,7 +126,7 @@ function makeDocument() {
     // Педали и кнопки руля выдаются настоящим списком: игра вешает на них разбор касаний,
     // и без них пробник не может проверить ни нажатие, ни сверку с живыми пальцами.
     // Прямоугольники — как на ландшафтном экране: две кнопки слева внизу, две справа.
-    querySelectorAll: sel => (/\.kb\b/.test(String(sel)) ? doc._pads : []),
+    querySelectorAll: sel => (/\.kb\b/.test(String(sel)) ? doc._pads : /#s-(quali|result)\b/.test(String(sel)) ? doc._resBtns : []),
     // слушатели документа ЗАПОМИНАЮТСЯ: игра вешает на них разбор касаний, и пробнику
     // нужно уметь подать туда событие. Само по себе это ничего не меняет — раньше здесь
     // стояла пустышка, а дёргать их некому, кроме пробника.
@@ -144,6 +144,18 @@ function makeDocument() {
     el.addEventListener = (type, fn) => { (lsn[type] || (lsn[type] = [])).push(fn); };
     el._listeners = lsn;
     el.getBoundingClientRect = () => ({ left: x, top: y, right: x + 128, bottom: y + 128, width: 128, height: 128 });
+    return el;
+  });
+  // Кнопки экранов итогов («В меню», «Старт гонки», «Ещё заезд») — тоже настоящим списком:
+  // игра вешает на них нажатие по отпусканию пальца (v1.16.65), пробник `taps` его проверяет.
+  const RES = [['s-quali', 'ghost', 18], ['s-quali', 'primary', 160], ['s-result', 'ghost', 18], ['s-result', 'primary', 160]];
+  doc._resBtns = RES.map(([scr, kind, x]) => {
+    const el = makeElement(doc, 'button');
+    el._classes.add('btn'); el._classes.add(kind); el._screen = scr; el.disabled = false; el.offsetParent = {};
+    const lsn = {};
+    el.addEventListener = (type, fn) => { (lsn[type] || (lsn[type] = [])).push(fn); };
+    el._listeners = lsn; el._clicks = 0; el.click = () => { el._clicks++; };
+    el.getBoundingClientRect = () => ({ left: x, top: 700, right: x + 130, bottom: 750, width: 130, height: 50 });
     return el;
   });
   doc.documentElement = makeElement(doc, 'html');
