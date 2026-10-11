@@ -54,6 +54,7 @@ const PROBES = [
   { key: 'wallvis',   mod: './probe-wall-visual.js',        secs: 300 },
   { key: 'limits',    mod: './probe-track-limits.js',       secs: 60 },
   { key: 'gap',       mod: './probe-tower-gap.js',          secs: 75 },
+  { key: 'aierr',     mod: './probe-ai-errors.js',          secs: 85 },
 ];
 
 /* Быстрая проверка правки окружения (цвета, реклама, трибуны, щиты):

@@ -178,7 +178,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.16.65</div>
+    <div class="verstamp">v1.16.67</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -669,20 +669,23 @@ const TOW_GAIN=0.06;                      // доля потолка, приба
    ЧАСТОТА привязана к силе пилота, и это обязательно: те же -50 % с РАВНОМЕРНОЙ частотой дают
    столько же перестановок, но иерархию «место-сила» 0.737 против 0.812 — ровные ошибки
    размывают результат, а «слабый ошибается чаще» его уточняет (0.808 против 0.786 у main). */
-const ERR_RATE=0.28;                      // ошибок на пилота за круг у СРЕДНЕГО по силе; ~1.2 ошибки на пилота за трёхкруговую гонку
-const ERR_DEPTH=0.70;                     // доля темпа в САМОЙ ГЛУБИНЕ ошибки (профиль нарастает и спадает, см. ERR_RAMP)
-const ERR_DUR=6.0;                        // с: длительность. Мельче и дольше выгоднее резкого провала — см. таблицу в CLAUDE.md §10 п.4
+/* ОШИБКА — «ПРОСКОЧИЛ ПОВОРОТ» (v1.16.66, вариант Б владельца). До неё ошибка была потерей темпа
+   на 6 с где придётся: замер 10.10.2026 — начиналась на прямой в 33 % случаев, глубина на 56 %
+   приходилась на прямую, а увод вбок шёл ВНУТРЬ поворота (знак был перепутан: -sign(K) — это
+   внутренняя сторона) и к тому же обрезался общим коридором hw*0.62. Со стороны — «просто едет
+   тише после поворота» (слова владельца). Теперь ошибка привязана к ПОВОРОТУ: решается за ERR_LEAD
+   до входа, болид не доворачивает и к апексу уезжает НАРУЖУ за белую линию, теряет темп от апекса
+   до выхода и возвращается за ERR_BACK. Тормозит он при этом не раньше обычного — резкого
+   «стоп-крана» перед игроком нет (та жалоба v1.15.75). Под флагом и на подъезде к зоне — нет. */
+const ERR_RATE=0.40;                      // ошибок на пилота за круг у СРЕДНЕГО по силе; делится поровну между тормозными поворотами круга (errCorners)
+const ERR_DEPTH=0.60;                     // доля темпа в глубине ошибки — от апекса до выхода
 const ERR_FLOOR=9;                        // м/с: ниже не опускаем. Порог вставшего NEUT_STOPPED=6, и провалившийся под него болид законно объезжается всем полем — ошибка не должна превращаться в это
-/* ОШИБКА ОБЯЗАНА БЫТЬ ВИДНА, и это требование владельца после заездов на v1.15.75:
-   там она читалась как «соперник резко затормозил», потому что темп падал ступенькой,
-   и игрок влетал ему в зад. Замер: замедление в первые 0.6 с — медиана 31 м/с²
-   при собственных тормозах болида 38, каждая четвёртая ошибка 51 и выше, худшая 101.
-   Теперь ошибка — ШИРОКИЙ ВЫХОД: болид уезжает наружу поворота, вплоть до выхода
-   за кромку, а время теряет и от этого, и от умеренного провала темпа.
-   Стало: медиана 15 м/с², четверть 24, худшая 74; уход с траектории 2.70 -> 3.75 м. */
-const ERR_RAMP=0.9;                       // с: за сколько ошибка нарастает и спадает. Ступенька и давала «стоп-кран»
-const ERR_WIDE=4.5;                       // м: насколько уводит НАРУЖУ поворота в глубине ошибки
-const ERR_LIM=1.02;                       // доля полуширины: предел полосы во время ошибки. 0.75 в обычной езде, здесь болид выпускается ЗА кромку — иначе увод упирается в потолок и ошибки не видно (замер: ERR_WIDE 3.5 и 5.0 давали один и тот же уход 2.9 м)
+const ERR_VC=0.7;                         // поворот, где ошибаются: предел скорости в нём ниже этой доли потолка (тормозной, не «проезжаемый в пол»)
+const ERR_LEAD=30;                        // м до входа в поворот: здесь решается, будет ли ошибка
+const ERR_BACK=90;                        // м после выхода: возврат на линию и к своему темпу
+const ERR_OUT=1.0;                        // м: центр болида за белой линией в глубине ошибки — колёса снаружи на поребрике и за ним
+const ERR_WALL=1.6;                       // м: цель полосы — центр не ближе этого к стене по данным (полуширина болида 1.29 + зазор); точнее — errWallFit по видимой стене
+const ERR_GAP=0.15;                       // м: угол кузова (с доворотом) не ближе этого к ВИДИМОЙ стене — errWallFit
 const DIRTY_RANGE=18;                     // м: грязный воздух душит только вплотную, а не на всю длину струи
 const DIRTY_LOSS=0.05;                    // доля сцепления в повороте, теряемая вплотную за передним
 const TOW_LAT=6.0;                        // м поперёк: струя затухает к краю, а не обрывается — иначе она пропадает ровно в тот миг, когда болид вышел на обгон, и разгон из-за спины никогда не доводится до конца
@@ -6861,7 +6864,7 @@ function startRace(){document.getElementById('s-quali').classList.remove('active
     const cornerK=DIFF_GRIP[sel.diff];
     c.base=aiBase(gd.skill,diffMul)*(0.965+Math.random()*0.035);
     c.cornerK=aiGrip(gd.skill,cornerK)*(0.95+Math.random()*0.08);c.dist=-g.back;c.prevU=c.u;c.retired=false;c.retireAt=0;c.lapStart=undefined;
-    c.skill=gd.skill;c.errT=0;c.paceAvg=c.base;c.spdAvg=0;c.duel=null;c.duelT=0;      // сглаженный темп начинается со своего же, скорость — с нуля: на решётке все и правда стоят
+    c.skill=gd.skill;c.err=null;c.errI=undefined;c.paceAvg=c.base;c.spdAvg=0;c.duel=null;c.duelT=0;      // сглаженный темп начинается со своего же, скорость — с нуля: на решётке все и правда стоят
     scene.add(c.mesh);field.push(c);cars.push(c);});
   // reset race timing + fastest lap + smoke
   raceTime=0;fastestLap={time:Infinity,name:'',team:'',color:'',you:false,car:null};retireCount=0;
@@ -7098,23 +7101,27 @@ function update(dt){
        прибавку к прямолинейному потолку, грязный воздух снимает сцепление
        в повороте. Под нейтрализацией и на её подъезде выключено — см. TOW_RANGE. */
     const tf=(neutralAt(iu)||neutAhead(iu,c.speed))?null:towFactor(c);
-    /* Ошибка пилота — временная потеря темпа (ERR_RATE). Под нейтрализацией и на подъезде
+    /* Ошибка пилота — «проскочил поворот» (ERR_*, errCorners). Под нейтрализацией и на подъезде
        к зоне выключена: там потолок и так один на всех, а провалившийся ниже темпа
        нейтрализации законно объезжается — ошибка дарила бы места под флагом. */
-    let em=1;
+    let em=1;c.errPh=0;
     if(phase==='race'&&lights.go){
-      c.errPh=0;                                                        // доля ошибки 0..1: нарастает и спадает, поэтому темп не падает ступенькой
-      if(neutralAt(iu)||neutAhead(iu,c.speed))c.errT=0;                 // въехал под флаг — ошибка кончилась: под нейтрализацией болид обязан вернуться на линию и держать общий потолок
-      if(c.errT>0){c.errT-=dt;
-        c.errPh=Math.min(1,(ERR_DUR-c.errT)/ERR_RAMP,Math.max(0,c.errT)/ERR_RAMP);
-        em=1-(1-ERR_DEPTH)*c.errPh;}
-      else if(!neutralAt(iu)&&!neutAhead(iu,c.speed)&&raceTime>c.react+3){
-        const lapT=track.length/Math.max(20,c.base);                      // свой круг в секундах: частота задана НА КРУГ, а не на секунду, иначе длинные трассы ошибались бы чаще
-        if(Math.random()<ERR_RATE*dt/lapT*(1.02-(c.skill||0.9))/0.13)     // слабый ошибается чаще: 0.81 даёт 1.6 от средней частоты, 0.98 — 0.31
-          {c.errT=ERR_DUR;
-           let kk=0;for(let q=0;q<10;q++)kk+=track.K[(iu+q)%track.M];
-           c.errSide=-Math.sign(kk)||(Math.random()<0.5?-1:1);}   // НАРУЖУ поворота: широкий выход читается как ошибка, срез внутрь — нет
+      if(c.err){const e=c.err,x=c.dist-e.d0,sm=t=>t<=0?0:(t>=1?1:t*t*(3-2*t));
+        if(e.cut===undefined&&(neutralAt(iu)||neutAhead(iu,c.speed))){e.cut=x;e.ph0=e.ph||0;}   // въехал под флаг — темп сразу свой (общий потолок), а на линию — плавно: обрыв перебрасывал болид вбок за кадр
+        if(e.cut!==undefined){c.errPh=e.ph0*(1-(x-e.cut)/ERR_BACK);if(c.errPh<=0){c.errPh=0;c.err=null;}}
+        else if(x>=e.toEx+ERR_BACK)c.err=null;
+        else{const back=x>e.toEx?1-(x-e.toEx)/ERR_BACK:1;            // после выхода — назад на линию и к своему темпу
+          c.errPh=e.ph=Math.min(sm((x-e.lead)/Math.max(1,e.toAp-e.lead)),back);   // увод наружу: от входа (не довернул) до апекса
+          const sp=Math.min(sm((x-e.toAp)/Math.max(10,(e.toEx-e.toAp)*0.5)),back);   // темп теряется от апекса: в торможении он не раньше обычного
+          em=1-(1-ERR_DEPTH)*sp;}}
+      else if(c.errI!==undefined&&!neutralAt(iu)&&!neutAhead(iu,c.speed)&&raceTime>c.react+3&&!c.ovLock){
+        const ec=errCorners(),M=track.M,n=(iu-c.errI+M)%M;
+        if(n>0&&n<12)for(let q=1;q<=n;q++){const ci=ec.trig[(c.errI+q)%M];if(ci<0)continue;
+          if(Math.random()<ERR_RATE/ec.list.length*(1.02-(c.skill||0.9))/0.13){   // слабый ошибается чаще: 0.81 даёт 1.6 от средней частоты, 0.98 — 0.31
+            const C=ec.list[ci];c.err={d0:c.dist-(n-q)*track.length/M,side:C.side,lead:C.lead,toAp:C.toAp,toEx:C.toEx};c.duel=null;}
+          break;}
       }
+      c.errI=iu;
     }
     let free=aiTarget(iu,c.speed,c.base*em*(1+(tf?TOW_GAIN*tf.tow:0)),(c.cornerK||34)*em*(1-(tf?DIRTY_LOSS*tf.dirty:0)));   // pace if the road were clear
     if(em<1&&free<ERR_FLOOR)free=Math.min(ERR_FLOOR,aiTarget(iu,c.speed,c.base,c.cornerK||34));   // в шпильке доля от малого темпа уходит под порог вставшего — там ошибка не действует
@@ -7229,7 +7236,6 @@ function update(dt){
     // lane: hold your grid slot off the line, then settle into a single file on the racing line
     c.settle=Math.min(1,c.settle+dt/18);
     let want=line+c.laneJit;
-    if(c.errPh)want+=(c.errSide||1)*ERR_WIDE*c.errPh;                    // ошибка: уезжаем с гоночной линии наружу
     if(c.ovLock){const o=c.ovLock;                                           // committed to passing a stopped car: hold the line until actually past it
       if(o.retired||o.speed>c.pace*0.5||c.dist>o.dist+3.0||o.dist-c.dist>20)c.ovLock=null;   // without this the car drifts back to the racing line the moment it clears the 2.3 m "same lane" window, gets caught again and crawls behind forever
       else want=o.lane+c.ovDir*(o.isPlayer?Math.max(3.4,(o.spanX||1.285)+1.535):3.4);}   // вставшего игрока объезжаем по его ширине: две полуширины + 0.25 м
@@ -7271,6 +7277,13 @@ function update(dt){
        поперёк узкой трассы (Хунгароринг, hw 6) занимает половину дороги, и в hw·0.62 объезд
        не помещался — соперник подпирал его до 10 с. */
     const lim=hw*((c.duel&&!c.ovLock)?ATK_LIM:(c.ovLock&&c.ovLock.isPlayer?0.75:0.62));want=Math.max(-lim,Math.min(lim,want));   // атакующему шире: внутри обороняющегося обычного коридора не хватает на корпус — см. ATK_LIM
+    /* Ошибка «проскочил поворот»: цель — за белой линией СНАРУЖИ поворота, но не ближе ERR_WALL к стене.
+       Ставится ПОСЛЕ общего коридора: до v1.16.66 увод прибавлялся до него и обрезался по hw*0.62. */
+    let errOut=0;
+    if(c.errPh&&c.err){const WS=c.err.side>0?track.WR:track.WL,nA=Math.ceil((c.speed+8)/(track.length/track.M));
+      let W=1e9;for(let a=0;a<=nA;a++)W=Math.min(W,WS[(iu+a)%track.M]||1e9);   // стену — на секунду вперёд: выезд-карман (Сент-Девот) кончается стеной, и болид въезжал в её торец
+      errOut=Math.max(hw*0.62,Math.min(hw+ERR_OUT,W-ERR_WALL));
+      if(!c.ovLock&&c.err.cut===undefined)want+=(c.err.side*errOut-want)*c.errPh;}   // объезд вставшего и флаг важнее: туда не тянем, но предел полосы спадает плавно
     let eff=c.settle;
     if((c.ovLock||(c.ahd&&c.gp<20&&c.free>c.ahd.speed+1.0&&c.ahd.speed<6))&&raceTime>c.react+2.0)eff=Math.max(eff,0.92); // rolling up on a near-stopped car (not the grid launch): pull out now
     const mix=c.gridLane+(want-c.gridLane)*eff;
@@ -7293,7 +7306,8 @@ function update(dt){
         const sep=(player.spanX||1.285)+1.285+0.13, gNow=Math.abs(c.lane-player.lane), gMin=Math.min(gNow,sep);
         if(Math.abs(nl-player.lane)<gMin){const sd=Math.sign(c.lane-player.lane)||(c.ovSide||1);nl=player.lane+sd*gMin;}}}
     const mlat=8*dt;nl=Math.max(c.lane-mlat,Math.min(c.lane+mlat,nl));   // no car crosses the road faster than 8 m/s sideways: the push-apart rule alone reached 18, and at 60 m/s forward that is a 17-degree crab — the car slid sideways instead of steering
-    const hard=hw*(0.75+(ERR_LIM-0.75)*(c.errPh||0));c.lane=Math.max(-hard,Math.min(hard,nl));}   // ошибающийся выпускается за кромку
+    const hard=Math.max(hw*0.75,hw*0.75+(errOut-hw*0.75)*(c.errPh||0));c.lane=Math.max(-hard,Math.min(hard,nl));
+    if(c.errPh&&c.err&&c.lane*c.err.side>hw*0.62){const b=errWallBeyond(c,c.lane,c.err.side);if(b>-ERR_GAP)c.lane-=c.err.side*(b+ERR_GAP);}}   // ошибающийся выпускается за кромку
   // smoke drift/fade
   for(let i=smokes.length-1;i>=0;i--){const gsm=smokes[i];const age=raceTime-gsm.userData.born;gsm.position.y+=dt*0.35;
     const op=Math.max(0,0.5*(1-age/6));gsm.children.forEach(s=>{s.material.opacity=op;});if(age>6){scene.remove(gsm);smokes.splice(i,1);}}
@@ -7537,6 +7551,44 @@ function laneRoom(c,lane){let r=99;
 /* Точка входа в ближайший поворот впереди: сколько до неё точек разбивки и в какую
    сторону он загибается. Возвращает -1, если болид уже В повороте (тогда занимать
    позицию поздно), и -2, если впереди до горизонта чистая прямая. */
+/* Повороты, где соперник может «проскочить» (ERR_*): участки одного знака кривизны круче
+   ATK_ENTRY_K, предел скорости в апексе ниже ERR_VC потолка. side — НАРУЖНАЯ сторона в мерке lane
+   (lane — метры вправо; K<0 — правый поворот, его внешняя сторона слева, то есть side=sign(K)).
+   trig[i] — номер поворота, чья точка решения (ERR_LEAD до входа) лежит в точке i, иначе -1.
+   Считается раз на трассу и только из данных трассы: Math.random не трогает. */
+/* Насколько угол кузова ошибающегося соперника заходит за ВИДИМЫЙ отбойник (м, <0 — не доходит).
+   Видимая стена — лента по точкам P±R·W, разрыв ленты — перемычкой (spanPath), как её строит игра и меряет
+   пробник wallvis. Стена по данным (W поперёк осевой) дальше видимой, а нос с доворотом кузова (crab до 0.2 рад)
+   выступает вбок на 0.35 м сверх полуширины: без этой мерки углы заходили в борт до 0.39 м (Майами, v1.16.66). */
+function errWallBeyond(c,lane,sg){const M=track.M,fi=(((c.u%1)+1)%1)*M,i=Math.floor(fi)%M,i2=(i+1)%M,tt=fi-Math.floor(fi),W=sg>0?track.WR:track.WL,V=sg>0?track.VR:track.VL,segs=[];
+  const pt=j=>[track.P[j].x+track.R[j].x*sg*W[j],track.P[j].z+track.R[j].z*sg*W[j]];
+  for(let k=-8;k<=8;k++){const j=(i+k+M)%M,j2=(j+1)%M;if(V&&!V[j])continue;
+    if(!V||V[j2]){segs.push([pt(j),pt(j2),j]);continue;}
+    let len=0;while(len<M&&!V[(j2+len)%M])len++;const path=spanPath(sg,W,j2,len);
+    for(let q=0;q+1<path.length;q++)segs.push([path[q],path[q+1],j]);}
+  const P=track.P[i].clone().lerp(track.P[i2],tt),R=track.R[i].clone().lerp(track.R[i2],tt).normalize(),F=track.F[i].clone().lerp(track.F[i2],tt);   // положение — как в placeAI: машина стоит между точками, в повороте стена в 4 м дальше уже ближе
+  const cx=P.x+R.x*lane,cz=P.z+R.z*lane,yaw=Math.atan2(F.x,F.z)-(c.crab||0),s=Math.sin(yaw),co=Math.cos(yaw);
+  let worst=-9;
+  for(const wc of [[1.05,2.0],[-1.05,2.0],[1.05,-1.7],[-1.05,-1.7],[1.0,3.25],[-1.0,3.25],[0.78,-2.55],[-0.78,-2.55]]){
+    const x=cx+wc[0]*co+wc[1]*s,z=cz-wc[0]*s+wc[1]*co;let best=3,bs=-9;
+    for(const sgm of segs){const ax=sgm[0][0],az=sgm[0][1],ux=sgm[1][0]-ax,uz=sgm[1][1]-az,L2=ux*ux+uz*uz;if(L2<1e-9)continue;
+      let t=((x-ax)*ux+(z-az)*uz)/L2;t=t<0?0:t>1?1:t;const d=Math.hypot(x-ax-ux*t,z-az-uz*t);
+      if(d<best){best=d;const Q=track.P[sgm[2]],cr=ux*(z-az)-uz*(x-ax),cref=ux*(Q.z-az)-uz*(Q.x-ax);bs=(cr*cref<0)?d:-d;}}
+    if(bs>worst)worst=bs;}
+  return worst;}
+function errCorners(){if(track._errC)return track._errC;
+  const M=track.M,K=track.K,seg=track.length/M,KIN=ATK_ENTRY_K,list=[],trig=new Int16Array(M).fill(-1);
+  let i0=0;while(i0<M&&Math.abs(K[i0])>KIN)i0++;
+  for(let q=0;q<M;q++){const i=(i0+q)%M;if(Math.abs(K[i])<=KIN)continue;
+    const sg=Math.sign(K[i]);let b=q;while(b+1<M&&Math.abs(K[(i0+b+1)%M])>KIN&&Math.sign(K[(i0+b+1)%M])===sg)b++;
+    let km=0,ap=q;for(let z=q;z<=b;z++){const k=Math.abs(K[(i0+z)%M]);if(k>km){km=k;ap=z;}}
+    const apI=(i0+ap)%M;
+    if(aiCornerV(24/km+halfAt(apI)*0.8)<MAXSPEED*track.grip*ERR_VC){
+      const lead=Math.round(ERR_LEAD/seg),t=(i0+q-lead+M)%M;
+      if(trig[t]<0){trig[t]=list.length;
+        list.push({side:sg,ap:apI,lead:lead*seg,toAp:lead*seg+(ap-q)*seg,toEx:lead*seg+(b-q+1)*seg});}}
+    q=b;}
+  return track._errC={list:list,trig:trig};}
 function entryAhead(i){const M=track.M;
   if(Math.abs(track.K[i])>ATK_ENTRY_K)return -1;
   for(let a=1;a<=ATK_ENTRY_LOOK;a++){if(Math.abs(track.K[(i+a)%M])>ATK_ENTRY_K)return a;}
