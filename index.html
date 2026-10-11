@@ -178,7 +178,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.16.67</div>
+    <div class="verstamp">v1.16.68</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -677,15 +677,23 @@ const TOW_GAIN=0.06;                      // доля потолка, приба
    до входа, болид не доворачивает и к апексу уезжает НАРУЖУ за белую линию, теряет темп от апекса
    до выхода и возвращается за ERR_BACK. Тормозит он при этом не раньше обычного — резкого
    «стоп-крана» перед игроком нет (та жалоба v1.15.75). Под флагом и на подъезде к зоне — нет. */
-const ERR_RATE=0.40;                      // ошибок на пилота за круг у СРЕДНЕГО по силе; делится поровну между тормозными поворотами круга (errCorners)
-const ERR_DEPTH=0.60;                     // доля темпа в глубине ошибки — от апекса до выхода
+const ERR_RATE=0.14;                      // ошибок на пилота за круг у СРЕДНЕГО по силе (v1.16.68: втрое реже — владелец «многовато для Ф-1»; было 0.40); делится поровну между тормозными поворотами круга (errCorners)
+const ERR_DEPTH=0.30;                     // доля темпа в глубине ошибки — от апекса до выхода (v1.16.68: крупнее, было 0.60)
 const ERR_FLOOR=9;                        // м/с: ниже не опускаем. Порог вставшего NEUT_STOPPED=6, и провалившийся под него болид законно объезжается всем полем — ошибка не должна превращаться в это
 const ERR_VC=0.7;                         // поворот, где ошибаются: предел скорости в нём ниже этой доли потолка (тормозной, не «проезжаемый в пол»)
 const ERR_LEAD=30;                        // м до входа в поворот: здесь решается, будет ли ошибка
-const ERR_BACK=90;                        // м после выхода: возврат на линию и к своему темпу
-const ERR_OUT=1.0;                        // м: центр болида за белой линией в глубине ошибки — колёса снаружи на поребрике и за ним
+const ERR_BACK=150;                       // м после выхода: возврат на линию и к своему темпу (v1.16.68: было 90)
+const ERR_OUT=1.5;                        // м: центр болида за белой линией в глубине ошибки (v1.16.68: было 1.0) — колёса снаружи на поребрике и за ним
 const ERR_WALL=1.6;                       // м: цель полосы — центр не ближе этого к стене по данным (полуширина болида 1.29 + зазор); точнее — errWallFit по видимой стене
 const ERR_GAP=0.15;                       // м: угол кузова (с доворотом) не ближе этого к ВИДИМОЙ стене — errWallFit
+/* ОБЛАЧКО БЛОКИРОВКИ (В1, v1.16.68, решение владельца 11.10.2026): ошибающийся перетормаживает перед поворотом —
+   из-под ВНУТРЕННЕГО переднего колеса три клуба дыма за последние ~20 м до входа. Клуб — один меш (5 сфер в одной
+   геометрии), матовый, без света: ~1 вызов на клуб, пока он виден; на iPad держит видеокарта, поэтому клуб с машину
+   и тает, если камера в него въезжает. Math.random не трогает — форма и разлёт от номера клуба. */
+const PUFF_LIFE=1.3;                      // с: клуб живёт и тает
+const PUFF_N=9;                           // клубов в пуле на трассу: три ошибки разом, старший переиспользуется
+const PUFF_NEAR=6;                        // м: ближе к камере клуб тает до нуля — полупрозрачное во весь экран дорого видеокарте
+const PUFF_RANGE=400;                     // м от камеры: дальше клуб не ставим, пул бережём для видимых
 const DIRTY_RANGE=18;                     // м: грязный воздух душит только вплотную, а не на всю длину струи
 const DIRTY_LOSS=0.05;                    // доля сцепления в повороте, теряемая вплотную за передним
 const TOW_LAT=6.0;                        // м поперёк: струя затухает к краю, а не обрывается — иначе она пропадает ровно в тот миг, когда болид вышел на обгон, и разгон из-за спины никогда не доводится до конца
@@ -7113,7 +7121,10 @@ function update(dt){
         else{const back=x>e.toEx?1-(x-e.toEx)/ERR_BACK:1;            // после выхода — назад на линию и к своему темпу
           c.errPh=e.ph=Math.min(sm((x-e.lead)/Math.max(1,e.toAp-e.lead)),back);   // увод наружу: от входа (не довернул) до апекса
           const sp=Math.min(sm((x-e.toAp)/Math.max(10,(e.toEx-e.toAp)*0.5)),back);   // темп теряется от апекса: в торможении он не раньше обычного
-          em=1-(1-ERR_DEPTH)*sp;}}
+          em=1-(1-ERR_DEPTH)*sp;
+          const pn=e.pf||0;if(pn<3&&x>=e.lead-18+pn*8){e.pf=pn+1;   // клубы блокировки на 18, 10 и 2 м до входа (PUFF_*)
+            if(cam&&Math.hypot(c.x-cam.position.x,c.z-cam.position.z)<PUFF_RANGE){const F=track.F[iu],R=track.R[iu],ws=-e.side*1.05;
+              puffAt(c.x+F.x*2.0+R.x*ws,c.mesh.position.y+0.1,c.z+F.z*2.0+R.z*ws,c.num*3+pn);}}}}
       else if(c.errI!==undefined&&!neutralAt(iu)&&!neutAhead(iu,c.speed)&&raceTime>c.react+3&&!c.ovLock){
         const ec=errCorners(),M=track.M,n=(iu-c.errI+M)%M;
         if(n>0&&n<12)for(let q=1;q<=n;q++){const ci=ec.trig[(c.errI+q)%M];if(ci<0)continue;
@@ -7211,7 +7222,7 @@ function update(dt){
       target*=1-OFFLINE_COST*dev*Math.min(1,Math.abs(kA)/0.06);}
     if(phase==='race'&&raceTime<c.react){}                       // still reacting to the lights going out
     else if(c.speed<target)c.speed+=Math.min(target-c.speed,13.5*Math.max(0.14,1-0.85*c.speed/MAXSPEED)*dt);
-    else c.speed+=(target-c.speed)*Math.min(1,dt*3.0);
+    else c.speed+=(c.err&&c.err.cut===undefined)?Math.max((target-c.speed)*Math.min(1,dt*3.0),-AIBRAKE*dt):(target-c.speed)*Math.min(1,dt*3.0);   // ошибающийся не тормозит сильнее своих тормозов: глубокая ошибка (v1.16.68) давала до 61 м/с² — «стоп-кран» перед игроком
     if(sameLine){                        // never drive through: limit closing speed to the gap left
       const d=ahd.dist-c.dist-CAR_LEN-0.26;   // 6.30 m: the hull is 6.04, and at the old 5.2 a braking queue squeezed the follower's nose ~1 m INSIDE the car ahead
       /* ПОД ФЛАГОМ и на подъезде к зоне правило остаётся прежним, и это замер, а не осторожность.
@@ -7308,6 +7319,7 @@ function update(dt){
     const mlat=8*dt;nl=Math.max(c.lane-mlat,Math.min(c.lane+mlat,nl));   // no car crosses the road faster than 8 m/s sideways: the push-apart rule alone reached 18, and at 60 m/s forward that is a 17-degree crab — the car slid sideways instead of steering
     const hard=Math.max(hw*0.75,hw*0.75+(errOut-hw*0.75)*(c.errPh||0));c.lane=Math.max(-hard,Math.min(hard,nl));
     if(c.errPh&&c.err&&c.lane*c.err.side>hw*0.62){const b=errWallBeyond(c,c.lane,c.err.side);if(b>-ERR_GAP)c.lane-=c.err.side*(b+ERR_GAP);}}   // ошибающийся выпускается за кромку
+  puffUpdate();                                                      // клубы блокировки ошибающихся (PUFF_*)
   // smoke drift/fade
   for(let i=smokes.length-1;i>=0;i--){const gsm=smokes[i];const age=raceTime-gsm.userData.born;gsm.position.y+=dt*0.35;
     const op=Math.max(0,0.5*(1-age/6));gsm.children.forEach(s=>{s.material.opacity=op;});if(age>6){scene.remove(gsm);smokes.splice(i,1);}}
@@ -7556,6 +7568,26 @@ function laneRoom(c,lane){let r=99;
    (lane — метры вправо; K<0 — правый поворот, его внешняя сторона слева, то есть side=sign(K)).
    trig[i] — номер поворота, чья точка решения (ERR_LEAD до входа) лежит в точке i, иначе -1.
    Считается раз на трассу и только из данных трассы: Math.random не трогает. */
+/* Пул клубов дыма блокировки (PUFF_*). Живёт на объекте трассы: новая трасса — новый пул, старый уходит вместе
+   со сценой (clearScene → disposeTree). Геометрия одна на пул: 5 сфер с разлётом по формуле. */
+function puffPool(){if(track._puffs&&track._puffs.list[0].parent===scene)return track._puffs;   // сцену очистили без новой трассы — пул собирается заново
+  const pos=[],src=new THREE.IcosahedronGeometry(1,1),sg=src.index?src.toNonIndexed():src,a=sg.attributes.position.array;
+  for(let b=0;b<5;b++){const r=0.42+0.12*((b*37)%5)/4,ox=0.35*Math.cos(b*2.4),oy=0.25+0.18*b,oz=0.45*Math.sin(b*2.4);
+    for(let k=0;k<a.length;k+=3)pos.push(a[k]*r+ox,a[k+1]*r*0.8+oy,a[k+2]*r+oz);}
+  src.dispose();if(sg!==src)sg.dispose();
+  const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+  const list=[];
+  for(let n=0;n<PUFF_N;n++){const m=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({color:'#d9d9d6',transparent:true,opacity:0,depthWrite:false}));
+    m.visible=false;m.frustumCulled=true;m.userData={born:-1e9};scene.add(m);list.push(m);}
+  return track._puffs={list:list,next:0};}
+function puffAt(x,y,z,k){const P=puffPool(),m=P.list[P.next];P.next=(P.next+1)%PUFF_N;
+  m.position.set(x,y,z);m.rotation.set(0,k*1.7,0);m.userData={born:raceTime,y0:y,k:k};m.visible=true;m.scale.setScalar(0.5);}
+function puffUpdate(){const P=track._puffs;if(!P)return;
+  for(const m of P.list){if(!m.visible)continue;const age=raceTime-m.userData.born;
+    if(age<0||age>PUFF_LIFE){m.visible=false;continue;}
+    const t=age/PUFF_LIFE;m.scale.setScalar(0.5+1.4*Math.sqrt(t));m.position.y=m.userData.y0+0.7*t;
+    const dc=cam?cam.position.distanceTo(m.position):99,near=Math.max(0,Math.min(1,(dc-PUFF_NEAR*0.5)/(PUFF_NEAR*0.5)));
+    m.material.opacity=0.55*Math.min(1,age/0.08)*Math.pow(1-t,1.5)*near;}}
 /* Насколько угол кузова ошибающегося соперника заходит за ВИДИМЫЙ отбойник (м, <0 — не доходит).
    Видимая стена — лента по точкам P±R·W, разрыв ленты — перемычкой (spanPath), как её строит игра и меряет
    пробник wallvis. Стена по данным (W поперёк осевой) дальше видимой, а нос с доворотом кузова (crab до 0.2 рад)
