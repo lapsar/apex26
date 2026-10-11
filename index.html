@@ -178,7 +178,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.16.66</div>
+    <div class="verstamp">v1.16.67</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -684,7 +684,8 @@ const ERR_VC=0.7;                         // поворот, где ошибаю
 const ERR_LEAD=30;                        // м до входа в поворот: здесь решается, будет ли ошибка
 const ERR_BACK=90;                        // м после выхода: возврат на линию и к своему темпу
 const ERR_OUT=1.0;                        // м: центр болида за белой линией в глубине ошибки — колёса снаружи на поребрике и за ним
-const ERR_WALL=1.6;                       // м: центр не ближе этого к стене (полуширина болида 1.29 + зазор) — у Монако стена в метре от линии
+const ERR_WALL=1.6;                       // м: цель полосы — центр не ближе этого к стене по данным (полуширина болида 1.29 + зазор); точнее — errWallFit по видимой стене
+const ERR_GAP=0.15;                       // м: угол кузова (с доворотом) не ближе этого к ВИДИМОЙ стене — errWallFit
 const DIRTY_RANGE=18;                     // м: грязный воздух душит только вплотную, а не на всю длину струи
 const DIRTY_LOSS=0.05;                    // доля сцепления в повороте, теряемая вплотную за передним
 const TOW_LAT=6.0;                        // м поперёк: струя затухает к краю, а не обрывается — иначе она пропадает ровно в тот миг, когда болид вышел на обгон, и разгон из-за спины никогда не доводится до конца
@@ -7305,7 +7306,8 @@ function update(dt){
         const sep=(player.spanX||1.285)+1.285+0.13, gNow=Math.abs(c.lane-player.lane), gMin=Math.min(gNow,sep);
         if(Math.abs(nl-player.lane)<gMin){const sd=Math.sign(c.lane-player.lane)||(c.ovSide||1);nl=player.lane+sd*gMin;}}}
     const mlat=8*dt;nl=Math.max(c.lane-mlat,Math.min(c.lane+mlat,nl));   // no car crosses the road faster than 8 m/s sideways: the push-apart rule alone reached 18, and at 60 m/s forward that is a 17-degree crab — the car slid sideways instead of steering
-    const hard=Math.max(hw*0.75,hw*0.75+(errOut-hw*0.75)*(c.errPh||0));c.lane=Math.max(-hard,Math.min(hard,nl));}   // ошибающийся выпускается за кромку
+    const hard=Math.max(hw*0.75,hw*0.75+(errOut-hw*0.75)*(c.errPh||0));c.lane=Math.max(-hard,Math.min(hard,nl));
+    if(c.errPh&&c.err&&c.lane*c.err.side>hw*0.62){const b=errWallBeyond(c,c.lane,c.err.side);if(b>-ERR_GAP)c.lane-=c.err.side*(b+ERR_GAP);}}   // ошибающийся выпускается за кромку
   // smoke drift/fade
   for(let i=smokes.length-1;i>=0;i--){const gsm=smokes[i];const age=raceTime-gsm.userData.born;gsm.position.y+=dt*0.35;
     const op=Math.max(0,0.5*(1-age/6));gsm.children.forEach(s=>{s.material.opacity=op;});if(age>6){scene.remove(gsm);smokes.splice(i,1);}}
@@ -7554,6 +7556,26 @@ function laneRoom(c,lane){let r=99;
    (lane — метры вправо; K<0 — правый поворот, его внешняя сторона слева, то есть side=sign(K)).
    trig[i] — номер поворота, чья точка решения (ERR_LEAD до входа) лежит в точке i, иначе -1.
    Считается раз на трассу и только из данных трассы: Math.random не трогает. */
+/* Насколько угол кузова ошибающегося соперника заходит за ВИДИМЫЙ отбойник (м, <0 — не доходит).
+   Видимая стена — лента по точкам P±R·W, разрыв ленты — перемычкой (spanPath), как её строит игра и меряет
+   пробник wallvis. Стена по данным (W поперёк осевой) дальше видимой, а нос с доворотом кузова (crab до 0.2 рад)
+   выступает вбок на 0.35 м сверх полуширины: без этой мерки углы заходили в борт до 0.39 м (Майами, v1.16.66). */
+function errWallBeyond(c,lane,sg){const M=track.M,fi=(((c.u%1)+1)%1)*M,i=Math.floor(fi)%M,i2=(i+1)%M,tt=fi-Math.floor(fi),W=sg>0?track.WR:track.WL,V=sg>0?track.VR:track.VL,segs=[];
+  const pt=j=>[track.P[j].x+track.R[j].x*sg*W[j],track.P[j].z+track.R[j].z*sg*W[j]];
+  for(let k=-8;k<=8;k++){const j=(i+k+M)%M,j2=(j+1)%M;if(V&&!V[j])continue;
+    if(!V||V[j2]){segs.push([pt(j),pt(j2),j]);continue;}
+    let len=0;while(len<M&&!V[(j2+len)%M])len++;const path=spanPath(sg,W,j2,len);
+    for(let q=0;q+1<path.length;q++)segs.push([path[q],path[q+1],j]);}
+  const P=track.P[i].clone().lerp(track.P[i2],tt),R=track.R[i].clone().lerp(track.R[i2],tt).normalize(),F=track.F[i].clone().lerp(track.F[i2],tt);   // положение — как в placeAI: машина стоит между точками, в повороте стена в 4 м дальше уже ближе
+  const cx=P.x+R.x*lane,cz=P.z+R.z*lane,yaw=Math.atan2(F.x,F.z)-(c.crab||0),s=Math.sin(yaw),co=Math.cos(yaw);
+  let worst=-9;
+  for(const wc of [[1.05,2.0],[-1.05,2.0],[1.05,-1.7],[-1.05,-1.7],[1.0,3.25],[-1.0,3.25],[0.78,-2.55],[-0.78,-2.55]]){
+    const x=cx+wc[0]*co+wc[1]*s,z=cz-wc[0]*s+wc[1]*co;let best=3,bs=-9;
+    for(const sgm of segs){const ax=sgm[0][0],az=sgm[0][1],ux=sgm[1][0]-ax,uz=sgm[1][1]-az,L2=ux*ux+uz*uz;if(L2<1e-9)continue;
+      let t=((x-ax)*ux+(z-az)*uz)/L2;t=t<0?0:t>1?1:t;const d=Math.hypot(x-ax-ux*t,z-az-uz*t);
+      if(d<best){best=d;const Q=track.P[sgm[2]],cr=ux*(z-az)-uz*(x-ax),cref=ux*(Q.z-az)-uz*(Q.x-ax);bs=(cr*cref<0)?d:-d;}}
+    if(bs>worst)worst=bs;}
+  return worst;}
 function errCorners(){if(track._errC)return track._errC;
   const M=track.M,K=track.K,seg=track.length/M,KIN=ATK_ENTRY_K,list=[],trig=new Int16Array(M).fill(-1);
   let i0=0;while(i0<M&&Math.abs(K[i0])>KIN)i0++;
