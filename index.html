@@ -178,7 +178,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.16.69</div>
+    <div class="verstamp">v1.16.70</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -7750,8 +7750,10 @@ let towerT=0;
    средней): штраф +5 с пропускал вперёд только отстававших на ~3.7 с. Таблица — кольцо на TM_LAPS кругов, ячейка помнит
    номер своей отметки — чужой круг не читается. Прыжок дистанции (срезка) заполняется промежуточным временем; задний ход
    — отметка перезаписывается при новом проезде (последний проезд). Нет записи (старт: соседа впереди не было позади
-   его места на решётке; дальше кольца) — прежняя мерка. Только показ и итог при штрафе: езда и Math.random его не читают. */
-const TM_STEP=2,TM_LAPS=2;
+   его места на решётке; дальше кольца) — прежняя мерка. Только показ и итог при штрафе: езда и Math.random его не читают.
+   Шаг 0.5 м (v1.16.70; было 2): между отметками скорость считается ровной, а болид, ползущий по шпильке Лёвс на 2–6 м/с,
+   за 2 м успевает и затормозить, и разогнаться — отставание за ним врало до 0.03–0.15 с (пробник gap, допуск 0.02). */
+const TM_STEP=0.5,TM_LAPS=2;
 function tmInit(c){const n=Math.ceil(track.length*TM_LAPS/TM_STEP)+2;
   c.tm={n,k:new Int32Array(n).fill(-2147483648),t:new Float64Array(n),pd:c.dist,pt:raceTime};}   // pd/pt — последняя запись: дистанция и время
 function tmRecord(c){const m=c.tm;if(!m)return;const d=c.dist;   // зовётся в начале кадра: положение болидов — на момент raceTime
