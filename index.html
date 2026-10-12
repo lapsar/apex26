@@ -178,7 +178,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.16.68</div>
+    <div class="verstamp">v1.16.69</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -686,14 +686,21 @@ const ERR_BACK=150;                       // м после выхода: воз�
 const ERR_OUT=1.5;                        // м: центр болида за белой линией в глубине ошибки (v1.16.68: было 1.0) — колёса снаружи на поребрике и за ним
 const ERR_WALL=1.6;                       // м: цель полосы — центр не ближе этого к стене по данным (полуширина болида 1.29 + зазор); точнее — errWallFit по видимой стене
 const ERR_GAP=0.15;                       // м: угол кузова (с доворотом) не ближе этого к ВИДИМОЙ стене — errWallFit
-/* ОБЛАЧКО БЛОКИРОВКИ (В1, v1.16.68, решение владельца 11.10.2026): ошибающийся перетормаживает перед поворотом —
-   из-под ВНУТРЕННЕГО переднего колеса три клуба дыма за последние ~20 м до входа. Клуб — один меш (5 сфер в одной
-   геометрии), матовый, без света: ~1 вызов на клуб, пока он виден; на iPad держит видеокарта, поэтому клуб с машину
-   и тает, если камера в него въезжает. Math.random не трогает — форма и разлёт от номера клуба. */
-const PUFF_LIFE=1.3;                      // с: клуб живёт и тает
-const PUFF_N=9;                           // клубов в пуле на трассу: три ошибки разом, старший переиспользуется
-const PUFF_NEAR=6;                        // м: ближе к камере клуб тает до нуля — полупрозрачное во весь экран дорого видеокарте
-const PUFF_RANGE=400;                     // м от камеры: дальше клуб не ставим, пул бережём для видимых
+/* ДЫМ БЛОКИРОВКИ (v1.16.69, владелец 12.10.2026 по кадрам Баку и Майами: «юбка» и шлейф, оба передних колеса, гуще —
+   у заблокированного). Ошибающийся «держит» колёса ~50 м пути от точки решения (ERR_LEAD до входа) — около секунды:
+   каждые SMOKE_STEP м пути у ВНУТРЕННЕГО переднего колеса частица шлейфа и частица «юбки» (разлёт вбок от шины),
+   у внешнего — слабее и через шаг. Частица — квадрат с мягкой текстурой, всегда к камере; весь дым трассы — ОДИН меш
+   (один вызов, вершинный цвет с прозрачностью). Место — по ВИДИМОМУ кузову ПОСЛЕ placeAI (smokeFlush): по c.x/c.z
+   до перемещения дым вставал на ~1 м позади передней оси, а проявление за 0.06 с уводило его за заднее колесо (v1.16.68).
+   Ближе SMOKE_NEAR к камере тает — болид сзади едет сквозь шлейф, полупрозрачное во весь экран дорого видеокарте iPad.
+   Math.random не трогает: форма и разлёт — от номера частицы. В тоннеле темнее, как его стены (TUN_WALL). */
+const SMOKE_N=192;                        // частиц в пуле на трассу: ошибка даёт ~95, две разом; старшая переиспользуется
+const SMOKE_STEP=1.6;                     // м пути между частицами одного колеса
+const SMOKE_LOCK=50;                      // м пути с заблокированными колёсами (~1 с, кадры Баку 2026)
+const SMOKE_LIFE=2.2;                     // с: частица шлейфа живёт, растёт до ~4 м и тает
+const SMOKE_SKIRT=0.9;                    // с: частица «юбки» — короче, плотнее, разлетается вбок от шины
+const SMOKE_NEAR=8;                       // м: ближе к камере частица тает до нуля (с половины этого расстояния)
+const SMOKE_RANGE=400;                    // м от камеры: дальше дым не ставим, пул бережём для видимых
 const DIRTY_RANGE=18;                     // м: грязный воздух душит только вплотную, а не на всю длину струи
 const DIRTY_LOSS=0.05;                    // доля сцепления в повороте, теряемая вплотную за передним
 const TOW_LAT=6.0;                        // м поперёк: струя затухает к краю, а не обрывается — иначе она пропадает ровно в тот миг, когда болид вышел на обгон, и разгон из-за спины никогда не доводится до конца
@@ -7122,9 +7129,8 @@ function update(dt){
           c.errPh=e.ph=Math.min(sm((x-e.lead)/Math.max(1,e.toAp-e.lead)),back);   // увод наружу: от входа (не довернул) до апекса
           const sp=Math.min(sm((x-e.toAp)/Math.max(10,(e.toEx-e.toAp)*0.5)),back);   // темп теряется от апекса: в торможении он не раньше обычного
           em=1-(1-ERR_DEPTH)*sp;
-          const pn=e.pf||0;if(pn<3&&x>=e.lead-18+pn*8){e.pf=pn+1;   // клубы блокировки на 18, 10 и 2 м до входа (PUFF_*)
-            if(cam&&Math.hypot(c.x-cam.position.x,c.z-cam.position.z)<PUFF_RANGE){const F=track.F[iu],R=track.R[iu],ws=-e.side*1.05;
-              puffAt(c.x+F.x*2.0+R.x*ws,c.mesh.position.y+0.1,c.z+F.z*2.0+R.z*ws,c.num*3+pn);}}}}
+          if(x>=2&&x<=Math.min(e.toEx,2+SMOKE_LOCK)&&(e.pf===undefined||x>=e.pf)){const pn=e.pn||0;e.pf=x+SMOKE_STEP;e.pn=pn+1;   // дым блокировки (SMOKE_*)
+            if(cam&&Math.hypot(c.x-cam.position.x,c.z-cam.position.z)<SMOKE_RANGE)smokeQ.push({c:c,iu:iu,side:e.side,pn:pn});}}}
       else if(c.errI!==undefined&&!neutralAt(iu)&&!neutAhead(iu,c.speed)&&raceTime>c.react+3&&!c.ovLock){
         const ec=errCorners(),M=track.M,n=(iu-c.errI+M)%M;
         if(n>0&&n<12)for(let q=1;q<=n;q++){const ci=ec.trig[(c.errI+q)%M];if(ci<0)continue;
@@ -7319,11 +7325,10 @@ function update(dt){
     const mlat=8*dt;nl=Math.max(c.lane-mlat,Math.min(c.lane+mlat,nl));   // no car crosses the road faster than 8 m/s sideways: the push-apart rule alone reached 18, and at 60 m/s forward that is a 17-degree crab — the car slid sideways instead of steering
     const hard=Math.max(hw*0.75,hw*0.75+(errOut-hw*0.75)*(c.errPh||0));c.lane=Math.max(-hard,Math.min(hard,nl));
     if(c.errPh&&c.err&&c.lane*c.err.side>hw*0.62){const b=errWallBeyond(c,c.lane,c.err.side);if(b>-ERR_GAP)c.lane-=c.err.side*(b+ERR_GAP);}}   // ошибающийся выпускается за кромку
-  puffUpdate();                                                      // клубы блокировки ошибающихся (PUFF_*)
   // smoke drift/fade
   for(let i=smokes.length-1;i>=0;i--){const gsm=smokes[i];const age=raceTime-gsm.userData.born;gsm.position.y+=dt*0.35;
     const op=Math.max(0,0.5*(1-age/6));gsm.children.forEach(s=>{s.material.opacity=op;});if(age>6){scene.remove(gsm);smokes.splice(i,1);}}
-  placePlayer(player);field.forEach(c=>placeAI(c,dt));carContacts(dt);carContacts(dt);placePlayer(player);updateCarLOD();   // rivals move first, then push the player out of them: otherwise they slide through sideways
+  placePlayer(player);field.forEach(c=>placeAI(c,dt));carContacts(dt);carContacts(dt);placePlayer(player);updateCarLOD();smokeFlush();smokeUpdate();   // дым — по уже передвинутым кузовам (SMOKE_*); rivals move first, then push the player out of them: otherwise they slide through sideways
   updateCamera(dt);render();updateHUD();
 }
 const CAR_LEN=6.04, CAR_WID=2.57;                       // real hull, the same numbers the contact oval is built on
@@ -7568,26 +7573,58 @@ function laneRoom(c,lane){let r=99;
    (lane — метры вправо; K<0 — правый поворот, его внешняя сторона слева, то есть side=sign(K)).
    trig[i] — номер поворота, чья точка решения (ERR_LEAD до входа) лежит в точке i, иначе -1.
    Считается раз на трассу и только из данных трассы: Math.random не трогает. */
-/* Пул клубов дыма блокировки (PUFF_*). Живёт на объекте трассы: новая трасса — новый пул, старый уходит вместе
-   со сценой (clearScene → disposeTree). Геометрия одна на пул: 5 сфер с разлётом по формуле. */
-function puffPool(){if(track._puffs&&track._puffs.list[0].parent===scene)return track._puffs;   // сцену очистили без новой трассы — пул собирается заново
-  const pos=[],src=new THREE.IcosahedronGeometry(1,1),sg=src.index?src.toNonIndexed():src,a=sg.attributes.position.array;
-  for(let b=0;b<5;b++){const r=0.42+0.12*((b*37)%5)/4,ox=0.35*Math.cos(b*2.4),oy=0.25+0.18*b,oz=0.45*Math.sin(b*2.4);
-    for(let k=0;k<a.length;k+=3)pos.push(a[k]*r+ox,a[k+1]*r*0.8+oy,a[k+2]*r+oz);}
-  src.dispose();if(sg!==src)sg.dispose();
-  const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
-  const list=[];
-  for(let n=0;n<PUFF_N;n++){const m=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({color:'#d9d9d6',transparent:true,opacity:0,depthWrite:false}));
-    m.visible=false;m.frustumCulled=true;m.userData={born:-1e9};scene.add(m);list.push(m);}
-  return track._puffs={list:list,next:0};}
-function puffAt(x,y,z,k){const P=puffPool(),m=P.list[P.next];P.next=(P.next+1)%PUFF_N;
-  m.position.set(x,y,z);m.rotation.set(0,k*1.7,0);m.userData={born:raceTime,y0:y,k:k};m.visible=true;m.scale.setScalar(0.5);}
-function puffUpdate(){const P=track._puffs;if(!P)return;
-  for(const m of P.list){if(!m.visible)continue;const age=raceTime-m.userData.born;
-    if(age<0||age>PUFF_LIFE){m.visible=false;continue;}
-    const t=age/PUFF_LIFE;m.scale.setScalar(0.5+1.4*Math.sqrt(t));m.position.y=m.userData.y0+0.7*t;
-    const dc=cam?cam.position.distanceTo(m.position):99,near=Math.max(0,Math.min(1,(dc-PUFF_NEAR*0.5)/(PUFF_NEAR*0.5)));
-    m.material.opacity=0.55*Math.min(1,age/0.08)*Math.pow(1-t,1.5)*near;}}
+/* Дым блокировки (SMOKE_*). Пул живёт на объекте трассы: новая трасса — новый пул, старый уходит вместе со сценой
+   (clearScene → disposeTree, текстура тоже). Один меш на всю трассу: SMOKE_N квадратов, вершины пересчитываются
+   каждый кадр лицом к камере; погасшая частица — вырожденный квадрат в нуле (видеокарте ничего не стоит). */
+const smokeQ=[];                          // заявки кадра: ставятся после placeAI по видимому кузову (smokeFlush)
+function smokeTex(){const cv=document.createElement('canvas');cv.width=cv.height=64;const g=cv.getContext('2d');   // мягкий клуб без шума: Math.random не трогаем
+  const blob=(x,y,r,a)=>{const gr=g.createRadialGradient(x,y,0,x,y,r);gr.addColorStop(0,'rgba(255,255,255,'+a+')');
+    gr.addColorStop(0.6,'rgba(255,255,255,'+(a*0.6)+')');gr.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=gr;g.fillRect(0,0,64,64);};
+  blob(32,32,30,0.95);for(let b=0;b<6;b++)blob(32+11*Math.cos(b*2.4),32+9*Math.sin(b*2.4),13+3*(b%3),0.35);
+  return new THREE.CanvasTexture(cv);}
+function smokePool(){if(track._smoke&&track._smoke.mesh.parent===scene)return track._smoke;   // сцену очистили без новой трассы — пул собирается заново
+  const N=SMOKE_N,geo=new THREE.BufferGeometry(),uv=new Float32Array(N*8),idx=[];
+  for(let n=0;n<N;n++){uv.set([0,0,1,0,1,1,0,1],n*8);idx.push(n*4,n*4+1,n*4+2,n*4,n*4+2,n*4+3);}
+  geo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(N*12),3));
+  geo.setAttribute('color',new THREE.BufferAttribute(new Float32Array(N*16),4));   // четвёртая доля — прозрачность частицы
+  geo.setAttribute('uv',new THREE.BufferAttribute(uv,2));geo.setIndex(idx);
+  const mesh=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({map:smokeTex(),vertexColors:true,transparent:true,depthWrite:false}));
+  mesh.frustumCulled=false;mesh.visible=false;mesh.userData.passable=true;scene.add(mesh);   // дым, а не предмет (пробник clear)
+  const p=[];for(let n=0;n<N;n++)p.push({born:-1e9,life:1});
+  return track._smoke={mesh:mesh,p:p,next:0};}
+/* Тоннель: дым темнее, как его стены — на TUN_RAMP м от портала свет падает до TUN_WALL. */
+function smokeShade(iu){const T=track.tunnel;if(!T)return 1;const L=track.length,d=((track.S[iu]-T.s0)%L+L)%L;
+  if(d>T.len)return 1;return 1-(1-TUN_WALL)*Math.min(1,Math.min(d,T.len-d)/TUN_RAMP);}
+/* Частица: x,y,z — у пятна контакта шины; sd — наружу от колеса (+1 по R трассы); kind 0 — шлейф, 1 — «юбка». */
+function smokeAt(x,y,z,k,v,F,R,sd,a,kind,shade){const S=smokePool(),q=S.p[S.next];S.next=(S.next+1)%SMOKE_N;
+  const h=((k*2654435761)>>>0)/4294967296,h2=((k*40503+7)%97)/97,sk=kind===1;
+  q.born=raceTime;q.x=x;q.y=y;q.z=z;q.fx=F.x;q.fz=F.z;q.v=v*0.042;q.rot=h2*6.28;q.a=a*(0.85+0.3*h2);q.shade=shade;
+  const lat=sk?1.0+0.8*h:0.7+1.0*h;q.lx=R.x*sd*lat;q.lz=R.z*sd*lat;   // м: снос вбок за жизнь — «юбка» разлетается от шины
+  q.life=sk?SMOKE_SKIRT:SMOKE_LIFE;q.s0=sk?0.6+0.3*h:1.1+0.4*h;q.grow=sk?1.4:3.2;q.rise=sk?0.3:1.0;q.al=sk?0.7:0.45;q.tau=sk?0.18:0.35;}
+function smokeFlush(){if(!smokeQ.length)return;
+  for(const e of smokeQ){const c=e.c;if(c.retired)continue;const m=c.mesh,h=m.rotation.y,fx=Math.sin(h),fz=Math.cos(h),lx=Math.cos(h),lz=-Math.sin(h);
+    const F=track.F[e.iu],R=track.R[e.iu],k=c.num*251+e.pn*4,sh=smokeShade(e.iu);
+    const sIn=-e.side,sgIn=Math.sign(sIn*(R.x*lx+R.z*lz))||1;   // внутреннее колесо: в мерке lane наружу — e.side (lane вправо по R)
+    const wheel=(sg,wk)=>[m.position.x+fx*2.0+lx*sg*wk,m.position.z+fz*2.0+lz*sg*wk];   // передняя ось z=+2.0, колесо x=±1.05 (контракт модели)
+    const y=m.position.y;let w=wheel(sgIn,1.25);   // чуть снаружи шины — иначе её закрывает колесо
+    smokeAt(w[0],y,w[1],k,c.speed,F,R,sIn,1,0,sh);smokeAt(w[0],y,w[1],k+1,c.speed,F,R,sIn,1,1,sh);
+    if(e.pn%2===0){w=wheel(-sgIn,1.25);smokeAt(w[0],y,w[1],k+2,c.speed,F,R,-sIn,0.45,0,sh);smokeAt(w[0],y,w[1],k+3,c.speed,F,R,-sIn,0.5,1,sh);}}
+  smokeQ.length=0;}
+function smokeUpdate(){const S=track._smoke;if(!S||!cam)return;const geo=S.mesh.geometry,pos=geo.attributes.position.array,col=geo.attributes.color.array;
+  const e=cam.matrixWorld.elements,rx=e[0],ry=e[1],rz=e[2],ux=e[4],uy=e[5],uz=e[6];let live=0;
+  for(let n=0;n<SMOKE_N;n++){const q=S.p[n],age=raceTime-q.born,o=n*12,oc=n*16;let al=0,t=0,cx=0,cy=0,cz=0,sz=0;
+    if(age>=0&&age<=q.life){t=age/q.life;const dr=1-Math.exp(-age/q.tau);sz=q.s0+q.grow*Math.sqrt(t);
+      cx=q.x+q.fx*q.v*dr+q.lx*dr;cz=q.z+q.fz*q.v*dr+q.lz*dr;cy=q.y+0.35*sz+q.rise*t;   // низ клуба — у асфальта
+      const dc=Math.hypot(cx-cam.position.x,cy-cam.position.y,cz-cam.position.z),near=Math.max(0,Math.min(1,(dc-SMOKE_NEAR*0.5)/(SMOKE_NEAR*0.5)));
+      al=q.al*q.a*(1+0.8*Math.exp(-age/0.15))*Math.pow(1-t,1.3)*near;}   // у шины гуще первые 0.15 с
+    if(al<0.004){for(let j=0;j<12;j++)pos[o+j]=0;for(let j=0;j<16;j++)col[oc+j]=0;continue;}
+    live++;const c=Math.cos(q.rot+age*0.4)*sz*0.5,s_=Math.sin(q.rot+age*0.4)*sz*0.5;
+    const ax=rx*c+ux*s_,ay=ry*c+uy*s_,az=rz*c+uz*s_,bx=-rx*s_+ux*c,by=-ry*s_+uy*c,bz=-rz*s_+uz*c;
+    pos[o]=cx-ax-bx;pos[o+1]=cy-ay-by;pos[o+2]=cz-az-bz;pos[o+3]=cx+ax-bx;pos[o+4]=cy+ay-by;pos[o+5]=cz+az-bz;
+    pos[o+6]=cx+ax+bx;pos[o+7]=cy+ay+by;pos[o+8]=cz+az+bz;pos[o+9]=cx-ax+bx;pos[o+10]=cy-ay+by;pos[o+11]=cz-az+bz;
+    const r=0.90*q.shade,g=0.92*q.shade,b=0.94*q.shade;
+    for(let j=0;j<4;j++){col[oc+j*4]=r;col[oc+j*4+1]=g;col[oc+j*4+2]=b;col[oc+j*4+3]=al;}}
+  S.mesh.visible=live>0;geo.attributes.position.needsUpdate=true;geo.attributes.color.needsUpdate=true;}
 /* Насколько угол кузова ошибающегося соперника заходит за ВИДИМЫЙ отбойник (м, <0 — не доходит).
    Видимая стена — лента по точкам P±R·W, разрыв ленты — перемычкой (spanPath), как её строит игра и меряет
    пробник wallvis. Стена по данным (W поперёк осевой) дальше видимой, а нос с доворотом кузова (crab до 0.2 рад)

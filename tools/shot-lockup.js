@@ -1,9 +1,13 @@
-/* Съёмка ошибки соперника («проскочил поворот») глазами болида позади (v1.16.68, дым блокировки PUFF_*).
-   Гонка крутится до --warm секунд, затем ищется тройка подряд идущих соперников T, F1, F2, где T подъезжает
-   к точке решения ошибки (errCorners), а F1 — в 8–45 м за ним. T получает ошибку принудительно (без броска
-   Math.random — съёмке зерно не важно). От первого клуба дыма снимаются кадры через --dt секунд:
-   кокпит F1 (на позицию позади), кокпит F2 (на две позиции) и «телевизионный» вид сверху-спереди,
-   как у съёмки трансляции. Камера кокпита — как у игрока: y=1.42 над асфальтом, 0.62 м позади центра.
+/* Съёмка ошибки соперника («проскочил поворот») и дыма блокировки глазами болида позади (12.10.2026; дым — SMOKE_*
+   v1.16.69, у старых сборок — клубы PUFF_*, инструмент понимает оба).
+   Гонка крутится до --warm секунд (Math.random — на зерне --seed, две сборки едут одну гонку), затем ищется тройка
+   подряд идущих соперников T, F1, F2, где T подъезжает к точке решения ошибки (errCorners), а F1 — в 8–45 м за ним.
+   T получает ошибку принудительно. Кадры (--times, с от точки, где у v1.16.68 вставал первый клуб) — виды --views:
+     f1, f2 — кокпит болида на 1 и 2 позиции позади (y=1.42, 0.62 м позади центра — как у игрока);
+     tv — «вертолёт» спереди-сверху, как трансляция; close — сзади-сбоку крупно; top — строго сверху, нос вверх.
+   Кадр снимается с самого холста: снимок страницы у Playwright иногда висит, дожидаясь шрифтов.
+     --overdraw=1 — вместо кадров: доля экрана под полупрозрачным дымом из кокпита F1 (пик и среднее за 3.5 с);
+     --where=1    — где рождается дым относительно кузова T (передняя ось +2.0, задняя −1.7).
      node tools/shot-lockup.js --track=0 --warm=40 --out=/tmp/lock [--html=archive/vX.html]
    Оговорки: программный рендерер (swiftshader), земляная плита опущена, как в shot-track. Игра не меняется. */
 'use strict';
@@ -119,7 +123,7 @@ const CHROME = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
       while (raceTime - L.born < t - 1e-6) { controls.gas = 0; __camF1(); update(1 / 60); }
       const T = L.T; return { v: +(T.speed * 3.6).toFixed(0), g1: +Math.hypot(T.x - L.F1.x, T.z - L.F1.z).toFixed(1),
         g2: +Math.hypot(T.x - L.F2.x, T.z - L.F2.z).toFixed(1), puffs: track._puffs ? track._puffs.list.filter(m => m.visible).length : 0,
-        smoke: track._smoke ? track._smoke.p.filter(q => raceTime - q.born < SMOKE_LIFE).length + (track._smoke.mesh.visible ? "v" : "h") + (track._smoke.mesh.parent === scene ? "s" : "-") : "нет" }; }, [t]);
+        smoke: track._smoke ? track._smoke.p.filter(q => raceTime - q.born < (q.life || SMOKE_LIFE)).length + (track._smoke.mesh.visible ? "v" : "h") + (track._smoke.mesh.parent === scene ? "s" : "-") : "нет" }; }, [t]);
     for (const v of VIEWS) {
       await p.evaluate(([v]) => { const L = window.__L;
         field.forEach(c => c.mesh.visible = true);
