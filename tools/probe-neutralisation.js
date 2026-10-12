@@ -318,26 +318,35 @@ function run(opt) {
     const t = env.evalIn(`(function(){
       var dt=1/60;
       field.forEach(function(c){c.retireAt=0;});
-      // найти медленный поворот, где потолок VSC ниже потолка травы (22 м/с)
+      // найти медленный поворот, где потолок VSC ниже потолка травы (22 м/с) и снаружи есть место — от кромки
+      // до отбойника не меньше 6 м (п.28а): у Монцы, Майами, Монако в самом медленном повороте отбойник в 0.2–1.5 м
+      // за кромкой — машина стояла на поребрике или задевала стену углом кузова, траву не проверяли
       var at=-1, cap=0;
-      for(var i=0;i<track.M;i++){var c2=vscCap(i,20);
-        if(Math.abs(track.K[i])>0.05 && c2<22 && (at<0||c2<cap)){at=i;cap=c2;}}
+      for(var i=0;i<track.M;i++){var c2=vscCap(i,20), Wo=track.K[i]>0?track.WR[i]:track.WL[i];
+        if(Math.abs(track.K[i])>0.05 && c2<22 && (Wo||99)-halfAt(i)>=6 && (at<0||c2<cap)){at=i;cap=c2;}}
       if(at<0)return {none:true};
       neutral={mode:'vsc',left:60,secs:[],cars:[]};       // включить нейтрализацию вручную
       var P=track.P[at],R2=track.R[at],F=track.F[at];
-      var off=Math.min(halfAt(at)+1.2, (track.WR[at]||99)-1.2);   // за кромкой, но НЕ в отбойнике
+      // С ВНЕШНЕЙ стороны поворота (K>0 — левый, внешняя — справа): прямо по касательной машина уходит дальше
+      // от полотна и остаётся на траве. До п.28а ставили справа всегда — на 4 трассах из 6 это была внутренняя
+      // сторона, и за полсекунды машина выезжала на асфальт: траву проверял один Сильверстоун.
+      var sd=track.K[at]>0?1:-1, W=sd>0?track.WR[at]:track.WL[at];
+      var off=sd*Math.min(halfAt(at)+1.2, (W||99)-1.2);   // за кромкой, но НЕ в отбойнике
       player.x=P.x+R2.x*off;player.z=P.z+R2.z*off;player.hdg=Math.atan2(F.x,F.z);
       player.speed=22;player.hint=at;                     // ровно потолок травы: без правки он бы там и остался
-      var start=player.speed, top=0;
+      var start=player.speed, top=0, wall=false;
       for(var f=0;f<30;f++){controls.gas=1;controls.brake=0;controls.left=controls.right=0;
-        update(dt); if(player.speed>top)top=player.speed;}
+        update(dt); if(player.speed>top)top=player.speed; if(wallTouch)wall=true;}
+      // Потолок — в той точке, где машина СЕЙЧАС (п.28а, 10.2026, после v1.16.70): за полсекунды она уезжает дальше по кругу,
+      // на выходе поворота свой потолок выше. До п.28а сравнивали с потолком точки старта — на Хунгароринге
+      // (выход шиканы 6-7) это давало «16.3 при 12.1», хотя на месте потолок 16.4: огрех мерки, а не ловушка.
       var pr=project(player.x,player.z,player.hint);
-      return {at:at,cap:+cap.toFixed(1),grass:22,start:start,top:+top.toFixed(1),end:+player.speed.toFixed(1),
-              offRoad:Math.abs(pr.off)>halfAt(pr.idx)+0.7};
+      return {at:at,cap:+cap.toFixed(1),capEnd:+vscCap(pr.idx,player.speed).toFixed(1),grass:22,start:start,top:+top.toFixed(1),
+              end:+player.speed.toFixed(1),wall:wall,offRoad:Math.abs(pr.off)>halfAt(pr.idx)+0.7};
     })()`);
     if (t.none) { r.line(`${T.name.padEnd(12)} медленных поворотов с потолком ниже травы нет`); continue; }
-    r.line(`${T.name.padEnd(12)} за кромкой под VSC: потолок полотна ${t.cap}, травы 22 — с 22 м/с за полсекунды ${t.end}`);
-    if (t.end > t.cap + 2) r.fail(`${T.name}: за кромкой под VSC держит ${t.end} м/с при потолке полотна ${t.cap} — срезать поворот по траве выгодно`);
+    r.line(`${T.name.padEnd(12)} за кромкой под VSC: потолок полотна ${t.cap} в начале, ${t.capEnd} на месте, травы 22 — с 22 м/с за полсекунды ${t.end}${t.offRoad ? '' : ' (уже на асфальте)'}${t.wall ? ' (задел стену)' : ''}`);
+    if (t.end > t.capEnd + 2) r.fail(`${T.name}: за кромкой под VSC держит ${t.end} м/с при потолке полотна на месте ${t.capEnd} — срезать поворот по траве выгодно`);
   }
 
   /* ---- 6. ПЛАШКИ ФЛАГОВ: панель обязана совпадать с потолком, а не жить своей жизнью ----
