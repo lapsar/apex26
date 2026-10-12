@@ -14,7 +14,9 @@
      • глубина ошибки — в повороте, а не на прямой (доля на прямой не выше DEEP_STRAIGHT);
      • ошибка не «стоп-кран»: замедление после апекса (сама потеря темпа) не резче MAX_DEC м/с²
        за 0.5 с (до v1.15.76 худшее было 101, на v1.15.76 — 74);
-     • клубы дыма блокировки (v1.16.68) ставятся, пул ограничен, клуб гаснет в срок;
+     • дым блокировки ставится, пул ограничен (SMOKE_N), частица гаснет в срок (v1.16.68 — клубы; v1.16.69 — частицы);
+     • дым рождается у ПЕРЕДНИХ колёс: вдоль кузова у передней оси (+2.0 ± SMOKE_AXLE), вбок — у шины (v1.16.69: в v1.16.68
+       место бралось до перемещения болида в кадре — +0.96 м, и дым был виден от задних колёс; замечание владельца 12.10.2026);
      • углы кузова (8 точек, с доворотом) не заходят за ВИДИМЫЙ отбойник — мерка пробника wallvis (до 11.10.2026
        мерилась стена по данным, она дальше видимой: углы заходили в борт до 0.39 м, Майами).
    ========================================================================== */
@@ -23,7 +25,7 @@
 const H = require('./harness');
 const R = require('./report');
 
-const RACE_SECS = 600, MIN_ERR = 5, WHEELS_OUT = 0.8, DEEP_STRAIGHT = 0.35, MAX_DEC = 60;
+const RACE_SECS = 600, MIN_ERR = 5, WHEELS_OUT = 0.8, DEEP_STRAIGHT = 0.35, MAX_DEC = 60, SMOKE_AXLE = 0.3;
 
 function run() {
   const r = R.result('Ошибка соперника — «проскочил поворот»: наружу, за линию, в повороте');
@@ -48,11 +50,17 @@ function run() {
           var qx=ax+ux*t,qz=az+uz*t,d=Math.hypot(x-qx,z-qz);
           if(d<best){best=d;var P=track.P[segs[n][2]],cr=ux*(z-az)-uz*(x-ax),cref=ux*(P.z-az)-uz*(P.x-ax);bs=(cr*cref<0)?d:-d;}}
         return bs;}
-      var __pn=0,__pa=puffAt;puffAt=function(){__pn++;return __pa.apply(null,arguments);};   // клубы блокировки (v1.16.68)
+      var __pn=0,__pa=smokeAt,axWorst=0,sideBad=0;smokeAt=function(){__pn++;return __pa.apply(null,arguments);};   // дым блокировки (v1.16.69)
+      function axleCheck(){var S=track._smoke;if(!S)return;   // частицы этого кадра — против кузова ближайшего ошибающегося
+        for(var n=0;n<S.p.length;n++){var q=S.p[n];if(q.born!==raceTime)continue;var best=null,bd=1e9;
+          for(var k=0;k<field.length;k++){var c=field[k];if(c===player||!c.err)continue;var d=Math.hypot(q.x-c.mesh.position.x,q.z-c.mesh.position.z);if(d<bd){bd=d;best=c;}}
+          if(!best)continue;var hh=best.mesh.rotation.y,dx=q.x-best.mesh.position.x,dz=q.z-best.mesh.position.z;
+          var al=dx*Math.sin(hh)+dz*Math.cos(hh),sd=Math.abs(dx*Math.cos(hh)-dz*Math.sin(hh));
+          if(Math.abs(al-2.0)>axWorst)axWorst=Math.abs(al-2.0);if(sd<0.9||sd>1.6)sideBad++;}}
       var ec=errCorners(),badSide=0;
       ec.list.forEach(function(C){if(C.side!==Math.sign(track.K[C.ap]))badSide++;});
       var dt=1/60,ev=[],hist={},wall=0,wallWorst=-9;
-      for(var f=0;f<${RACE_SECS}*60&&phase!=='';f++){__AP.drive();update(dt);
+      for(var f=0;f<${RACE_SECS}*60&&phase!=='';f++){__AP.drive();update(dt);axleCheck();
         for(var i=0;i<field.length;i++){var c=field[i];if(c===player||c.retired)continue;
           var h=hist[c.num]||(hist[c.num]={v:[]});h.v.push(c.speed);if(h.v.length>31)h.v.shift();
           var d=h.v.length>30?(h.v[0]-h.v[30])/0.5:0;
@@ -67,10 +75,14 @@ function run() {
             if(!gap){var yaw=c.mesh.rotation.y,s=Math.sin(yaw),co=Math.cos(yaw),w=-9;
               for(var q=0;q<8;q++){var wc=BODY[q],bq=beyond(c.x+wc[0]*co+wc[1]*s,c.z-wc[0]*s+wc[1]*co,sg,iu);if(bq>w)w=bq;}
               if(w>0)wall++;if(w>wallWorst)wallWorst=w;}}}}
-      puffAt=__pa;var pool=track._puffs?track._puffs.list.length:0,left=0;
-      for(var f2=0;f2<Math.ceil(PUFF_LIFE*60)+2;f2++){update(dt);}   // клубы тают сами
-      if(track._puffs)left=track._puffs.list.filter(function(m){return m.visible&&raceTime-m.userData.born>PUFF_LIFE;}).length;
-      return {puffs:__pn,pool:pool,left:left,n:ec.list.length,badSide:badSide,ev:ev,wall:wall,wallWorst:wallWorst};})()`);
+      smokeAt=__pa;var pool=track._smoke?track._smoke.p.length:0,left=0;
+      for(var k2=0;k2<field.length;k2++)field[k2].err=null;   // новых частиц больше нет — старые тают сами
+      for(var f2=0;f2<Math.ceil(SMOKE_LIFE*60)+2;f2++){update(dt);}
+      if(track._smoke){var ca=track._smoke.mesh.geometry.attributes.color.array,live=0;   // видна (прозрачность > 0) — значит, жива по своему сроку
+        for(var q2=0;q2<track._smoke.p.length;q2++){var pq=track._smoke.p[q2];if(ca[q2*16+3]<=0)continue;live++;if(raceTime-pq.born>pq.life)left++;}
+        if(track._smoke.mesh.visible&&!live)left=-1;}
+      var ended=phase!=='race';
+      return {puffs:__pn,pool:pool,left:left,ended:ended,rt:raceTime,axWorst:axWorst,sideBad:sideBad,n:ec.list.length,badSide:badSide,ev:ev,wall:wall,wallWorst:wallWorst};})()`);
     const tag = T.name, ev = o.ev, n = ev.length;
     const wheels = n ? ev.filter(e => e.wheels).length / n : 0;
     const deep = ev.reduce((s, e) => s + e.deep, 0), deepStr = deep ? ev.reduce((s, e) => s + e.deepStr, 0) / deep : 0;
@@ -78,10 +90,12 @@ function run() {
     const outs = ev.map(e => e.out).sort((a, b) => a - b), med = n ? outs[n >> 1] : NaN;
     r.line(`${tag}: поворотов ошибок ${o.n}; ошибок ${n}; колёса за линией ${(100 * wheels).toFixed(0)} %,`
       + ` центр за линией (медиана) ${med.toFixed(2)} м; глубина на прямой ${(100 * deepStr).toFixed(0)} %;`
-      + ` замедление ошибки до ${dec.toFixed(0)} м/с²; угол кузова до видимой стены ${(-o.wallWorst).toFixed(2)} м; клубов дыма ${o.puffs} (пул ${o.pool})`);
-    if (n >= MIN_ERR && !o.puffs) r.fail(`${tag}: ${n} ошибок и ни одного клуба дыма блокировки`);
-    if (o.pool > 9) r.fail(`${tag}: клубов в пуле ${o.pool} — пул должен быть ограничен (PUFF_N)`);
-    if (o.left) r.fail(`${tag}: ${o.left} клубов видны дольше срока жизни`);
+      + ` замедление ошибки до ${dec.toFixed(0)} м/с²; угол кузова до видимой стены ${(-o.wallWorst).toFixed(2)} м; частиц дыма ${o.puffs} (пул ${o.pool}), от передней оси до ${o.axWorst.toFixed(2)} м${o.ended ? "; гонка к концу замера закончилась (" + o.rt.toFixed(0) + " с)" : ""}`);
+    if (n >= MIN_ERR && !o.puffs) r.fail(`${tag}: ${n} ошибок и ни одной частицы дыма блокировки`);
+    if (o.pool > 192) r.fail(`${tag}: частиц в пуле ${o.pool} — пул должен быть ограничен (SMOKE_N)`);
+    if (o.left) r.fail(`${tag}: ${o.left < 0 ? 'меш дыма виден без живых частиц' : o.left + ' частиц видны дольше срока жизни'}`);
+    if (o.axWorst > SMOKE_AXLE) r.fail(`${tag}: дым рождается в ${o.axWorst.toFixed(2)} м от передней оси (допуск ${SMOKE_AXLE}) — не у передних колёс`);
+    if (o.sideBad) r.fail(`${tag}: ${o.sideBad} частиц дыма не у шины поперёк кузова (0.9–1.6 м от оси болида)`);
     if (!o.n) r.fail(`${tag}: нет ни одного поворота для ошибок (errCorners)`);
     if (o.badSide) r.fail(`${tag}: у ${o.badSide} поворотов сторона ошибки — внутренняя, а не внешняя`);
     if (n < MIN_ERR) r.fail(`${tag}: ошибок ${n} за ${RACE_SECS} с — меньше ${MIN_ERR}`);
