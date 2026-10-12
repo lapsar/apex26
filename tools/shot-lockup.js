@@ -75,6 +75,18 @@ const CHROME = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
   }, [WARM]);
   console.log(JSON.stringify(info));
   if (info.fail) { await b.close(); process.exit(1); }
+  if (args.where) {                              // где рождается дым относительно кузова T — в том кадре, что видит игрок (после placeAI)
+    const wh = await p.evaluate(() => { const L = window.__L, out = [];
+      for (let f = 0; f < 60 * 2; f++) { controls.gas = 0; __camF1(); update(1 / 60);
+        const m = L.T.mesh, h = m.rotation.y, fx = Math.sin(h), fz = Math.cos(h), pts = [];
+        if (track._puffs) for (const q of track._puffs.list) if (q.visible && q.userData.born === raceTime) pts.push([q.position.x, q.position.z]);
+        if (track._smoke) for (const q of track._smoke.p) if (q.born === raceTime) pts.push([q.x, q.z]);
+        for (const [x, z] of pts) { const dx = x - m.position.x, dz = z - m.position.z;
+          out.push({ along: +(dx * fx + dz * fz).toFixed(2), side: +(dx * fz - dz * fx).toFixed(2), v: +(L.T.speed * 3.6).toFixed(0) }); } }
+      return out; });
+    console.log('WHERE (along: + вперёд от центра кузова; передняя ось +2.0, задняя -1.7)');
+    wh.forEach(w => console.log(JSON.stringify(w))); await b.close(); return;
+  }
   if (args.overdraw) {                           // цена для видеокарты: доля экрана под полупрозрачным дымом, кадр за кадром, из кокпита F1
     const od = await p.evaluate(() => { const L = window.__L, H = renderer.domElement.height, W = renderer.domElement.width;
       const k = H / 2 / Math.tan(cam.fov * Math.PI / 360), scr = W * H, v = new THREE.Vector3();
@@ -111,7 +123,13 @@ const CHROME = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
     for (const v of VIEWS) {
       await p.evaluate(([v]) => { const L = window.__L;
         field.forEach(c => c.mesh.visible = true);
-        if (v === 'tv') { const m = L.T.mesh, h = m.rotation.y, fx = Math.sin(h), fz = Math.cos(h);   // «вертолёт» спереди-сверху: болид едет на камеру, шлейф за ним
+        if (v === 'top') { const m = L.T.mesh, h = m.rotation.y, fx = Math.sin(h), fz = Math.cos(h);   // строго сверху, нос — вверх кадра: видно обе оси
+          cam.position.set(m.position.x + fx * 2, m.position.y + 16, m.position.z + fz * 2); cam.up.set(fx, 0, fz);
+          cam.lookAt(m.position.x + fx * 2, m.position.y, m.position.z + fz * 2); cam.up.set(0, 1, 0); }
+        else if (v === 'close') { const m = L.T.mesh, h = m.rotation.y, fx = Math.sin(h), fz = Math.cos(h);   // крупно: сзади-сбоку-сверху, видно, от какой оси дым
+          cam.position.set(m.position.x - fx * 12 + fz * 6, m.position.y + 5, m.position.z - fz * 12 - fx * 6);   // дальше SMOKE_NEAR=12 — иначе дым погашен у камеры
+          cam.lookAt(m.position.x + fx * 1.5, m.position.y + 0.3, m.position.z + fz * 1.5); }
+        else if (v === 'tv') { const m = L.T.mesh, h = m.rotation.y, fx = Math.sin(h), fz = Math.cos(h);   // «вертолёт» спереди-сверху: болид едет на камеру, шлейф за ним
           cam.position.set(m.position.x + fx * 22 - fz * 3, m.position.y + 17, m.position.z + fz * 22 + fx * 3);
           cam.lookAt(m.position.x - fx * 6, m.position.y, m.position.z - fz * 6); }
         else { const c = v === 'f1' ? L.F1 : L.F2, m = c.mesh, h = m.rotation.y, fx = Math.sin(h), fz = Math.cos(h);
