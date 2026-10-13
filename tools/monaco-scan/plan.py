@@ -44,8 +44,11 @@ def tile_path(src, z, X, Y):
 def fetch(a):
     src, z, X, Y = a; fn = tile_path(src, z, X, Y)
     if os.path.exists(fn) and os.path.getsize(fn) > 500: return
-    url = (f'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{Y}/{X}'
-           if src == 'esri' else f'https://mt1.google.com/vt/lyrs=s&x={X}&y={Y}&z={z}')
+    if src.startswith('wb'):                                                  # архив ESRI Wayback: wb6678 — выпуск 6678 (снимок 26.05.2013, день гонки)
+        url = f'https://wayback.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/WMTS/1.0.0/default028mm/MapServer/tile/{src[2:]}/{z}/{Y}/{X}'
+    else:
+        url = (f'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{Y}/{X}'
+               if src == 'esri' else f'https://mt1.google.com/vt/lyrs=s&x={X}&y={Y}&z={z}')
     for k in range(4):
         try:
             data = urllib.request.urlopen(urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'}), timeout=45).read()
