@@ -5299,6 +5299,12 @@ const CAR_HULL=[[1.285,-2.2],[1.285,2.5],[1.05,3.2],[0.51,3.36],[-0.51,3.36],[-1
 const CAR_HULL_E=CAR_HULL.map((p,k)=>{const q=CAR_HULL[(k+1)%CAR_HULL.length],ex=q[0]-p[0],ez=q[1]-p[1],l=Math.hypot(ex,ez),nx=ez/l,nz=-ex/l;
   return [nx,nz,nx*p[0]+nz*p[1]+TIP_PAD];});   // наружная нормаль ребра и его отступ с запасом
 function wallSegsBuild(){const M=track.M,g=new Map();let n=0;
+  /* Отрезок, лежащий на ЛЮБОМ полотне, в проверку не идёт: у Сузуки трасса пересекает сама себя (плоский мост), и стена
+     одной ноги проходит поперёк другой — твёрдой она запирала дорогу (гонка не доезжала). */
+  const PG=new Map(),pc=16;for(let i=0;i<M;i++){const k=(Math.floor(track.P[i].x/pc)+5000)*10000+Math.floor(track.P[i].z/pc)+5000;if(!PG.has(k))PG.set(k,[]);PG.get(k).push(i);}
+  const onRoad=(x,z)=>{const cx=Math.floor(x/pc),cz=Math.floor(z/pc);
+    for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++){const c=PG.get((cx+a+5000)*10000+cz+b+5000);if(!c)continue;
+      for(const i of c){const P=track.P[i];if(Math.hypot(x-P.x,z-P.z)<track.HW[i])return true;}}return false;};
   const put=(x,z,s)=>{const key=(Math.floor(x/TIP_CELL)+5000)*10000+Math.floor(z/TIP_CELL)+5000;let c=g.get(key);if(!c)g.set(key,c=[]);if(c[c.length-1]!==s)c.push(s);};
   for(const sg of [-1,1]){const V=sg>0?track.VR:track.VL,W=sg>0?track.WR:track.WL;if(!W)continue;
     const pt=j=>[track.P[j].x+track.R[j].x*sg*W[j],track.P[j].z+track.R[j].z*sg*W[j],j],poly=[];
@@ -5308,6 +5314,7 @@ function wallSegsBuild(){const M=track.M,g=new Map();let n=0;
         for(let q=1;q+1<path.length;q++)poly.push([path[q][0],path[q][1],j]);}}
     for(let k=0;k<poly.length;k++){const A=poly[k],B=poly[(k+1)%poly.length],dx=B[0]-A[0],dz=B[1]-A[1],l=Math.hypot(dx,dz);if(l<1e-6)continue;
       const P=track.P[A[2]];let nx=-dz/l,nz=dx/l;if((P.x-A[0])*nx+(P.z-A[1])*nz<0)nx=-nx,nz=-nz;   // нормаль — к дороге
+      let road=false;for(let q=0,qn=Math.ceil(l);q<=qn&&!road;q++)road=onRoad(A[0]+dx*q/qn,A[1]+dz*q/qn);if(road)continue;
       const s=[A[0],A[1],B[0],B[1],nx,nz,0],st=Math.ceil(l/(TIP_CELL/2));n++;
       for(let q=0;q<=st;q++)put(A[0]+dx*q/st,A[1]+dz*q/st,s);}}
   track.segGrid=g;track.segCount=n;}
