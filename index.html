@@ -178,7 +178,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.16.71</div>
+    <div class="verstamp">v1.16.72</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -6970,13 +6970,17 @@ function update(dt){
   if(player.speed<0)player.revLeft=Math.max(0,player.revLeft+player.speed*dt);
   /* Выше потолка флага газ не тянет (v1.16.71): сброс под флагом считается в NEUT_BLEED (жёлтый) / MAXSPEED/3 (VSC), а тяга при
      зажатом газе съедала его — под жёлтым чистый сброс выходил ~5 м/с² вместо 14.7, и в повороте игрок на миг был быстрее
-     разрешённого на 3+ м/с. Теперь выше потолка флага газ — как отпущенный (тормоз двигателя), ниже — работает как всегда. */
+     разрешённого на 3+ м/с. Теперь выше потолка флага газ не тянет, ниже — работает как всегда.
+     С зажатым газом выше потолка сброс — РОВНО drag (v1.16.72, владелец: «не будет как удар по тормозам?»): в v1.16.71 к нему
+     прибавлялся тормоз двигателя (+0.4 g) — за передним под флагом выходило 5.4 g, сильнее педали тормоза (5.1). Теперь жёлтый
+     1.5 g, VSC 3.0 g, за передним 5.1 g — ровно тот сброс, по которому считан потолок. */
   const kGo=kG&&!(flagCap&&player.speed>vmax);
   if(kGo)player.speed+=(player.speed<0?50:14*Math.max(0.14,1-0.85*player.speed/playerTop))*dt;   // газ гасит задний ход тормозами
   else if(kB||outroBrake){
     if(player.speed>0)player.speed=Math.max(0,player.speed-50*dt);   // 5.1g: keeps the braking zone the same length as at 252 km/h
     else if(rev)player.speed=Math.max(-REV_MAX,player.speed-REV_ACC*dt);
     else player.speed=Math.min(0,player.speed+50*dt);}               // запас кончился — тормоза работают и назад
+  else if(kG){}                                                       // газ зажат выше потолка флага: ни тяги, ни тормоза двигателя — сбрасывает drag ниже
   else if(player.speed>0)player.speed-=(2.4+0.02*player.speed)*dt;   // engine braking + drag coast
   else player.speed=Math.min(0,player.speed+2.4*dt);
   if(player.speed>vmax)player.speed-=drag*dt;
