@@ -178,7 +178,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.16.73</div>
+    <div class="verstamp">v1.16.74</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -681,6 +681,10 @@ const ERR_RATE=0.14;                      // ошибок на пилота за
 const ERR_DEPTH=0.30;                     // доля темпа в глубине ошибки — от апекса до выхода (v1.16.68: крупнее, было 0.60)
 const ERR_FLOOR=9;                        // м/с: ниже не опускаем. Порог вставшего NEUT_STOPPED=6, и провалившийся под него болид законно объезжается всем полем — ошибка не должна превращаться в это
 const ERR_VC=0.7;                         // поворот, где ошибаются: предел скорости в нём ниже этой доли потолка (тормозной, не «проезжаемый в пол»)
+const ERR_VIN=200/3.6;                     // м/с: в точке решения не медленнее — блокировка бывает только в ТЯЖЁЛОМ торможении (v1.16.74, владелец:
+                                          //   «откуда у SAI дым, он уже сбросил скорость и вошёл в поворот?»)
+const ERR_REF=0.90;                       // сила пилота, по профилю скорости которого выбираются повороты ошибок (середина поля)
+const ERR_DROP=100/3.6;                   // м/с: и до поворота сбросить ещё не меньше (вторые части шиканы и Мирабо, Раскасс, Ноге — мимо)
 const ERR_LEAD=30;                        // м до входа в поворот: здесь решается, будет ли ошибка
 const ERR_BACK=150;                       // м после выхода: возврат на линию и к своему темпу (v1.16.68: было 90)
 const ERR_OUT=1.5;                        // м: центр болида за белой линией в глубине ошибки (v1.16.68: было 1.0) — колёса снаружи на поребрике и за ним
@@ -6809,7 +6813,7 @@ function aiTarget(iu,speed,base,cornerK){const M=track.M,seg=track.length/M;
     const vc=aiCornerV(24/K+halfAt(j)*0.8)*cornerK;if(vc>=t)continue;   // cornerK здесь — ДОЛЯ от сцепления игрока на этом радиусе, а не боковое ускорение
     const v=Math.sqrt(vc*vc+2*AIBRAKE*a*seg);if(v<t)t=v;}
   return t;}
-function estLapTime(base,cornerK){const M=track.M;let v=base*0.5,t=0;
+function estLapTime(base,cornerK,prof){const M=track.M;let v=base*0.5,t=0;   // prof — массив M: скорость в каждой точке второго круга (errCorners)
   // run the AI's own rule round the lap instead of assuming it is instantly at speed:
   // on short straights (Monaco) a car never reaches its top speed, and the old estimate ignored that.
   for(let lap=0;lap<2;lap++){t=0;
@@ -6818,6 +6822,7 @@ function estLapTime(base,cornerK){const M=track.M;let v=base*0.5,t=0;
       const dt=ds/Math.max(v,5);
       if(v<target)v+=Math.min(target-v,13.5*Math.max(0.14,1-0.85*v/MAXSPEED)*dt);
       else v+=(target-v)*Math.min(1,dt*3.0);
+      if(prof)prof[i]=v;
       t+=ds/Math.max(v,5);}}
   return t*ESTFUDGE;}
 /* КВАЛИФИКАЦИОННЫЙ круг соперника быстрее его же ГОНОЧНОГО темпа — как в жизни:
@@ -6890,6 +6895,7 @@ function startRace(){document.getElementById('s-quali').classList.remove('active
   for(const g of smokes)scene.remove(g);smokes=[];
   const dmul=DIFF_MUL[sel.diff];const ckb=DIFF_GRIP[sel.diff];
   track.paceSpeed=track.length/estLapTime(aiBase(0.86,dmul),aiGrip(0.86,ckb));
+  errCorners();   // повороты ошибок — до фонарей: профиль скорости стоит десятки мс, посреди гонки это рывок (v1.16.74)
   // schedule up to 2 retirements
   const rr=Math.random();const nRet=rr<0.45?0:rr<0.85?1:2;const pool=field.slice();
   for(let k=0;k<nRet&&pool.length;k++){const pick=pool.splice(Math.floor(Math.random()*pool.length),1)[0];
@@ -7580,7 +7586,10 @@ function laneRoom(c,lane){let r=99;
    сторону он загибается. Возвращает -1, если болид уже В повороте (тогда занимать
    позицию поздно), и -2, если впереди до горизонта чистая прямая. */
 /* Повороты, где соперник может «проскочить» (ERR_*): участки одного знака кривизны круче
-   ATK_ENTRY_K, предел скорости в апексе ниже ERR_VC потолка. side — НАРУЖНАЯ сторона в мерке lane
+   ATK_ENTRY_K, предел скорости в апексе ниже ERR_VC потолка, И перед ним тяжёлое торможение (v1.16.74): в точке решения
+   средний соперник едет не медленнее ERR_VIN и до поворота сбрасывает не меньше ERR_DROP — по профилю скорости estLapTime.
+   До v1.16.74 ~2/3 таких мест были без торможения: вторые части шиканы и Мирабо, Раскасс, Ноге — блокировка и дым на уже
+   сброшенной скорости (замер tools/err-zones-audit.js, 13.10.2026). side — НАРУЖНАЯ сторона в мерке lane
    (lane — метры вправо; K<0 — правый поворот, его внешняя сторона слева, то есть side=sign(K)).
    trig[i] — номер поворота, чья точка решения (ERR_LEAD до входа) лежит в точке i, иначе -1.
    Считается раз на трассу и только из данных трассы: Math.random не трогает. */
@@ -7671,6 +7680,7 @@ function errWallBeyond(c,lane,sg){const M=track.M,fi=(((c.u%1)+1)%1)*M,i=Math.fl
   return worst;}
 function errCorners(){if(track._errC)return track._errC;
   const M=track.M,K=track.K,seg=track.length/M,KIN=ATK_ENTRY_K,list=[],trig=new Int16Array(M).fill(-1);
+  const V=new Float64Array(M);estLapTime(aiBase(ERR_REF,DIFF_MUL.normal),aiGrip(ERR_REF,DIFF_GRIP.normal),V);   // профиль среднего соперника на Норме — одни повороты во всех режимах
   let i0=0;while(i0<M&&Math.abs(K[i0])>KIN)i0++;
   for(let q=0;q<M;q++){const i=(i0+q)%M;if(Math.abs(K[i])<=KIN)continue;
     const sg=Math.sign(K[i]);let b=q;while(b+1<M&&Math.abs(K[(i0+b+1)%M])>KIN&&Math.sign(K[(i0+b+1)%M])===sg)b++;
@@ -7678,7 +7688,8 @@ function errCorners(){if(track._errC)return track._errC;
     const apI=(i0+ap)%M;
     if(aiCornerV(24/km+halfAt(apI)*0.8)<MAXSPEED*track.grip*ERR_VC){
       const lead=Math.round(ERR_LEAD/seg),t=(i0+q-lead+M)%M;
-      if(trig[t]<0){trig[t]=list.length;
+      let vmin=V[t];for(let z=q-lead;z<=b;z++)vmin=Math.min(vmin,V[(i0+z+M)%M]);   // скорость в точке решения и самая низкая в повороте
+      if(trig[t]<0&&V[t]>=ERR_VIN&&V[t]-vmin>=ERR_DROP){trig[t]=list.length;
         list.push({side:sg,ap:apI,lead:lead*seg,toAp:lead*seg+(ap-q)*seg,toEx:lead*seg+(b-q+1)*seg});}}
     q=b;}
   return track._errC={list:list,trig:trig};}
