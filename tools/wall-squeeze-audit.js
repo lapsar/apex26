@@ -27,7 +27,7 @@ for (const T of H.tracks(true)) {
       var S={n:0,poke:0,cont:0,deep:0,worst:0,ws:0,ov:0,ovw:0};
       var corners=[[1.05,2.0],[-1.05,2.0],[1.05,-1.7],[-1.05,-1.7],[1.0,3.25],[-1.0,3.25],[0.78,-2.55],[-0.78,-2.55]];
       var orig=carContacts,moved=false;
-      carContacts=function(a){var x=player.x,z=player.z;orig(a);if(Math.hypot(player.x-x,player.z-z)>1e-6)moved=true;};
+      carContacts=function(a,b){var x=player.x,z=player.z;orig(a,b);if(!b&&Math.hypot(player.x-x,player.z-z)>1e-6)moved=true;};   // b — проход «зажат у стены» (v1.16.77)
       function beyond(){var s=Math.sin(player.hdg),co=Math.cos(player.hdg),m=-9;
         for(var k=0;k<8;k++){var wc=corners[k],wx=player.x+wc[0]*co+wc[1]*s,wz=player.z-wc[0]*s+wc[1]*co;
           var pw=project(wx,wz,player.hint),W=(pw.off>=0?track.WR:track.WL)[pw.idx],e=Math.abs(pw.off)-W;if(e>m)m=e;}return m;}

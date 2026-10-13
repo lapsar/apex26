@@ -33,7 +33,8 @@ function runOne(T, seed) {
         var r=3.02*(Math.abs(ax[0][0]*ux+ax[0][1]*uz)+Math.abs(ax[2][0]*ux+ax[2][1]*uz))+1.285*(Math.abs(ax[1][0]*ux+ax[1][1]*uz)+Math.abs(ax[3][0]*ux+ax[3][1]*uz));
         var o=r-d;if(o<=0)return 0;if(o<m)m=o;}return m;}
     var orig=carContacts, inFrame=false, v0=0, x0=0, z0=0;
-    carContacts=function(a){
+    carContacts=function(a,b){
+      if(b)return orig(a,b);                                // v1.16.77: третий проход «зажат у стены» двигает соседа, не игрока
       var vb=player.speed,xb=player.x,zb=player.z; orig(a);
       var dv=vb-player.speed; if(dv>0)S.lost+=dv;
       if(!inFrame){inFrame=true;v0=vb;x0=xb;z0=zb;}
