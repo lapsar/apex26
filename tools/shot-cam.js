@@ -37,12 +37,13 @@ const CHROME = args.chrome || '/opt/pw-browsers/chromium-1194/chrome-linux/chrom
   page.on('pageerror', e => console.log('  JS-ошибка: ' + e.message));
   await page.goto('file://' + HTML);
   await page.waitForTimeout(1000);
-  const started = await page.evaluate(({ tr }) => {
+  const started = await page.evaluate(({ tr, dense }) => {
     if (typeof sel === 'undefined') return 'игровой скрипт не виден';
+    if (dense) window.__DENSE = dense;              // опыт «гуще» (14.10.2026, только сборка из коммита опыта — tracks/overview.md)
     sel.track = tr; sel.roster = 0; sel.diff = 'normal'; sel.laps = 1; sel.view = 'cockpit';
     selTeam = ROSTER[sel.roster].teamIdx; camMode = 'cockpit'; startWeekend();
     return 'ok';
-  }, { tr: TRACK });
+  }, { tr: TRACK, dense: +(args.dense || 0) });
   if (started !== 'ok') { console.log(started); await browser.close(); process.exit(1); }
   await page.waitForTimeout(1200);
   await page.evaluate(() => {                       // наложения закрывают ровно то, что надо разглядеть
@@ -70,11 +71,13 @@ const CHROME = args.chrome || '/opt/pw-browsers/chromium-1194/chrome-linux/chrom
   await page.waitForTimeout(200);
   const base = info.name.toLowerCase() + '-s' + info.S + '-';
   await page.screenshot({ path: path.join(OUT, base + 'cockpit-' + TAG + '.png') });
+  await page.evaluate((toph) => { window.__toph = toph; }, +(args.toph || 0));
   await page.evaluate(() => {
     updateCamera = function () {};                  // иначе цикл вернёт камеру в кокпит
     const i = window.__i, p = track.P[i], f = track.F[i];
-    cam.position.set(p.x - f.x * 40, 90, p.z - f.z * 40);
-    cam.lookAt(p.x + f.x * 30, 0, p.z + f.z * 30);
+    const h = window.__toph || 90, k = h / 90;
+    cam.position.set(p.x - f.x * 40 * k, h, p.z - f.z * 40 * k);
+    cam.lookAt(p.x + f.x * 30 * k, 0, p.z + f.z * 30 * k);
     render();
   });
   await page.waitForTimeout(200);
