@@ -70,6 +70,8 @@ function runOne(T, seed, pos, fast, mode) {
     var idxOf=function(c){return c.isPlayer?(player.hint||0):Math.floor(((c.u%1)+1)%1*track.M)%track.M;};
     var offOf=function(c){if(!c.isPlayer)return c.lane||0;var i=idxOf(c),P=track.P[i],R=track.R[i];return (player.x-P.x)*R.x+(player.z-P.z)*R.z;};
     var nm=function(c){return c.isPlayer?'ИГРОК':c.code;};
+    // v1.16.79: сход едет — тормозит, уходит с линии, встаёт через 2–25 с; флаг поднимается при остановке. Счёт — с неё.
+    for(var __w=0;!victim.retired&&__w<Math.round(90/dt);__w++){__AP.drive();update(dt);}
     var pairs={}, crawled={}, ev=[], mode0='', n=0, max=Math.round(80/dt), flagT=null;
     while(n<max&&!raceOver){
       drv.call(__AP); update(dt); n++;
