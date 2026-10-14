@@ -69,6 +69,8 @@ function runOne(T, seed, pos, fast, hc, mode) {
     var FB=__bs[__bs.length>>1], FK=DIFF_CORNERK[sel.diff];
     var fieldNeut=function(i,nz,v){return aiTarget(i,v||0,FB,FK)*neutShare(nz);};
     var live=function(){return cars.filter(function(c){return !c.retired;});};
+    // v1.16.79: сход едет — тормозит, уходит с линии, встаёт через 2–25 с; флаг поднимается при остановке. Счёт — с неё.
+    for(var __w=0;!victim.retired&&__w<Math.round(90/dt);__w++){__AP.drive();update(dt);}
     var mode0='', n=0, max=Math.round(80/dt);
     var pairs=null, ev=[], rankY0=null, rankYEnd=null, yT=0, seen={}, capOver=0, capN=0, slowN=0, ratio=[], slowF=0, ratioF=[], aiN=0, aiSlow=0, aiRatio=[], blkN=0, blkBite=0, aiBlkN=0, aiBlkBite=0, capCmp=0, capLow=0, capDiff=0, blkSide=0, trainGap=1e9, trainSlow=1e9, spread0=null, spreadEnd=null, tightMax=0, stuckMax=0;
     while(n<max && !raceOver){
