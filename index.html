@@ -178,7 +178,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.16.77</div>
+    <div class="verstamp">v1.16.78</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -3361,6 +3361,11 @@ const SCENERY_MONACO = {
   boxes: false,
   /* Земля — склон города, а не газон (v1.16.40, вариант Б владельца): cityGroundTex. */
   groundTex: 'city',
+  /* Внутренние стены тугих поворотов — по поребрику (v1.16.78, владелец 13.10.2026: «стена, которая должна идти по краю
+     поребрика, срезана»). Правило против складок ленты прятало её в Сент-Девот, шпильке, шикане (слева), у бассейна и в Раскасс
+     и ставило прямую на 4–6.8 м за кромкой; в жизни барьер идёт по дуге в ~1 м за кромкой (снимок дня гонки 26.05.2013, онбоард
+     2025). hug — метры за кромкой: перемычка скруглённая, по кромке (spanPath); хорда шиканы (chord:true) остаётся прямой. */
+  hug: 1.0,
   wallOut: [
     {corner:'Hairpin', side:'R', by:3, ramp:12, fromS:1225, toS:1300, fromLatLon:[43.740376,7.429405], toLatLon:[43.740536,7.429517]},   // шпилька: внешняя стена +3 м (вопрос владельца 10.2026)
     {corner:'Sainte-Devote', side:'L', by:11, ramp:22, fromS:176, toS:240, fromLatLon:[43.736622,7.421444], toLatLon:[43.737001,7.421856]},   // выезд прямо, кадры 19-22, 300-304
@@ -5255,6 +5260,8 @@ function wallPush(sc){
     const span=(b-a+M)%M; if(span>M/2)return;
     if(w.chord){const V=w.side==='R'?track.VR:track.VL;
       if(V)for(let t=1;t<span;t++)V[(a+t)%M]=0;
+      const cm=track.chordMask||(track.chordMask={L:new Uint8Array(M),R:new Uint8Array(M)});   // выезд прямо: перемычка остаётся прямой и при hug
+      for(let t=1;t<span;t++)cm[w.side][(a+t)%M]=1;
       return;}
     const W=w.side==='R'?track.WR:track.WL, ramp=w.ramp||12, len=(S[b]-S[a]+L)%L;
     if(!W)return;
@@ -5354,7 +5361,7 @@ function spanPath(sign,W,i,len){
   const A=[P[p0].x+R[p0].x*sign*W[p0],P[p0].z+R[p0].z*sign*W[p0]];
   const B=[P[p1].x+R[p1].x*sign*W[p1],P[p1].z+R[p1].z*sign*W[p1]];
   const hug=track.railHug;
-  if(!hug)return [A,B];                                        // прежнее поведение: прямая
+  if(!hug||(track.chordMask&&track.chordMask[sign>0?'R':'L'][i]))return [A,B];   // прежнее поведение: прямая; выезд прямо (chord:true) — тоже
   const pts=[A];
   for(let t=0;t<len;t++){const j=(i+t)%M;
     pts.push([P[j].x+R[j].x*sign*(HW[j]+hug),P[j].z+R[j].z*sign*(HW[j]+hug)]);}
@@ -6280,6 +6287,7 @@ function buildWorld(){
     const wallOff = track.style==='street' ? half+1.0 : half+Math.min(track.runoff,14);
     track.wallOff=wallOff;buildWallProfile();}
   wallPush(sc);                                                   // стена, отодвинутая данными трассы (Монако, шпилька)
+  if(sc&&sc.hug&&!track.railHug)track.railHug=sc.hug;             // перемычки по кромке (Монако, v1.16.78)
   wallSpanFill();                                                 // стена в разрывах ленты — по той же хорде, что и перемычка
   wallSegsBuild();                                                // отрезки видимой стены — для проверки силуэтом (v1.16.77)
   const wh=track.style==='street'?1.1:1.0;
