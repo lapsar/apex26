@@ -39,7 +39,7 @@ const CHROME = args.chrome || '/opt/pw-browsers/chromium-1194/chrome-linux/chrom
   await page.waitForTimeout(1000);
   const started = await page.evaluate(({ tr, dense }) => {
     if (typeof sel === 'undefined') return 'игровой скрипт не виден';
-    if (dense) window.__DENSE = dense;              // опыт «гуще» (ветка smooth-walls-study): ленты по dense точек на шаг осевой
+    if (dense) window.__DENSE = dense;              // опыт «гуще» (14.10.2026, только сборка из коммита опыта — tracks/overview.md)
     sel.track = tr; sel.roster = 0; sel.diff = 'normal'; sel.laps = 1; sel.view = 'cockpit';
     selTeam = ROSTER[sel.roster].teamIdx; camMode = 'cockpit'; startWeekend();
     return 'ok';
