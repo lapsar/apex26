@@ -6786,38 +6786,48 @@ const CONTACT_RUB=1.0;                    // м/с²: трение бортом,
 /* СТЕНА — только положение (v1.16.77: вынесено из физики игрока, чтобы звать и после касаний с соперниками).
    Точки корпуса держатся в 0.35 м от линии стены; отрезки видимой стены — против силуэта болида (wallHullPush).
    Возвращает, что задело: самое глубокое касание (wIdx, wSign или нормаль по силуэту tipN) и ближайшую точку (nearEx). */
-function playerWallPush(){const s=Math.sin(player.hdg),co=Math.cos(player.hdg),M=track.M;let hit=false,maxEx=0,wIdx=0,wSign=1,nearEx=-1e9,nearSign=1,tipN=null;
-    /* Ближайшая точка ЛИНИИ стены (ломаная P±R·(W−0.35) на ±2 шага) — куда вытолкнуть точку корпуса. */
-    const wallNear=(px,pz,i,sg)=>{const Wa=sg>0?track.WR:track.WL;let bx=0,bz=0,bd=Infinity,ax,az,out=false,pj=null;
-      for(let k=-2;k<=2;k++){const j=(i+k+M)%M,P=track.P[j],Rj=track.R[j],w=sg*(Wa[j]-0.35),cx=P.x+Rj.x*w,cz=P.z+Rj.z*w;
-        if(k>-2){const ux=cx-ax,uz=cz-az,uu=ux*ux+uz*uz;let t=uu>1e-9?((px-ax)*ux+(pz-az)*uz)/uu:0;t=t<0?0:t>1?1:t;
-          const qx=ax+ux*t,qz=az+uz*t,d=(qx-px)*(qx-px)+(qz-pz)*(qz-pz);
-          if(d<bd){bd=d;bx=qx;bz=qz;out=(ux*(pz-az)-uz*(px-ax))*(ux*(pj.z-az)-uz*(pj.x-ax))<0;}}   // out — точка по другую сторону линии, чем осевая
-        ax=cx;az=cz;pj=P;}
-      return [bx-px,bz-pz,Math.sqrt(bd),out];};
+/* Ближайшая точка ЛИНИИ стены (ломаная P±R·(W−0.35) на ±2 шага) — куда вытолкнуть точку корпуса. */
+function wallNear(px,pz,i,sg){const M=track.M,Wa=sg>0?track.WR:track.WL;let bx=0,bz=0,bd=Infinity,ax,az,out=false,pj=null;
+  for(let k=-2;k<=2;k++){const j=(i+k+M)%M,P=track.P[j],Rj=track.R[j],w=sg*(Wa[j]-0.35),cx=P.x+Rj.x*w,cz=P.z+Rj.z*w;
+    if(k>-2){const ux=cx-ax,uz=cz-az,uu=ux*ux+uz*uz;let t=uu>1e-9?((px-ax)*ux+(pz-az)*uz)/uu:0;t=t<0?0:t>1?1:t;
+      const qx=ax+ux*t,qz=az+uz*t,d=(qx-px)*(qx-px)+(qz-pz)*(qz-pz);
+      if(d<bd){bd=d;bx=qx;bz=qz;out=(ux*(pz-az)-uz*(px-ax))*(ux*(pj.z-az)-uz*(pj.x-ax))<0;}}   // out — точка по другую сторону линии, чем осевая
+    ax=cx;az=cz;pj=P;}
+  return [bx-px,bz-pz,Math.sqrt(bd),out];}
+/* ОДНА ТОЧКА КОРПУСА ПРОТИВ СТЕНЫ (вынесено из playerWallPush в v1.16.81, чтобы пробник ghost проверял стену точкой
+   вдоль всей её длины). ex — насколько точка ближе 0.35 м к стене (>0 — толкать), dx, dz — толчок, idx, sign — где и с какой
+   стороны, gap — по перемычке (nx, nz — её нормаль к дороге). Ответ в постоянном объекте WALL_PT — без выделения памяти на кадр. */
+const WALL_PT={ex:0,dx:0,dz:0,idx:0,sign:1,gap:false,nx:0,nz:0};
+function wallPoint(wx,wz,hint){const o=WALL_PT;
+  const pw=project(wx,wz,hint);const right=pw.off>=0,sign=Math.sign(pw.off||1);
+  const gl=(right?track.gapR:track.gapL);const gq=gl&&gl[pw.idx]?gapEx(wx,wz,gl[pw.idx]):null;   // у разрыва ленты — по самой перемычке (v1.16.80)
+  const wl=(right?track.WR:track.WL)[pw.idx]-0.35;
+  let ex=gq?gq[0]:Math.abs(pw.off)-wl;
+  /* По самой ЛИНИИ стены (v1.16.58, скриншот владельца: «левое колесо и нос заходят в борт» — выезд Сент-Девот): поперёк
+     дороги от ближайшей ТОЧКИ осевой мерка ошибается там, где стена далеко от осевой в крутом повороте и меняет отступ
+     (выезды-ловушки: 11–18 м, 2 м на шаг) — стена в физике выходила на 0.3–1 м дальше видимой, нос и колесо входили в борт.
+     Точка ближе 1.5 м к линии стены и по другую её сторону, чем осевая, — за стеной на это расстояние. Только добавляет
+     толчок там, где старая мерка его не давала; где стена ровная, обе мерки совпадают. */
+  if(!gq&&ex>-4){const q=wallNear(wx,wz,pw.idx,sign);if(q[3]&&q[2]<1.5&&q[2]>ex)ex=q[2];}
+  o.ex=ex;o.idx=pw.idx;o.sign=sign;o.gap=!!gq;o.dx=0;o.dz=0;
+  if(gq){o.nx=gq[1];o.nz=gq[2];}
+  /* Выталкивание — к ближайшей точке ЛИНИИ стены (v1.16.50): ex меряется поперёк дороги, и там, где стена идёт
+     наискось или ступенькой (конец кармана выезда: 18–25 м → 7 м на 20 м; у Сент-Девот 10.1 → 7.0 м на одном шаге),
+     толчок поперёк дороги бросал скользящий вдоль стены болид вбок до 5.5 м за кадр («телепортация от борта»).
+     На ровной стене это тот же толчок поперёк на ex; длиннее ex не бывает — тогда прежний. */
+  if(ex>0){
+    if(gq){o.dx=gq[1]*ex;o.dz=gq[2]*ex;}                             // к дороге по нормали перемычки
+    else{const R=track.R[pw.idx],q=wallNear(wx,wz,pw.idx,sign);
+      if(q[2]<=ex+1e-3){o.dx=q[0];o.dz=q[1];}else{o.dx=-R.x*sign*ex;o.dz=-R.z*sign*ex;}}}
+  return o;}
+function playerWallPush(){const s=Math.sin(player.hdg),co=Math.cos(player.hdg);let hit=false,maxEx=0,wIdx=0,wSign=1,nearEx=-1e9,nearSign=1,tipN=null;
     for(const wc of [[1.05,2.0],[-1.05,2.0],[1.05,-1.7],[-1.05,-1.7],
                      [1.0,3.25],[-1.0,3.25],[0.78,-2.55],[-0.78,-2.55]]){   // wings overhang the wheels by ~1.3 m: without these the nose passed through the rail and the hit (and its sound) landed a beat late
       const wx=player.x+wc[0]*co+wc[1]*s, wz=player.z-wc[0]*s+wc[1]*co;
-      const pw=project(wx,wz,player.hint);const right=pw.off>=0;
-      const gl=(right?track.gapR:track.gapL);const gq=gl&&gl[pw.idx]?gapEx(wx,wz,gl[pw.idx]):null;   // у разрыва ленты — по самой перемычке (v1.16.80)
-      const wl=(right?track.WR:track.WL)[pw.idx]-0.35;
-      let ex=gq?gq[0]:Math.abs(pw.off)-wl;
-      /* По самой ЛИНИИ стены (v1.16.58, скриншот владельца: «левое колесо и нос заходят в борт» — выезд Сент-Девот): поперёк
-         дороги от ближайшей ТОЧКИ осевой мерка ошибается там, где стена далеко от осевой в крутом повороте и меняет отступ
-         (выезды-ловушки: 11–18 м, 2 м на шаг) — стена в физике выходила на 0.3–1 м дальше видимой, нос и колесо входили в борт.
-         Точка ближе 1.5 м к линии стены и по другую её сторону, чем осевая, — за стеной на это расстояние. Только добавляет
-         толчок там, где старая мерка его не давала; где стена ровная, обе мерки совпадают. */
-      if(!gq&&ex>-4){const q=wallNear(wx,wz,pw.idx,Math.sign(pw.off||1));if(q[3]&&q[2]<1.5&&q[2]>ex)ex=q[2];}if(ex>nearEx){nearEx=ex;nearSign=Math.sign(pw.off||1);}
-      /* Выталкивание — к ближайшей точке ЛИНИИ стены (v1.16.50): ex меряется поперёк дороги, и там, где стена идёт
-         наискось или ступенькой (конец кармана выезда: 18–25 м → 7 м на 20 м; у Сент-Девот 10.1 → 7.0 м на одном шаге),
-         толчок поперёк дороги бросал скользящий вдоль стены болид вбок до 5.5 м за кадр («телепортация от борта»).
-         На ровной стене это тот же толчок поперёк на ex; длиннее ex не бывает — тогда прежний. */
-      if(ex>0){const sign=Math.sign(pw.off||1);
-        if(gq){player.x+=gq[1]*ex;player.z+=gq[2]*ex;}                 // к дороге по нормали перемычки
-        else{const R=track.R[pw.idx],q=wallNear(wx,wz,pw.idx,sign);
-          if(q[2]<=ex+1e-3){player.x+=q[0];player.z+=q[1];}else{player.x-=R.x*sign*ex;player.z-=R.z*sign*ex;}}
-        hit=true;
-        if(ex>maxEx){maxEx=ex;wIdx=pw.idx;wSign=sign;tipN=gq?[-gq[1],-gq[2]]:null;}}}
+      const q=wallPoint(wx,wz,player.hint),ex=q.ex;
+      if(ex>nearEx){nearEx=ex;nearSign=q.sign;}
+      if(ex>0){player.x+=q.dx;player.z+=q.dz;hit=true;
+        if(ex>maxEx){maxEx=ex;wIdx=q.idx;wSign=q.sign;tipN=q.gap?[-q.nx,-q.nz]:null;}}}
   for(let k=0;k<2;k++){const tp=wallHullPush();if(!tp)break;                         // два прохода: угол стены — это два отрезка
     player.x+=tp[0];player.z+=tp[1];hit=true;if(tp[2]>maxEx){maxEx=tp[2];tipN=[tp[3],tp[4]];}}
   return {hit,maxEx,wIdx,wSign,nearEx,nearSign,tipN};}
