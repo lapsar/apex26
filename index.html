@@ -5313,18 +5313,46 @@ function wallSegsBuild(){const M=track.M,g=new Map();let n=0;
     for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++){const c=PG.get((cx+a+5000)*10000+cz+b+5000);if(!c)continue;
       for(const i of c){const P=track.P[i];if(Math.hypot(x-P.x,z-P.z)<track.HW[i])return true;}}return false;};
   const put=(x,z,s)=>{const key=(Math.floor(x/TIP_CELL)+5000)*10000+Math.floor(z/TIP_CELL)+5000;let c=g.get(key);if(!c)g.set(key,c=[]);if(c[c.length-1]!==s)c.push(s);};
+  /* Нормаль отрезка A→B — к БЛИЖАЙШЕЙ точке осевой своего куска (v1.16.80). Прежде — к точке A[2], последней показанной перед
+     разрывом: в тугом повороте она на 20–25 м позади, и для отрезка у конца перемычки лежала ЗА продолжением его линии — нормаль
+     смотрела от дороги, и болид, коснувшийся стены у этого отрезка, толкало вбок и гасило ему скорость там, где стены нет
+     (Майами, шикана T14 у S 3490: «цепляешься за невидимое»; Монако — у пяти перемычек hug, до 1.5 м; Монца — в выезде T1). */
+  const roadN=(A,B)=>{const dx=B[0]-A[0],dz=B[1]-A[1],l=Math.hypot(dx,dz);if(l<1e-6)return null;
+    const mx=(A[0]+B[0])/2,mz=(A[1]+B[1])/2,span=Math.min(M-1,((B[3]-A[2]+M)%M)+6);let P=track.P[A[2]],bd=Infinity;
+    for(let q=0;q<=span;q++){const Q=track.P[(A[2]-3+q+M)%M],d=(Q.x-mx)*(Q.x-mx)+(Q.z-mz)*(Q.z-mz);if(d<bd){bd=d;P=Q;}}
+    let nx=-dz/l,nz=dx/l;if((P.x-mx)*nx+(P.z-mz)*nz<0)nx=-nx,nz=-nz;return [nx,nz];};
+  track.gapL=new Array(M);track.gapR=new Array(M);
   for(const sg of [-1,1]){const V=sg>0?track.VR:track.VL,W=sg>0?track.WR:track.WL;if(!W)continue;
-    const pt=j=>[track.P[j].x+track.R[j].x*sg*W[j],track.P[j].z+track.R[j].z*sg*W[j],j],poly=[];
+    const pt=j=>[track.P[j].x+track.R[j].x*sg*W[j],track.P[j].z+track.R[j].z*sg*W[j],j,j],poly=[];   // x, z, номера точек осевой «от» и «до»
     let s0=0;if(V){while(s0<M&&!V[s0])s0++;if(s0>=M)continue;}
     for(let k=0;k<M;k++){const j=(s0+k)%M,j2=(j+1)%M;if(V&&!V[j])continue;poly.push(pt(j));
-      if(V&&!V[j2]){let len=0;while(len<M&&!V[(j2+len)%M])len++;const path=spanPath(sg,W,j2,len);
-        for(let q=1;q+1<path.length;q++)poly.push([path[q][0],path[q][1],j]);}}
+      if(V&&!V[j2]){let len=0;while(len<M&&!V[(j2+len)%M])len++;const e=(j2+len)%M,path=spanPath(sg,W,j2,len);
+        for(let q=1;q+1<path.length;q++)poly.push([path[q][0],path[q][1],j,e]);
+        /* Перемычка для 8 точек корпуса (gapLine, v1.16.80): в разрыве W — луч поперёк дороги до перемычки (wallSpanFill), и на
+           изгибе он врёт — у Майами (T14) в соседних точках 14.3 и 8.1 м; точка корпуса, отнесённая к «короткой» точке осевой,
+           упиралась в стену там, где её нет. Здесь те же точки мерят расстояние до самой нарисованной ломаной (плюс по две
+           точки ленты с каждой стороны). */
+        const L=[pt((j-2+M)%M),pt((j-1+M)%M),pt(j)];for(let q=1;q+1<path.length;q++)L.push([path[q][0],path[q][1],j,e]);L.push(pt(e),pt((e+1)%M),pt((e+2)%M));
+        const gx=[],gz=[],gnx=[],gnz=[];
+        for(let q=0;q+1<L.length;q++){const n=roadN(L[q],L[q+1]);if(!n)continue;gx.push(L[q][0]);gz.push(L[q][1]);gnx.push(n[0]);gnz.push(n[1]);}
+        gx.push(L[L.length-1][0]);gz.push(L[L.length-1][1]);
+        const gl={x:gx,z:gz,nx:gnx,nz:gnz},G=sg>0?track.gapR:track.gapL;for(let q=-2;q<=len+1;q++)G[(j2+q+M)%M]=gl;}}
     for(let k=0;k<poly.length;k++){const A=poly[k],B=poly[(k+1)%poly.length],dx=B[0]-A[0],dz=B[1]-A[1],l=Math.hypot(dx,dz);if(l<1e-6)continue;
-      const P=track.P[A[2]];let nx=-dz/l,nz=dx/l;if((P.x-A[0])*nx+(P.z-A[1])*nz<0)nx=-nx,nz=-nz;   // нормаль — к дороге
+      const [nx,nz]=roadN(A,B);   // нормаль — к дороге
       let road=false;for(let q=0,qn=Math.ceil(l);q<=qn&&!road;q++)road=onRoad(A[0]+dx*q/qn,A[1]+dz*q/qn);if(road)continue;
       const s=[A[0],A[1],B[0],B[1],nx,nz,0],st=Math.ceil(l/(TIP_CELL/2));n++;
       for(let q=0;q<=st;q++)put(A[0]+dx*q/st,A[1]+dz*q/st,s);}}
   track.segGrid=g;track.segCount=n;}
+/* Точка (x,z) против ломаной перемычки gl: [насколько точка ближе 0.35 м к стене или за ней, нормаль к дороге x, z].
+   В вершине — средняя нормаль соседних кусков (иначе на выпуклом углу знак прыгает). Без выделения памяти, кроме ответа. */
+const GAP_RES=[0,0,0];
+function gapEx(x,z,gl){const X=gl.x,Z=gl.z,n=gl.nx.length;let bd=Infinity,qx=0,qz=0,nx=0,nz=1;
+  for(let k=0;k<n;k++){const ax=X[k],az=Z[k],ux=X[k+1]-ax,uz=Z[k+1]-az,uu=ux*ux+uz*uz;let t=uu>1e-9?((x-ax)*ux+(z-az)*uz)/uu:0;
+    let mx=gl.nx[k],mz=gl.nz[k];
+    if(t<=0){t=0;if(k>0){mx+=gl.nx[k-1];mz+=gl.nz[k-1];}}else if(t>=1){t=1;if(k+1<n){mx+=gl.nx[k+1];mz+=gl.nz[k+1];}}
+    const px=ax+ux*t,pz=az+uz*t,d=(x-px)*(x-px)+(z-pz)*(z-pz);if(d<bd){bd=d;qx=px;qz=pz;nx=mx;nz=mz;}}
+  const nl=Math.hypot(nx,nz)||1;nx/=nl;nz/=nl;
+  GAP_RES[0]=0.35-((x-qx)*nx+(z-qz)*nz);GAP_RES[1]=nx;GAP_RES[2]=nz;return GAP_RES;}
 /* Самое глубокое вхождение отрезка видимой стены в силуэт игрока: [сдвиг x, z, глубина, нормаль x, z внутрь стены] или null.
    Без выделения памяти на кадр (iPad): вершины и рёбра силуэта — в постоянных массивах, отрезок помечается номером вызова. */
 const HULL_V=new Float64Array(CAR_HULL.length*2), HULL_W=new Float64Array(CAR_HULL.length*3);let hullStamp=0;
@@ -6771,22 +6799,25 @@ function playerWallPush(){const s=Math.sin(player.hdg),co=Math.cos(player.hdg),M
                      [1.0,3.25],[-1.0,3.25],[0.78,-2.55],[-0.78,-2.55]]){   // wings overhang the wheels by ~1.3 m: without these the nose passed through the rail and the hit (and its sound) landed a beat late
       const wx=player.x+wc[0]*co+wc[1]*s, wz=player.z-wc[0]*s+wc[1]*co;
       const pw=project(wx,wz,player.hint);const right=pw.off>=0;
-      const wl=(right?track.WR:track.WL)[pw.idx]-0.35;             // в разрыве ленты стена идёт по хорде перемычки (wallSpanFill)
-      let ex=Math.abs(pw.off)-wl;
+      const gl=(right?track.gapR:track.gapL);const gq=gl&&gl[pw.idx]?gapEx(wx,wz,gl[pw.idx]):null;   // у разрыва ленты — по самой перемычке (v1.16.80)
+      const wl=(right?track.WR:track.WL)[pw.idx]-0.35;
+      let ex=gq?gq[0]:Math.abs(pw.off)-wl;
       /* По самой ЛИНИИ стены (v1.16.58, скриншот владельца: «левое колесо и нос заходят в борт» — выезд Сент-Девот): поперёк
          дороги от ближайшей ТОЧКИ осевой мерка ошибается там, где стена далеко от осевой в крутом повороте и меняет отступ
          (выезды-ловушки: 11–18 м, 2 м на шаг) — стена в физике выходила на 0.3–1 м дальше видимой, нос и колесо входили в борт.
          Точка ближе 1.5 м к линии стены и по другую её сторону, чем осевая, — за стеной на это расстояние. Только добавляет
          толчок там, где старая мерка его не давала; где стена ровная, обе мерки совпадают. */
-      if(ex>-4){const q=wallNear(wx,wz,pw.idx,Math.sign(pw.off||1));if(q[3]&&q[2]<1.5&&q[2]>ex)ex=q[2];}if(ex>nearEx){nearEx=ex;nearSign=Math.sign(pw.off||1);}
+      if(!gq&&ex>-4){const q=wallNear(wx,wz,pw.idx,Math.sign(pw.off||1));if(q[3]&&q[2]<1.5&&q[2]>ex)ex=q[2];}if(ex>nearEx){nearEx=ex;nearSign=Math.sign(pw.off||1);}
       /* Выталкивание — к ближайшей точке ЛИНИИ стены (v1.16.50): ex меряется поперёк дороги, и там, где стена идёт
          наискось или ступенькой (конец кармана выезда: 18–25 м → 7 м на 20 м; у Сент-Девот 10.1 → 7.0 м на одном шаге),
          толчок поперёк дороги бросал скользящий вдоль стены болид вбок до 5.5 м за кадр («телепортация от борта»).
          На ровной стене это тот же толчок поперёк на ex; длиннее ex не бывает — тогда прежний. */
-      if(ex>0){const sign=Math.sign(pw.off||1),R=track.R[pw.idx],q=wallNear(wx,wz,pw.idx,sign);
-        if(q[2]<=ex+1e-3){player.x+=q[0];player.z+=q[1];}else{player.x-=R.x*sign*ex;player.z-=R.z*sign*ex;}
+      if(ex>0){const sign=Math.sign(pw.off||1);
+        if(gq){player.x+=gq[1]*ex;player.z+=gq[2]*ex;}                 // к дороге по нормали перемычки
+        else{const R=track.R[pw.idx],q=wallNear(wx,wz,pw.idx,sign);
+          if(q[2]<=ex+1e-3){player.x+=q[0];player.z+=q[1];}else{player.x-=R.x*sign*ex;player.z-=R.z*sign*ex;}}
         hit=true;
-        if(ex>maxEx){maxEx=ex;wIdx=pw.idx;wSign=sign;}}}
+        if(ex>maxEx){maxEx=ex;wIdx=pw.idx;wSign=sign;tipN=gq?[-gq[1],-gq[2]]:null;}}}
   for(let k=0;k<2;k++){const tp=wallHullPush();if(!tp)break;                         // два прохода: угол стены — это два отрезка
     player.x+=tp[0];player.z+=tp[1];hit=true;if(tp[2]>maxEx){maxEx=tp[2];tipN=[tp[3],tp[4]];}}
   return {hit,maxEx,wIdx,wSign,nearEx,nearSign,tipN};}
