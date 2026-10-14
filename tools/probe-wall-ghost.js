@@ -36,11 +36,12 @@ var VIS=(function(){var M=track.M,out=[];
 var VG={};VIS.forEach(function(p){var k=Math.floor(p[0]/4)+','+Math.floor(p[1]/4);(VG[k]=VG[k]||[]).push(p);});
 var HULLE=(function(){var h=[[1.285,-2.2],[1.285,2.5],[1.05,3.2],[0.51,3.36],[-0.51,3.36],[-1.05,3.2],[-1.285,2.5],[-1.285,-2.2],[-0.78,-2.68],[0.78,-2.68]];
  return h.map(function(p,k){var q=h[(k+1)%h.length],ex=q[0]-p[0],ez=q[1]-p[1],l=Math.hypot(ex,ez),nx=ez/l,nz=-ex/l;return [nx,nz,nx*p[0]+nz*p[1]];});})();
-function clearance(){var s=Math.sin(player.hdg),c=Math.cos(player.hdg),best=1e9,gx=Math.floor(player.x/4),gz=Math.floor(player.z/4);
+/* Видимая стена дальше lim от силуэта? Выход на первой же точке ближе (болид, упёршийся в стену, — частый случай). */
+function clearOf(lim){var s=Math.sin(player.hdg),c=Math.cos(player.hdg),gx=Math.floor(player.x/4),gz=Math.floor(player.z/4);
  for(var a=-2;a<=2;a++)for(var b=-2;b<=2;b++){var cell=VG[(gx+a)+','+(gz+b)];if(!cell)continue;
   for(var k=0;k<cell.length;k++){var dx=cell[k][0]-player.x,dz=cell[k][1]-player.z;if(dx*dx+dz*dz>49)continue;
-   var x=dx*c-dz*s,z=dx*s+dz*c,m=-1e9;for(var e=0;e<HULLE.length;e++){var E=HULLE[e],d=(E[0]*x+E[1]*z)-E[2];if(d>m)m=d;}if(m<best)best=m;}}
- return best;}
+   var x=dx*c-dz*s,z=dx*s+dz*c,m=-1e9;for(var e=0;e<HULLE.length;e++){var E=HULLE[e],d=(E[0]*x+E[1]*z)-E[2];if(d>m)m=d;}if(m<lim)return false;}}
+ return true;}
 `;
 
 function run() {
@@ -59,10 +60,15 @@ function run() {
         if(bi<0)return;var P=track.P[bi];if((P.x-mx)*s[4]+(P.z-mz)*s[5]<0){o.flip++;if(o.flipS.length<6)o.flipS.push(Math.round(track.S[bi]));}});});
       // Б. толчок стены при свободном силуэте
       for(var i=0;i<M;i++){var P=track.P[i],Rr=track.R[i],F=track.F[i];
-        for(var sg of [-1,1]){var W=(sg>0?track.WR:track.WL)[i];for(var lane=0;lane<=W;lane+=0.5)for(var dh=-1.2;dh<=1.21;dh+=0.3){
+        for(var sg of [-1,1]){var W=(sg>0?track.WR:track.WL)[i];
+          /* ближе видимой стены этой стороны на 4.5 м (полудиагональ болида 3.6 + запас) толкать нечему — оттуда и начинаем */
+          var dmin=W,gx=Math.floor((P.x+Rr.x*sg*W/2)/4),gz=Math.floor((P.z+Rr.z*sg*W/2)/4),rad=Math.ceil(W/8)+2;
+          for(var a=-rad;a<=rad;a++)for(var b=-rad;b<=rad;b++){var cell=VG[(gx+a)+','+(gz+b)];if(!cell)continue;
+            for(var q=0;q<cell.length;q+=4){var dx=cell[q][0]-P.x,dz=cell[q][1]-P.z;if((dx*Rr.x+dz*Rr.z)*sg<=0)continue;var dd=Math.hypot(dx,dz);if(dd<dmin)dmin=dd;}}
+          for(var lane=Math.max(0,Math.floor((dmin-4.5)*2)/2);lane<=W;lane+=0.5)for(var dh=-1.2;dh<=1.21;dh+=0.3){
           var x0=P.x+Rr.x*sg*lane,z0=P.z+Rr.z*sg*lane;player.x=x0;player.z=z0;player.hdg=Math.atan2(F.x,F.z)+dh;player.hint=i;
           o.n++;playerWallPush();var d=Math.hypot(player.x-x0,player.z-z0);player.x=x0;player.z=z0;if(d<0.3)continue;
-          if(clearance()<${FREE})continue;                                // стена рядом — толчок честный
+          if(!clearOf(${FREE}))continue;                                // стена рядом — толчок честный
           if(d>${PUSH})o.bad++;if(d>o.w){o.w=d;o.ws=Math.round(track.S[i]);o.wl=sg*lane;}}}}
       return o;})()`);
     r.line(`${T.name.padEnd(12)} отрезков ${String(m.segs).padStart(4)} · нормаль от дороги ${m.flip}`
