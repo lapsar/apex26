@@ -7287,7 +7287,7 @@ function update(dt){
       else if(c.errI!==undefined&&!c.spinPend&&!neutralAt(iu)&&!neutAhead(iu,c.speed)&&raceTime>c.react+3&&!c.ovLock){
         const ec=errCorners(),sc=spinCorners(),M=track.M,n=(iu-c.errI+M)%M,S=sc.list.length?SPIN_SHARE:0,fk=(1.02-(c.skill||0.9))/0.13;   // слабый ошибается чаще: 0.81 даёт 1.6 от средней частоты, 0.98 — 0.31
         if(n>0&&n<12)for(let q=1;q<=n;q++){const ix=(c.errI+q)%M,ci=ec.trig[ix],si=sc.trig[ix];if(ci<0&&si<0)continue;
-          if(c.fail&&c.fail.wait){if(c.fail.spin){if(si>=0){const d0=c.dist-(n-q)*track.length/M;c.fail=null;c.spinPend={C:sc.list[si],ret:true,d0:d0,until:d0+sc.list[si].toEx};}}else if(ci>=0)crashStart(c,ec.list[ci],n-q);break;}   // сход ждал своего места (v1.16.79, разворот — v1.16.82)
+          if(c.fail&&c.fail.wait){if(c.fail.spin){if(si>=0){const d0=c.dist-(n-q)*track.length/M;const wu=c.fail.until;c.fail=null;c.spinPend={C:sc.list[si],ret:true,d0:d0,until:d0+sc.list[si].toEx,wu:wu};}}else if(ci>=0)crashStart(c,ec.list[ci],n-q);break;}   // сход ждал своего места (v1.16.79, разворот — v1.16.82)
           /* Разворот — доля SPIN_SHARE ошибок, поделенная поровну между местами разворота; остальное — прежние ошибки «проскочил
              поворот» поровну между их поворотами. Нет мест разворота (Монако, Майами) — S=0, и жребий тот же, что до v1.16.82. */
           const pS=si>=0?ERR_RATE*S/sc.list.length*fk:0,pE=ci>=0?ERR_RATE*(1-S)/ec.list.length*fk:0;
@@ -7424,7 +7424,7 @@ function update(dt){
     if(c.spinPend){const P=c.spinPend;                                       // разворот решён: срыв — посреди торможения или сразу (v1.16.82)
       if(!P.ret&&(neutralAt(iu)||neutAhead(iu,c.speed)))c.spinPend=null;       // флаг — ошибки нет, как у «проскочил поворот»
       else if(c.dist>=P.d0+P.C.on||c.dist>=P.until){c.spinPend=null;
-        if(!spinStart(c,P.C,0,P.ret)){if(P.ret)techStart(c,iu);                  // сход без места — отказ техники
+        if(!spinStart(c,P.C,0,P.ret)){if(P.ret){if(P.wu&&c.dist<P.wu)c.fail={wait:true,spin:true,until:P.wu};else techStart(c,iu);}   // сход: сосед на пути — ждёт следующего места разворота (не дождался — отказ техники)
           else if(P.C.err){const C=P.C;c.err={d0:P.until-C.toEx,side:C.side,lead:C.lead,toAp:C.toAp,toEx:C.toEx};}}}}   // ошибке негде развернуться (сосед, стена) — обычная «проскочил поворот»
     if(c.retireAt&&c.dist>=c.retireAt)failBegin(c,iu);                     // отказ: дальше — failStep (v1.16.79; до неё — retireCar на месте за один кадр)
     if(c.fail&&c.fail.wait&&c.dist>c.fail.until)techStart(c,iu);           // вылета не дождался — отказ техники
@@ -7683,7 +7683,7 @@ function spinWorld(c,f,step){const s=f.s+step,p=spinPath(f.wx,f.wz,f.psi0,f.beta
 /* Сосед на пути разворота: вровень, впереди ближе SPIN_CROWD_A (тот, кто тормозит перед поворотом, тормозит и сильнее
    разворачивающегося — до 44 м/с² против 30: упор в него ставил болид на линии) или вплотную сзади (ближе SPIN_CROWD_T хода),
    и не внутри поворота — снаружи или на той же линии. Внутри — болид уходит от него. Такой ошибке разворота нет, будет обычная. */
-function spinCrowd(c,side){const iu=carIdx(c),F=track.F[iu],R=track.R[iu],back=Math.max(8,c.speed*SPIN_CROWD_T);
+function spinCrowd(c,side,ret){const iu=carIdx(c),F=track.F[iu],R=track.R[iu],back=ret?8:Math.max(8,c.speed*SPIN_CROWD_T);   // сходу задний не помеха: тот тормозит сильнее (50 против 20 м/с²)
   for(const o of cars){if(o===c||o.retired)continue;const dx=o.x-c.x,dz=o.z-c.z,lon=dx*F.x+dz*F.z,lat=(dx*R.x+dz*R.z)*side;
     if(lon>-back&&lon<SPIN_CROWD_A&&lat>-SPIN_CROWD)return true;}return false;}
 /* Выезд занят: впереди по пути разворота (до остановки + 50 м), с любой стороны, стоит или возвращается развернувшийся,
@@ -7697,7 +7697,7 @@ function spinStart(c,C,nBack,ret){const v0=c.speed;if(v0<SPIN_MIN_V&&!ret)return
   const r1=Math.random();let ang;
   if(ret)ang=SPIN_RET_ANG[0]+(SPIN_RET_ANG[1]-SPIN_RET_ANG[0])*r1;
   else{let a=0,e=SPIN_ENDS[SPIN_ENDS.length-1];for(const E of SPIN_ENDS){a+=E[0];if(r1<a){e=E;break;}}const u=(r1-(a-e[0]))/e[0];ang=e[1]+(e[2]-e[1])*u;}
-  if(spinCrowd(c,C.side))return false;                                           // и сход: соседи не пускали его за линию, он вставал поперёк полотна, и колонна стояла за ним до маршалов (v1.16.83)
+  if(spinCrowd(c,C.side,ret))return false;                                           // и сход: соседи не пускали его за линию, он вставал поперёк полотна, и колонна стояла за ним до маршалов (v1.16.83)
   if(spinBusy(c,C.side,Math.max(v0,15)*Math.max(v0,15)/(2*(ret?SPIN_DEC_RET:SPIN_DEC))))return false;   // в выезде уже стоит развернувшийся или сошедший — не туда (два стояли бок о бок и запирали друг друга до финиша)
   // сосед рядом — не крутиться в него (ошибка останется обычной)
   const P=spinPlan(c,C,Math.max(v0,15),ret,ang);if(!P)return false;
