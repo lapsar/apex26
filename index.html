@@ -7592,6 +7592,7 @@ const SPIN_PAUSE=1.5;                    // с: постоял — и в пут�
 const SPIN_PIVOT=1.4;                    // рад/с: разворот на месте газом, если встал боком или задом (Перес: всего ~5.5 с)
 const SPIN_GO_ACC=6, SPIN_GO_V=22;       // м/с², м/с: трогается по выезду и едет к трассе не быстрее этого
 const SPIN_GAP_T=3.0, SPIN_GAP_BACK=150; // с, м: на полотно — только если сзади никто не подъедет быстрее, чем за SPIN_GAP_T
+const SPIN_STUCK=4;                      // с: заперт соседом дольше — соседи его не держат (страховка от взаимного запирания)
 const SPIN_MERGE=0.12;                   // крутизна возврата на полотно (~7°)
 const SPIN_LANE=0.72;                    // выезжает к краю: полоса — эта доля полуширины (обычная езда держит не дальше 0.75)
 const SPIN_WAIT=12;                      // с: дольше не ждёт — выезжает (страховка; поток у края так плотен редко)
@@ -7685,11 +7686,20 @@ function spinWorld(c,f,step){const s=f.s+step,p=spinPath(f.wx,f.wz,f.psi0,f.beta
 function spinCrowd(c,side){const iu=carIdx(c),F=track.F[iu],R=track.R[iu],back=Math.max(8,c.speed*SPIN_CROWD_T);
   for(const o of cars){if(o===c||o.retired)continue;const dx=o.x-c.x,dz=o.z-c.z,lon=dx*F.x+dz*F.z,lat=(dx*R.x+dz*R.z)*side;
     if(lon>-back&&lon<SPIN_CROWD_A&&lat>-SPIN_CROWD)return true;}return false;}
+/* Выезд занят: впереди по пути разворота (до остановки + 50 м), с любой стороны, стоит или возвращается развернувшийся,
+   сходит или стоит сошедший (v1.16.83: на тестовой сборке два развернувшихся встали в 6 м друг от друга — один не мог развернуться
+   на месте, другой — объехать его, и оба простояли до финиша; в башне у заднего «+0.000» до конца гонки). */
+function spinBusy(c,side,X){const iu=carIdx(c),F=track.F[iu],R=track.R[iu];
+  for(const o of cars){if(o===c)continue;if(!((o.fail&&o.fail.on)||o.spinPend||(o.retired&&o.ghost&&!o.cleared)))continue;   // и тот, кому разворот уже назначен: два срыва в одном кадре вставали в 4 м друг от друга
+    const dx=o.x-c.x,dz=o.z-c.z,lon=dx*F.x+dz*F.z;if(lon<-10||lon>X+50)continue;
+    return true;}return false;}                                                    // с любой стороны: разворот уносит наружу всех — туда же, где встанет и он
 function spinStart(c,C,nBack,ret){const v0=c.speed;if(v0<SPIN_MIN_V&&!ret)return false;
   const r1=Math.random();let ang;
   if(ret)ang=SPIN_RET_ANG[0]+(SPIN_RET_ANG[1]-SPIN_RET_ANG[0])*r1;
   else{let a=0,e=SPIN_ENDS[SPIN_ENDS.length-1];for(const E of SPIN_ENDS){a+=E[0];if(r1<a){e=E;break;}}const u=(r1-(a-e[0]))/e[0];ang=e[1]+(e[2]-e[1])*u;}
-  if(!ret&&spinCrowd(c,C.side))return false;                                           // сосед рядом — не крутиться в него (ошибка останется обычной)
+  if(spinCrowd(c,C.side))return false;                                           // и сход: соседи не пускали его за линию, он вставал поперёк полотна, и колонна стояла за ним до маршалов (v1.16.83)
+  if(spinBusy(c,C.side,Math.max(v0,15)*Math.max(v0,15)/(2*(ret?SPIN_DEC_RET:SPIN_DEC))))return false;   // в выезде уже стоит развернувшийся или сошедший — не туда (два стояли бок о бок и запирали друг друга до финиша)
+  // сосед рядом — не крутиться в него (ошибка останется обычной)
   const P=spinPlan(c,C,Math.max(v0,15),ret,ang);if(!P)return false;
   const f=failNew(c,'spin');f.d0=c.dist-nBack*track.length/track.M;f.side=C.side;f.ret=!!ret;f.dec=P.dec;f.X=P.X;f.tgt=P.tgt;
   const w0=spinXZ(c);f.world=true;f.wx=w0[0];f.wz=w0[1];f.psi0=P.psi0;f.beta=P.beta;f.Db=P.Db;f.s=0;f.spin=0;f.sp=0;f.w=0;   // кузов в момент срыва — как был
@@ -7745,28 +7755,31 @@ function failStep(c,iu,dt){const f=c.fail,hw=halfAt(iu),nz=neutralAt(iu);f.t+=dt
     if(f.ph===0&&f.t-f.tS>=SPIN_PAUSE)f.ph=Math.abs(f.thR+f.spin)>0.35?1:2;
     if(f.ph===1){const a=f.spin;f.spin=Math.sign(a)*Math.max(0,Math.abs(a)-SPIN_PIVOT*dt);f.thR=0;   // разворот на месте газом — дым задних колёс
       if(f.t-f.st>=0.12){f.st=f.t;retSmokeQ(c,iu,'rear',1);}
-      if(Math.abs(f.spin)<0.05&&Math.abs(c.crab)<0.06)f.ph=2;}                    // кузов развернулся (сосед мог придержать)
+      if(Math.abs(f.spin)<0.05&&Math.abs(c.crab)<0.06)f.ph=2;
+      else if(Math.abs(f.spin)<0.05)f.stk=(f.stk||0)+dt;}                            // кузов развернулся (сосед мог придержать — копится «заперт»)
     if(f.ph>=2){const clear=spinClear(c,iu)||f.t-f.tS>SPIN_WAIT;               // на полотно — когда у этого края никто не подъедет вплотную
       f.ph=3;{v=Math.min(SPIN_GO_V,c.speed+SPIN_GO_ACC*dt,aiTarget(iu,c.speed,c.base,c.cornerK||34)*(nz?neutShare(nz):1));
         if(clear||on)f.go=1;                                                         // стоит частью на полотне — уезжает сразу
         if(!f.go)v=0;                                                                // иначе ждёт просвета в выезде
+        else if(c.speed<0.1)f.stk=(f.stk||0)+dt;                                     // поехал бы, да не пускают — копится «заперт»
         ds=v*dt;
         const tl=f.go?f.side*hwC*SPIN_LANE:c.lane;dl=Math.max(-SPIN_MERGE*ds,Math.min(SPIN_MERGE*ds,tl-c.lane));
         f.spin*=Math.max(0,1-ds/10);}}}
+  const free=f.kind==='spin'&&(f.stk||0)>SPIN_STUCK;                              // заперт дольше SPIN_STUCK — соседи его больше не держат (лучше миг внахлёст, чем стоять до финиша)
   const W=f.kind==='spin'&&f.world&&f.ph===undefined;                            // разворот по прямой в мире: путь точен, ограничители полосы ему не нужны
   if(!W){{const sl=f.dlr||0;dl=Math.max((sl-0.03)*ds-0.002,Math.min((sl+0.03)*ds+0.002,dl));}   // крутизна хода меняется плавно (≤0.03 за кадр): без излома траектории
   dl=Math.max(-0.7*ds-0.005,Math.min(0.7*ds+0.005,dl));}                         // и вбок не круче ~35° к ходу: путь вылета, отставший из-за соседа, догоняется плавно
   {const F=track.F[iu],R=track.R[iu];                                            // сквозь передних не проезжать: не быстрее, чем позволяет зазор (FOLLOW_TAU)
-   for(const o of cars){if(o===c||o.retired)continue;const dx=o.x-c.x,dz=o.z-c.z,lon=dx*F.x+dz*F.z;if(lon<=0||lon>14)continue;
+   for(const o of cars){if(o===c||o.retired||free&&o.fail&&o.fail.on)continue;const dx=o.x-c.x,dz=o.z-c.z,lon=dx*F.x+dz*F.z;if(lon<=0||lon>14)continue;
      if(Math.abs(dx*R.x+dz*R.z)>(c.spanX||1.285)+(o.spanX||1.285)+0.1)continue;
      const cap=Math.max(0,o.speed)+Math.max(0,lon-CAR_LEN-0.26)/FOLLOW_TAU;if(v>cap){const vn=Math.max(cap,Math.min(v,c.speed-FOLLOW_BRAKE*dt));
        if(W){const st=spinWorld(c,f,vn*dt);if(st){ds=st.ds;dl=st.dl;f.st=st;}}else{ds*=vn/Math.max(v,1e-6);dl*=vn/Math.max(v,1e-6);}v=vn;}}}   // не быстрее тормозов: присваивание — «стоп-кран» и рывок разворота
   if(W){f.thRp=f.thR;f.thR=Math.atan2(Math.sin(f.st.psi-f.st.mv),Math.cos(f.st.psi-f.st.mv));}   // курс дороги меняется свободно (видимый курс не трогает), остальное — не быстрее SPIN_RATE: сосед придержал — догнать без рывка   // по прямой: кузов = курс дороги − курс хода − вращение (видимый курс дороги не тащит)
   {const rt=W?SPIN_RATE*dt+Math.abs(f.thR-(f.thRp===undefined?f.thR:f.thRp)):(f.kind==='spin'?SPIN_RATE:1.5*RET_SPIN_RATE)*dt,cr=c.crab+Math.max(-rt,Math.min(rt,f.thR+f.spin-c.crab));let ok=true;   // не быстрее RET_SPIN_RATE с запасом — и после того, как сосед отпустил                                            // разворот — не в корпус соседа: упёрся — кузов пока не крутится
-   for(const o of field){if(o===c||o.retired||Math.abs(o.x-c.x)>9||Math.abs(o.z-c.z)>9)continue;if(ghostPen(c,c.lane,0,o,cr)>ghostPen(c,c.lane,0,o)+1e-4){ok=false;break;}}
+   if(!free)for(const o of field){if(o===c||o.retired||Math.abs(o.x-c.x)>9||Math.abs(o.z-c.z)>9)continue;if(ghostPen(c,c.lane,0,o,cr)>ghostPen(c,c.lane,0,o)+1e-4){ok=false;break;}}
    if(ok)c.crab=cr;}
   let nl=c.lane+dl;
-  for(const o of field){if(o===c||o.retired||Math.abs(o.x-c.x)>14||Math.abs(o.z-c.z)>14)continue;   // в корпус соседа не въезжать — ни вбок, ни вперёд (игрока отодвигает касание)
+  if(!free)for(const o of field){if(o===c||o.retired||Math.abs(o.x-c.x)>14||Math.abs(o.z-c.z)>14)continue;   // в корпус соседа не въезжать — ни вбок, ни вперёд (игрока отодвигает касание)
     const p0=ghostPen(c,c.lane,0,o);if(ghostPen(c,nl,ds,o)<=p0+1e-4)continue;
     if(ghostPen(c,c.lane,ds,o)<=p0+1e-4){nl=c.lane;continue;}                    // сбоку — не сдвигаться к нему
     if(ghostPen(c,nl,0,o)>p0+1e-4)nl=c.lane;}                                    // вперёд — прежний предел по зазору до переднего (выше)
