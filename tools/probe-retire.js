@@ -5,7 +5,9 @@
    До v1.16.79 retireCar за один кадр обнулял скорость (хоть с 300 км/ч), переставлял болид вбок на 2–12 м и разворачивал
    до 45°. Теперь три сценария (решение владельца 50/35/15): 'tech' — отказ техники (дым мотора, накат до места, которое
    пилот выбрал сам, в глубине выезда), 'crash' — вылет в повороте тяжёлого торможения (блокировка, за поребрик, удар
-   о стену), 'seize' — заклинило (дым задних колёс, разворот, встаёт там, где случилось).
+   о стену), 'spin' — сход-разворот (v1.16.82 вместо 'seize' — «заклинило»: в ближайшем месте разворота spinCorners сорвало,
+   за 1–2 с протаскивает с вращением через выезд в стену или в гравий; дымят передние колёса). Трасса без мест разворота
+   (Монако, Майами) — там 'spin' по жребию становится вылетом, и сценарий отмечается как «нет мест».
 
    На каждой видимой трассе каждый сценарий — с нескольких мест (зёрна SEEDS), Норма, игрок-автопилот:
      • сход доходит до остановки в срок (MAX_SECS по сценарию; вылет — ещё и дожидается своего поворота);
@@ -16,7 +18,7 @@
      • признак «на полотне» совпадает с геометрией кузова; флаг поднят в момент остановки: на полотне — VSC;
      • отказ техники там, где за кромкой есть место (на подходе 45 м), — встаёт целиком за линией, а где места с запасом —
        не ближе DEEP_MIN от неё (было 0.2 м);
-     • дым есть: у отказа техники — мотора (сизый, вид 2), у «заклинило» — задних колёс;
+     • дым есть: у отказа техники — мотора (сизый, вид 2), у разворота — передних колёс (до v1.16.82 у «заклинило» — задних);
      • вставший на полотне — не призрак: корпус соперника не заходит в его корпус глубже OVERLAP за 30 с после остановки
        (до v1.16.79 соперники вставшего не видели вовсе и проезжали сквозь него).
    ========================================================================== */
@@ -25,8 +27,8 @@
 const H = require('./harness');
 const R = require('./report');
 
-const SEEDS = [3, 11], MAX_SECS = { tech: 40, crash: 14, seize: 10 }, JUMP = 1.0, YAWJ = 12, OVERLAP = 0.3, DEEP_MIN = 0.5;
-const MAX_DEC = { tech: 60, crash: 160, seize: 60 };
+const SEEDS = [3, 11], MAX_SECS = { tech: 40, crash: 14, spin: 14 }, JUMP = 1.0, YAWJ = 12, OVERLAP = 0.3, DEEP_MIN = 0.5;
+const MAX_DEC = { tech: 60, crash: 160, spin: 160 };
 const PARK_NEED = 2 * 1.86 + 0.6;   // ширина вставшего под углом 0.2 рад + зазор до стены (RET_PARK_YAW, RET_PARK_WALL)
 
 function run(opt) {
@@ -34,7 +36,7 @@ function run(opt) {
   const seeds = opt.seeds ? String(opt.seeds).split(',').map(Number) : SEEDS;
   for (const T of H.tracks(true)) {
     const rows = [];
-    for (const kind of ['tech', 'crash', 'seize']) for (const seed of seeds) {
+    for (const kind of ['tech', 'crash', 'spin']) for (const seed of seeds) {
       const env = H.loadGame({ seed, file: opt.file });
       H.setupWeekend(env, { trackIdx: T.idx, diff: 'normal', laps: 3 });
       H.startRaceAt(env, 11);
@@ -66,10 +68,10 @@ function run(opt) {
             for(var a=0;a<20;a++)km=Math.max(km,Math.abs(track.K[(iu+a)%M]));if(km<0.04){v=c;break;}}}
         if(!v)return {skip:'нет болида на прямой'};
         var iu=carIdx(v);
-        if(KIND==='tech')techStart(v,iu);else if(KIND==='seize')seizeStart(v,iu);else v.fail={wait:true,until:v.dist+1500};
-        var __pn=0,__eng=0,__rear=0,__pa=smokeAt;smokeAt=function(x,y,z,k,vv,F,R,sd,al,kind){__pn++;if(kind===2)__eng++;
-          if(v.fail&&v.fail.kind==='seize'){var m=v.mesh,h=m.rotation.y,al2=(x-m.position.x)*Math.sin(h)+(z-m.position.z)*Math.cos(h);if(Math.abs(al2+1.7)<0.6)__rear++;}
-          return __pa.apply(null,arguments);};
+        if(KIND==='spin'&&!spinCorners().list.length)return {skip:'нет мест разворота (правило 8 м) — сход-разворот здесь становится вылетом'};
+        if(KIND==='tech')techStart(v,iu);else if(KIND==='spin')v.fail={wait:true,spin:true,until:v.dist+1500};else v.fail={wait:true,until:v.dist+1500};
+        var __pn=0,__eng=0,__rear=0,__pa=smokeAt;smokeAt=function(x,y,z,k,vv,F,R,sd,al,kind){__pn++;if(kind===2)__eng++;return __pa.apply(null,arguments);};
+        var __pq=retSmokeQ;retSmokeQ=function(c,iu,kind){if(c===v&&kind==='lock')__rear++;return __pq.apply(null,arguments);};   // __rear — у разворота дым ПЕРЕДНИХ колёс; заявки, а не частицы: частицы ставятся только у камеры
         var t0=raceTime,tS=null,px=v.mesh.position.x,pz=v.mesh.position.z,py=v.mesh.rotation.y,ps=v.speed,jump=0,yawJ=0,dec=0,n=0,qx=0,qz=0;
         while(!v.retired&&n<Math.round(60/dt)){__drive(1,dt,'auto');n++;
           if(tS===null&&v.fail&&v.fail.on)tS=raceTime;
@@ -111,13 +113,13 @@ function run(opt) {
       if (kind === 'tech' && o.room >= PARK_NEED + 0.2 && o.blocking) r.fail(`${tag}: место за кромкой ${o.room} м, а встал частью на полотне`);
       if (kind === 'tech' && o.room >= PARK_NEED + DEEP_MIN + 0.5 && o.near < DEEP_MIN) r.fail(`${tag}: место за кромкой ${o.room} м, а встал в ${o.near} м от линии`);
       if (kind === 'tech' && !o.eng) r.fail(`${tag}: нет дыма мотора`);
-      if (kind === 'seize' && !o.rear) r.fail(`${tag}: нет дыма задних колёс`);
+      if (kind === 'spin' && !o.rear) r.fail(`${tag}: нет дыма передних колёс`);
       if (o.ov > OVERLAP) r.fail(`${tag}: соперник вошёл в корпус вставшего на ${o.ov} м (${o.ovWho})`);
     }
     const by = k => rows.filter(o => o.kind === k);
     const fmt = (k) => { const a = by(k); if (!a.length) return `${k} —`;
       return `${k} ${a.map(o => o.secs).join('/')} с, ${a.map(o => (o.blocking ? 'полотно' : 'за линией ' + o.near)).join(', ')}, угол ${a.map(o => o.ang + '°').join('/')}`; };
-    r.line(`${T.name.padEnd(12)} ${fmt('tech')} · ${fmt('crash')} · ${fmt('seize')}`);
+    r.line(`${T.name.padEnd(12)} ${fmt('tech')} · ${fmt('crash')} · ${fmt('spin')}`);
     const w = rows.reduce((m, o) => ({ jump: Math.max(m.jump, o.jump), yawJ: Math.max(m.yawJ, o.yawJ), ov: Math.max(m.ov, o.ov), wall: Math.max(m.wall, o.wall) }), { jump: 0, yawJ: 0, ov: 0, wall: -9 });
     r.line(`${''.padEnd(12)} худшие: скачок ${w.jump} м, поворот кузова ${w.yawJ}°/кадр, угол в стене ${w.wall} м, соперник в корпусе ${w.ov} м`);
   }

@@ -58,6 +58,7 @@ const PROBES = [
   { key: 'squeeze',   mod: './probe-wall-squeeze.js',       secs: 90 },
   { key: 'retire',    mod: './probe-retire.js',             secs: 420 },
   { key: 'ghost',     mod: './probe-wall-ghost.js',         secs: 150 },
+  { key: 'spin',      mod: './probe-spin.js',               secs: 300 },
 ];
 
 /* Быстрая проверка правки окружения (цвета, реклама, трибуны, щиты):

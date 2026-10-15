@@ -51,10 +51,10 @@ function run() {
           if(d<best){best=d;var P=track.P[segs[n][2]],cr=ux*(z-az)-uz*(x-ax),cref=ux*(P.z-az)-uz*(P.x-ax);bs=(cr*cref<0)?d:-d;}}
         return bs;}
       var __pn=0,__pa=smokeAt,axWorst=0,sideBad=0;smokeAt=function(){__pn++;return __pa.apply(null,arguments);};   // дым блокировки (v1.16.69)
-      function axleCheck(){var S=track._smoke;if(!S)return;   // частицы этого кадра — против кузова ближайшего ошибающегося
+      function axleCheck(){var S=track._smoke;if(!S)return;   // частицы этого кадра — против кузова ближайшего ошибающегося (дальше 8 м — чужие: разворот, сход — v1.16.82)
         for(var n=0;n<S.p.length;n++){var q=S.p[n];if(q.born!==raceTime)continue;var best=null,bd=1e9;
           for(var k=0;k<field.length;k++){var c=field[k];if(c===player||!c.err)continue;var d=Math.hypot(q.x-c.mesh.position.x,q.z-c.mesh.position.z);if(d<bd){bd=d;best=c;}}
-          if(!best)continue;var hh=best.mesh.rotation.y,dx=q.x-best.mesh.position.x,dz=q.z-best.mesh.position.z;
+          if(!best||bd>8)continue;var hh=best.mesh.rotation.y,dx=q.x-best.mesh.position.x,dz=q.z-best.mesh.position.z;
           var al=dx*Math.sin(hh)+dz*Math.cos(hh),sd=Math.abs(dx*Math.cos(hh)-dz*Math.sin(hh));
           if(Math.abs(al-2.0)>axWorst)axWorst=Math.abs(al-2.0);if(sd<0.9||sd>1.6)sideBad++;}}
       var ec=errCorners(),badSide=0;
