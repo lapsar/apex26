@@ -9,7 +9,7 @@
    На каждой видимой трассе, в каждом месте разворота — ошибка-разворот у первого подъехавшего соперника (Норма, игрок-автопилот):
         • (с 60-й секунды гонки, до 10 болидов на место: с соседом рядом разворота нет — это поведение, а не огрех)
      • места: сторона — внешняя (sign(K) апекса), медиана места снаружи ≥ SPIN_ROOM; у Монако и Майами мест нет;
-     • срыв не медленнее SPIN_MIN_V; от срыва до остановки не дольше STOP_MAX, путь не длиннее PATH_MAX;
+     • срыв не медленнее SPIN_MIN_V и не раньше входа в поворот (v1.16.83: у быстрого поворота был за 30 м до входа — на прямой); от срыва до остановки не дольше STOP_MAX, путь не длиннее PATH_MAX;
      • встал целиком за белой линией (ближний край кузова дальше EDGE_MIN), углом кузова не в ВИДИМОМ отбойнике;
      • кузов крутится не быстрее YAW_MAX °/с; ни кадра «телепортации» (излом хода ≤ JUMP), поворот кузова за кадр ≤ YAWJ;
      • дым передних колёс есть;
@@ -56,10 +56,10 @@ function run(opt) {
       var used={},ev=[],t0=raceTime,TRIES=10;
       while(raceTime-t0<2400&&ev.length<sc.list.length){__drive(1,dt,"auto");if(raceTime<60)continue;   // с 60-й секунды: на старте поле плотное, и у каждого сосед рядом (тогда — обычная ошибка)
         for(var k=0;k<field.length;k++){var c=field[k];if(c.retired||c.fail||c.err||c.spinPend)continue;var si=sc.trig[carIdx(c)];if(si<0||used[si]>=TRIES)continue;used[si]=(used[si]||0)+1;   // соседа рядом не всегда нет — до TRIES попыток на место
-          c.spinPend={C:sc.list[si],ret:false,until:c.dist+sc.list[si].toEx};
+          c.spinPend={C:sc.list[si],ret:false,d0:c.dist,until:c.dist+sc.list[si].toEx};var dDec=c.dist;
           var e={ci:si,S:sites[si].S,code:c.code},f=null,T=0,d0=0,px=0,pz=0,qx=0,qz=0,py=0,n=0,yawMax=0,yawJ=0,jump=0,ov=0,ovWho='',stopped=false;front=0;cur=c;
           while(n<60*60){__drive(1,dt,'auto');n++;
-            if(!f){if(c.fail&&c.fail.on){f=c.fail;T=raceTime;d0=c.dist;e.v0=+(c.speed*3.6).toFixed(0);px=c.mesh.position.x;pz=c.mesh.position.z;py=c.mesh.rotation.y;qx=null;}
+            if(!f){if(c.fail&&c.fail.on){f=c.fail;T=raceTime;d0=c.dist;e.onAt=+(c.dist-dDec-sc.list[si].lead).toFixed(1);e.v0=+(c.speed*3.6).toFixed(0);px=c.mesh.position.x;pz=c.mesh.position.z;py=c.mesh.rotation.y;qx=null;}
               else if(!c.spinPend){e.skip=+(c.speed*3.6).toFixed(0);e.why=c.speed<SPIN_MIN_V?'медленно':(spinCrowd(c,sc.list[si].side)?'сосед рядом':'негде встать');e.err=!!c.err;break;}continue;}
             var m=c.mesh.position,mx=m.x-px,mz=m.z-pz,jj=qx===null?0:Math.hypot(mx-qx,mz-qz),wh=(c.fail?(c.fail.ph===undefined?(c.fail.world?'скольжение':'скольжение по полосе'):'возврат '+c.fail.ph):'езда')+' '+(c.speed*3.6).toFixed(0)+' км/ч';if(jj>jump){jump=jj;e.jumpAt=wh;}qx=mx;qz=mz;px=m.x;pz=m.z;
             var dy=Math.abs(((c.mesh.rotation.y-py+Math.PI*3)%(2*Math.PI))-Math.PI);if(dy>yawJ){yawJ=dy;e.yawAt=wh;}if(dy/dt>yawMax)yawMax=dy/dt;py=c.mesh.rotation.y;
@@ -86,6 +86,7 @@ function run(opt) {
       if (e.skip !== undefined) { r.note(`${t}: разворота нет (${e.why}, ${e.skip} км/ч) — ${e.err ? 'обычная ошибка' : 'ошибки нет'}`); continue; }
       if (e.noBack) { r.fail(`${t}: не вернулся в езду за 60 с`); continue; }
       if (e.v0 < o.minV - 1) r.fail(`${t}: срыв на ${e.v0} км/ч — медленнее ${o.minV.toFixed(0)}`);
+      if (e.onAt < -1) r.fail(`${t}: срыв за ${-e.onAt} м ДО входа в поворот — на прямой (v1.16.83)`);
       if (e.stopT > STOP_MAX) r.fail(`${t}: до остановки ${e.stopT} с (предел ${STOP_MAX})`);
       if (e.path > PATH_MAX) r.fail(`${t}: путь ${e.path} м (предел ${PATH_MAX})`);
       if (e.edge < EDGE_MIN) r.fail(`${t}: встал не целиком за линией — ближний край в ${e.edge} м от неё${e.why ? ' (' + e.why.trim() + ')' : ''}`);

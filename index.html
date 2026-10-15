@@ -7287,12 +7287,12 @@ function update(dt){
       else if(c.errI!==undefined&&!c.spinPend&&!neutralAt(iu)&&!neutAhead(iu,c.speed)&&raceTime>c.react+3&&!c.ovLock){
         const ec=errCorners(),sc=spinCorners(),M=track.M,n=(iu-c.errI+M)%M,S=sc.list.length?SPIN_SHARE:0,fk=(1.02-(c.skill||0.9))/0.13;   // слабый ошибается чаще: 0.81 даёт 1.6 от средней частоты, 0.98 — 0.31
         if(n>0&&n<12)for(let q=1;q<=n;q++){const ix=(c.errI+q)%M,ci=ec.trig[ix],si=sc.trig[ix];if(ci<0&&si<0)continue;
-          if(c.fail&&c.fail.wait){if(c.fail.spin){if(si>=0){c.fail=null;c.spinPend={C:sc.list[si],ret:true,until:c.dist+sc.list[si].toEx};}}else if(ci>=0)crashStart(c,ec.list[ci],n-q);break;}   // сход ждал своего места (v1.16.79, разворот — v1.16.82)
+          if(c.fail&&c.fail.wait){if(c.fail.spin){if(si>=0){const d0=c.dist-(n-q)*track.length/M;c.fail=null;c.spinPend={C:sc.list[si],ret:true,d0:d0,until:d0+sc.list[si].toEx};}}else if(ci>=0)crashStart(c,ec.list[ci],n-q);break;}   // сход ждал своего места (v1.16.79, разворот — v1.16.82)
           /* Разворот — доля SPIN_SHARE ошибок, поделенная поровну между местами разворота; остальное — прежние ошибки «проскочил
              поворот» поровну между их поворотами. Нет мест разворота (Монако, Майами) — S=0, и жребий тот же, что до v1.16.82. */
           const pS=si>=0?ERR_RATE*S/sc.list.length*fk:0,pE=ci>=0?ERR_RATE*(1-S)/ec.list.length*fk:0;
           if(pS+pE>0){const r=Math.random();
-            if(r<pS&&spinPlan(c,sc.list[si],Math.min(c.speed,sc.list[si].vOn),false,SPIN_ENDS[1][1])){c.spinPend={C:sc.list[si],ret:false,until:c.dist+sc.list[si].toEx};c.duel=null;}   // срыв — когда скорость упадёт до vOn
+            if(r<pS&&spinPlan(c,sc.list[si],Math.min(c.speed,sc.list[si].vOn),false,SPIN_ENDS[1][1])){const d0=c.dist-(n-q)*track.length/M;c.spinPend={C:sc.list[si],ret:false,d0:d0,until:d0+sc.list[si].toEx};c.duel=null;}   // срыв — в точке C.on (не раньше входа в поворот)
             else if(ci>=0&&r<pS+pE){const C=ec.list[ci];c.err={d0:c.dist-(n-q)*track.length/M,side:C.side,lead:C.lead,toAp:C.toAp,toEx:C.toEx};c.duel=null;}}   // негде развернуться — обычная ошибка
           break;}
       }
@@ -7423,7 +7423,7 @@ function update(dt){
       c.lapStart=raceTime;}
     if(c.spinPend){const P=c.spinPend;                                       // разворот решён: срыв — посреди торможения или сразу (v1.16.82)
       if(!P.ret&&(neutralAt(iu)||neutAhead(iu,c.speed)))c.spinPend=null;       // флаг — ошибки нет, как у «проскочил поворот»
-      else if(c.speed<=P.C.vOn||c.dist>=P.until){c.spinPend=null;
+      else if(c.dist>=P.d0+P.C.on||c.dist>=P.until){c.spinPend=null;
         if(!spinStart(c,P.C,0,P.ret)){if(P.ret)techStart(c,iu);                  // сход без места — отказ техники
           else if(P.C.err){const C=P.C;c.err={d0:P.until-C.toEx,side:C.side,lead:C.lead,toAp:C.toAp,toEx:C.toEx};}}}}   // ошибке негде развернуться (сосед, стена) — обычная «проскочил поворот»
     if(c.retireAt&&c.dist>=c.retireAt)failBegin(c,iu);                     // отказ: дальше — failStep (v1.16.79; до неё — retireCar на месте за один кадр)
@@ -7572,6 +7572,7 @@ const RET_WALL_DEC=14;                   // м/с²: скольжение бор
 const SPIN_SHARE=1/6;                    // доля разворотов среди ошибок на трассе, где есть места разворота (без них — 0, ошибки прежние)
 const SPIN_ROOM=8;                       // м: снаружи поворота за белой линией до стены — медиана от апекса до выхода +120 м (владелец: «правило 8 м»)
 const SPIN_FAST_V=150/3.6, SPIN_FAST_DROP=20/3.6;   // быстрый поворот: в нём не медленнее 150 км/ч, перед ним сбросить ≥ 20 км/ч
+const SPIN_IN=8;                         // м: у быстрого поворота срыв — на столько за входом (Ферстаппен — на повороте руля, Пиастри — на поребрике)
 const SPIN_ON=0.5;                       // тяжёлое торможение: срыв, когда скорость упала до середины между подходом и поворотом
 const SPIN_MIN_V=120/3.6;                // м/с: медленнее — ошибке не разворот (в трафике болид мог идти поворот вдвое медленнее)
 const SPIN_TURN=0.15;                    // с: за столько курс хода переходит на прямую вылета
@@ -8179,12 +8180,10 @@ function errCorners(){if(track._errC)return track._errC;
    Сильверстоун; Ферстаппен — T9, Австрия, квалификация 2026). И только там, где снаружи поворота, от апекса до выхода +120 м,
    за белой линией до стены обычно (медиана) не меньше SPIN_ROOM: разворот уносит в выезд, а не в стену. Решение — там же, где
    у ошибки: за ERR_LEAD до входа (trig). Повороты те же во всех режимах: профиль — у errCorners (соперник 0.90, Норма). */
-/* Место годится, только если разворот там вообще возможен: из точки срыва по профилю скорости (срыв — где скорость упала до vOn,
-   у быстрого поворота — сразу) хоть с одной из трёх полос (внутри, середина, снаружи) есть прямая вылета, по которой ошибка
+/* Место годится, только если разворот там вообще возможен: из точки срыва по профилю скорости (C.on — не раньше входа) хоть с одной из трёх полос (внутри, середина, снаружи) есть прямая вылета, по которой ошибка
    встаёт за линией, не в стену и не через внутреннюю сторону. Шпилька Монреаля правило 8 м проходит (медиана 8.6), но прямая
    к её выходу всегда шла внутрь поворота — разворота там не было ни разу, а доля разворотов трассы уходила в её ошибки. */
-function spinSiteOk(C,t,V){const M=track.M;let i=t;
-  for(let n=0;n<M&&n*track.length/M<C.toEx;n++){if(V[(t+n)%M]<=C.vOn){i=(t+n)%M;break;}}
+function spinSiteOk(C,t,V){const M=track.M,i=(t+Math.round(C.on/(track.length/M)))%M;
   const v=Math.min(V[i],C.vOn),hw=halfAt(i);
   for(const l of [-0.5,0,0.5]){const c={u:(i+0.5)/M,lane:l*hw,crab:0,speed:v};const w=spinXZ(c);c.x=w[0];c.z=w[1];
     if(spinPlan(c,C,v,false,SPIN_ENDS[1][1]))return true;}
@@ -8204,7 +8203,11 @@ function spinCorners(){if(track._spinC)return track._spinC;
       rooms.sort((x,y)=>x-y);
       if(rooms[rooms.length>>1]>=SPIN_ROOM){const lead=Math.round(ERR_LEAD/seg),t=(i0+q-lead+M)%M;
         const C={side:sg,ap:apI,lead:lead*seg,toAp:lead*seg+(ap-q)*seg,toEx:lead*seg+(b-q+1)*seg,err:isErr,
-          vOn:isErr?vmin+(V[t]-vmin)*SPIN_ON:1e9};                                 // тяжёлое торможение — срыв посреди него (Перес — на 150 км/ч), быстрый — сразу
+          vOn:isErr?vmin+(V[t]-vmin)*SPIN_ON:1e9};                                 // тяжёлое торможение — срыв посреди него (Перес — на 150 км/ч), быстрый — на входе
+        /* Точка срыва — не раньше входа в поворот (v1.16.83, владелец на тестовой сборке: «нормально заехали в поворот и на прямой
+           необъяснимо ушли на разворот»: у быстрого поворота срыв был в точке решения, за ERR_LEAD до входа — ещё на прямой).
+           Тяжёлое торможение — где по профилю скорость упала до vOn, но не раньше входа; быстрый поворот — на SPIN_IN за входом. */
+        {let on=C.lead+(isErr?0:SPIN_IN);if(isErr){for(let z=lead;z*seg<C.toEx;z++)if(V[(t+z)%M]<=C.vOn){on=Math.max(on,z*seg);break;}}C.on=on;}
         if(trig[t]<0&&spinSiteOk(C,t,V)){trig[t]=list.length;list.push(C);}}}
     q=b;}
   return track._spinC={list:list,trig:trig};}
