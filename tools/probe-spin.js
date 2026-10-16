@@ -20,6 +20,8 @@
      • дорога на пути разворота (до остановки) поворачивает не меньше TURN_MIN — не почти прямая;
      • «унесло» — кузов против хода не больше DRIFT_DEV; доворот после остановки — вокруг передней оси (сдвиг ≤ PIV_FRONT);
      • оба вида — «унесло» и «развернуло» — есть среди разворотов.
+     • в каждом месте решение самой игры (spinAhead, за ERR_LEAD до входа) пропускает разворот хоть с одной полосы — пробник
+       назначает разворот в обход решения, и первая редакция v1.16.84 прошла его, а в гонке ошибок-разворотов не было вовсе.
    ========================================================================== */
 'use strict';
 
@@ -57,7 +59,8 @@ function run(opt) {
           var oo=ra+rb-d;if(oo<=0)return 0;if(oo<best)best=oo;}return best;}
       /* места: сторона и правило 8 м — своей меркой (медиана места снаружи от апекса до выхода +120 м) */
       var sites=sc.list.map(function(C,ci){var rooms=[];for(var d=0;d<=C.toEx-C.toAp+120;d+=seg){var j=(C.ap+Math.round(d/seg))%M;rooms.push(wallAt(j,C.side)-halfAt(j));}
-        rooms.sort(function(a,b){return a-b;});return {ci:ci,S:Math.round(track.S[C.ap]),side:C.side,sideOk:C.side===Math.sign(track.K[C.ap]),room:+rooms[rooms.length>>1].toFixed(1)};});
+        rooms.sort(function(a,b){return a-b;});var tI=-1;for(var j=0;j<M;j++)if(sc.trig[j]===ci)tI=j;var V=errCorners().V,dec=[-0.5,0,0.5].some(function(l){return spinAhead({speed:V[tI],lane:l*halfAt(tI)},C,tI);});   // решение в игре — за ERR_LEAD до входа: разворот там должен проходить (v1.16.84: не проходил нигде)
+        return {ci:ci,S:Math.round(track.S[C.ap]),side:C.side,sideOk:C.side===Math.sign(track.K[C.ap]),room:+rooms[rooms.length>>1].toFixed(1),dec:dec};});
       /* дым ставится только у камеры (SMOKE_RANGE), а камера — у игрока: считаются заявки на дым, а не частицы */
       var front=0,__pa=retSmokeQ,cur=null;retSmokeQ=function(c,iu,kind){if(c===cur&&kind==='lock')front++;return __pa.apply(null,arguments);};
       var used={},ev=[],t0=raceTime,TRIES=10;
@@ -90,6 +93,7 @@ function run(opt) {
     for (const s of o.sites) {
       if (!s.sideOk) r.fail(`${tag} S ${s.S}: сторона разворота — внутренняя`);
       if (s.room < 8) r.fail(`${tag} S ${s.S}: место снаружи ${s.room} м < 8`);
+      if (!s.dec) r.fail(`${tag} S ${s.S}: решение в гонке (за ERR_LEAD до входа) разворот здесь не пропускает ни с одной полосы — в игре его не бывает`);
     }
     const done = o.ev.filter(e => e.v0 !== undefined);
     for (const e of o.ev) {

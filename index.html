@@ -7292,7 +7292,7 @@ function update(dt){
              поворот» поровну между их поворотами. Нет мест разворота (Монако, Майами) — S=0, и жребий тот же, что до v1.16.82. */
           const pS=si>=0?ERR_RATE*S/sc.list.length*fk:0,pE=ci>=0?ERR_RATE*(1-S)/ec.list.length*fk:0;
           if(pS+pE>0){const r=Math.random();
-            if(r<pS&&spinPlan(c,sc.list[si],Math.min(c.speed,sc.list[si].vOn),false,SPIN_ENDS[1][1])){const d0=c.dist-(n-q)*track.length/M;c.spinPend={C:sc.list[si],ret:false,d0:d0,until:d0+sc.list[si].toEx};c.duel=null;}   // срыв — в точке C.on (не раньше входа в поворот)
+            if(r<pS&&spinAhead(c,sc.list[si],ix)){const d0=c.dist-(n-q)*track.length/M;c.spinPend={C:sc.list[si],ret:false,d0:d0,until:d0+sc.list[si].toEx};c.duel=null;}   // срыв — в точке C.on (не раньше входа в поворот)
             else if(ci>=0&&r<pS+pE){const C=ec.list[ci];c.err={d0:c.dist-(n-q)*track.length/M,side:C.side,lead:C.lead,toAp:C.toAp,toEx:C.toEx};c.duel=null;}}   // негде развернуться — обычная ошибка
           break;}
       }
@@ -7686,6 +7686,11 @@ function spinPlan(c,C,v,ret,ang){const M=track.M,L=track.length,dec=ret?SPIN_DEC
       if(q.lane*side>wallAt(i,side)-Math.max(half,1.4)-SPIN_EDGE*0.5)return null;
       if(q.lane*side<l0-1)return null;}}                                          // и не внутрь поворота
   return {X:X,dec:dec,tr:T,g:g,tgt:side*tgt};}
+/* Разворот в месте C возможен? Решение — за ERR_LEAD до входа (точка ix), а путь считается из точки срыва C.on: болид там — в своей
+   полосе, кузов прямо, скорость — профиль в точке срыва в темпе болида (v1.16.84: проверка из точки решения на прямой — касательная оттуда за линию не уносит,
+   и ошибок-разворотов в гонке не было вовсе; пробник spin назначал разворот в обход неё). */
+function spinAhead(c,C,ix){const M=track.M,iO=(ix+Math.round(C.on/(track.length/M)))%M,V=errCorners().V,v=Math.min(C.vOn,V[iO]*Math.min(1.1,c.speed/Math.max(1,V[ix]))),q={u:((ix+0.5)/M+C.on/track.length)%1,lane:c.lane,crab:0,speed:v};   // скорость в точке срыва — профиль там, в темпе самого болида (между решением и срывом он бывает ещё в разгоне: Becketts → Chapel 169 → 193 км/ч)
+  return !!spinPlan(q,C,v,false,SPIN_ENDS[1][1]);}
 /* Шаг по пути разворота: точка на step дальше -> (u, lane). Ничего не меняет: f.s сдвигается после проверок. */
 function spinWorld(c,f,step){if(f.ox===undefined){const w=spinXZ(c);f.ox=w[0]-f.tr.x[0];f.oz=w[1]-f.tr.z[0];}   // путь — от того места, где болид сейчас (после решения о срыве кадр ещё двигал его, до 13 см вбок)
   const s=f.s+step,p=spinAt(f.tr,s),q=spinProject(p[0]+f.ox,p[1]+f.oz,c.u+step/track.length);
