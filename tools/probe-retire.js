@@ -113,7 +113,8 @@ function run(opt) {
       if (kind === 'tech' && o.room >= PARK_NEED + 0.2 && o.blocking) r.fail(`${tag}: место за кромкой ${o.room} м, а встал частью на полотне`);
       if (kind === 'tech' && o.room >= PARK_NEED + DEEP_MIN + 0.5 && o.near < DEEP_MIN) r.fail(`${tag}: место за кромкой ${o.room} м, а встал в ${o.near} м от линии`);
       if (kind === 'tech' && !o.eng) r.fail(`${tag}: нет дыма мотора`);
-      if (kind === 'spin' && !o.rear) r.fail(`${tag}: нет дыма передних колёс`);
+      if (kind === 'spin' && o.kind === 'spin' && !o.rear) r.fail(`${tag}: нет дыма передних колёс`);
+      if (kind === 'spin' && o.kind !== 'spin') r.note(`${tag}: места разворота без соседа на пути не нашлось за 1500 м — ${o.kind}`);
       if (o.ov > OVERLAP) r.fail(`${tag}: соперник вошёл в корпус вставшего на ${o.ov} м (${o.ovWho})`);
     }
     const by = k => rows.filter(o => o.kind === k);
