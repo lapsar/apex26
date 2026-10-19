@@ -2,7 +2,7 @@
    (ошибка-разворот: развернулся, постоял, вернулся). До v1.16.86 здесь был 'seize' — «заклинило», убранное из игры в v1.16.82,
    и инструмент по умолчанию падал (seizeStart is not defined).
    Гонка крутится до --warm секунд (Math.random — на зерне --seed), затем ищется пара подряд идущих соперников T и F1,
-   где F1 — в 10–45 м за T, а T — на прямой или в пологом повороте (для 'crash' — у точки решения ошибки, errCorners;
+   где F1 — в 10–45 м за T (для разворотов — сразу за зоной spinCrowd, до +35 м), а T — на прямой или в пологом повороте (для 'crash' — у точки решения ошибки, errCorners;
    для 'spin'/'spinerr' — у точки решения места разворота, spinCorners: у Монако, Монреаля, Майами мест нет).
    T получает сход принудительно; разворот случается в точке срыва (C.on, дальше по ходу) — отсчёт кадров (--times) идёт
    с момента срыва. --spin=рад задаёт угол разворота (по умолчанию — жребий игры); соседа на пути разворот не ждёт
@@ -70,7 +70,8 @@ const CHROME = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
         else if (SPINK) { if (sc.trig[iu] < 0) continue; }
         else { let km = 0; for (let a = 0; a < 25; a++) km = Math.max(km, Math.abs(track.K[(iu + a) % M])); if (km > 0.05 || T.speed < 45) continue; }
         const g1 = Math.hypot(T.x - F1.x, T.z - F1.z);
-        if (g1 < 10 || g1 > 45) continue;
+        const gMin = SPINK ? Math.max(10, T.speed * SPIN_CROWD_T + 4) : 10;   // разворот с соседом вплотную сзади игра не начинает (spinCrowd) — «оператор» дальше
+        if (g1 < gMin || g1 > gMin + 35) continue;
         if (KIND === 'crash') { T.fail = { wait: true, until: T.dist + 1500 }; T.err = null; T.errI = (iu - 1 + M) % M; }
         else if (KIND === 'tech') techStart(T, iu);
         else { const C = sc.list[sc.trig[iu]]; T.err = null; T.spinPend = KIND === 'spin' ? { C, ret: true, d0: T.dist, until: T.dist + C.toEx, wu: T.dist + 1500 }
