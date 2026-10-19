@@ -7413,11 +7413,11 @@ function update(dt){
     /* Вставший болид не сдвигается (касание двигает только игрока), поэтому к нему — жёсткий упор: пока полоса не ушла вбок
        на его ширину, нос не заходит в его корпус; полоса меняется и на месте, так что объезд не запирается (v1.16.79). */
     const myX=carHalfWidth(c.crab||0)+0.13;                                 // своя ширина поперёк дороги — с доворотом кузова
-    c.gBlk=0;                                                                // вставший держит на месте — с какой стороны от него отойти (v1.16.87)
+    c.gBlk=0;c.gHold=null;                                                   // вставший держит на месте — с какой стороны от него отойти (v1.16.87) и кто он (v1.16.88)
     for(const r of __ghosts){const g=r.ghost,ga=g.dist-c.dist;if(ga<=0||ga>40||Math.abs(c.lane-g.lane)>=g.spanX+myX)continue;
-      const d=ga-g.spanL-3.02-0.3;if(d<=0){c.speed=0;c.gBlk=Math.sign(c.lane-g.lane)||1;continue;}const capG=d/FOLLOW_TAU;if(c.speed>capG)c.speed=Math.max(capG,c.speed-FOLLOW_BRAKE*dt);}
+      const d=ga-g.spanL-3.02-0.3;if(d<=0){c.speed=0;c.gBlk=Math.sign(c.lane-g.lane)||1;c.gHold=g;continue;}const capG=d/FOLLOW_TAU;if(c.speed>capG)c.speed=Math.max(capG,c.speed-FOLLOW_BRAKE*dt);}
     for(const r of __ghosts){if(Math.abs(c.x-r.x)>14||Math.abs(c.z-r.z)>14||c.speed<=0)continue;   // и точно — корпус против корпуса: в тугой шикане развёрнутый стоит косо к дороге
-      const p0=ghostPen(c,c.lane,0,r);if(ghostPen(c,c.lane,c.speed*dt,r)>p0+1e-4){c.speed=0;const R=track.R[iu];c.gBlk=Math.sign((c.x-r.x)*R.x+(c.z-r.z)*R.z)||1;}}
+      const p0=ghostPen(c,c.lane,0,r);if(ghostPen(c,c.lane,c.speed*dt,r)>p0+1e-4){c.speed=0;const R=track.R[iu];c.gBlk=Math.sign((c.x-r.x)*R.x+(c.z-r.z)*R.z)||1;c.gHold=r.ghost;}}
     if(c.speed<0)c.speed=0;
     const prevU=c.u;c.u=(c.u+(c.speed*dt)/track.length)%1;c.dist+=c.speed*dt;
     // per-car lap timing for the race's fastest lap
@@ -7438,6 +7438,10 @@ function update(dt){
     // lane: hold your grid slot off the line, then settle into a single file on the racing line
     c.settle=Math.min(1,c.settle+dt/18);
     let want=line+c.laneJit;
+    /* Держит вставший — объезжаем ЕГО (v1.16.88). К нему подъезжают двое-трое и встают рядом; ближайший «впереди в моей полосе»
+       тогда — сосед, тоже стоящий, и защёлка объезда цеплялась за соседа: машины запирали друг друга, а добор отступа и другая
+       сторона (только для вставшего) не включались — до 25 с перед вставшим посреди дороги, хотя места объехать хватало. */
+    if(c.gHold&&c.ovLock!==c.gHold){c.ovLock=c.gHold;c.ovDir=ghostSide(c.gHold);}
     /* Объезд вставшего заперт (v1.16.87): стоит — добирает отступ (GHOST_PAD: его угол в чужом сечении дороги выступает дальше,
        чем ширина поперёк его участка), не помогло за GHOST_FLIP — другой стороной. */
     if(c.ovLock&&c.ovLock.isGhost){if(c.ovPadFor!==c.ovLock){c.ovPadFor=c.ovLock;c.ovPad=0;c.ovStk=0;}
@@ -7469,7 +7473,8 @@ function update(dt){
        &&(c.paceAvg>c.ahd.paceAvg+DUEL_EDGE||c.ahd.spdAvg<c.ahd.paceAvg*DUEL_STUCK)){                                  // вставший — не сюда: им занимается ovLock со своими правилами
       c.duel=c.ahd;c.duelT=DUEL_TIME;c.duelDir=freeSide(c,c.ahd.lane,entSide||c.ovSide,hw);}   // сторона — внутренняя для поворота впереди; freeSide оставлен сторожем: занятую внутреннюю он по-прежнему обходит снаружи
     else if(c.duel&&entSide&&Math.abs(c.lane-line)<1.0)c.duelDir=freeSide(c,c.duel.lane,entSide,hw);   // защёлка жива, а болид ещё не тронулся вбок — можно перецелиться на следующий поворот, не мечась на полпути
-    if(c.ahd&&c.gp<20&&c.pace>c.ahd.speed+1.0&&(!na||slowAhd)&&(!afterApex||crawler||c.ovLock||c.duel===c.ahd)){              // faster potential -> go around. Under yellow/VSC only a car that cannot hold the pace may be passed — that is the rule, and without it a queue would crawl behind a stopped car for ever (v1.15.26)
+    const gLock=!!c.ovLock&&c.ovLock.isGhost&&c.ovLock!==c.ahd;              // объезжаем вставшего, а ближе — стоящий сосед: цель не перебивать (v1.16.88)
+    if(c.ahd&&c.gp<20&&c.pace>c.ahd.speed+1.0&&(!na||slowAhd)&&(!afterApex||crawler||c.ovLock||c.duel===c.ahd)&&!gLock){              // faster potential -> go around. Under yellow/VSC only a car that cannot hold the pace may be passed — that is the rule, and without it a queue would crawl behind a stopped car for ever (v1.15.26)
       let ov=c.ovSide, off=2.6;
       if(crawler){                                                           // ahead much slower/stopped: take the open side (toward centre) and clear fully
         ov=c.ahd.lane>0.3?-1:(c.ahd.lane<-0.3?1:c.ovSide);
