@@ -15,16 +15,25 @@
      • дым передних колёс есть;
      • вернулся в обычную езду не позже BACK_MAX с, отдал её в полосе не дальше SPIN_LANE полуширины (+5 см) — без скачка;
      • за всё время ни один соперник не вошёл в его корпус глубже OVERLAP.
+     v1.16.84 (владелец 16.10.2026: «разворот на почти прямой», «как на круговой подставке», «сносит по касательной»):
+     • ход за срыв не уводит наружу от касательной (курса в момент срыва) больше TAN_OUT;
+     • дорога на пути разворота (до остановки) поворачивает не меньше TURN_MIN — не почти прямая;
+     • «унесло» — кузов против хода не больше DRIFT_DEV; доворот после остановки — вокруг передней оси (сдвиг ≤ PIV_FRONT);
+     • оба вида — «унесло» и «развернуло» — есть среди разворотов.
+     • в каждом месте решение самой игры (spinAhead, за ERR_LEAD до входа) пропускает разворот хоть с одной полосы — пробник
+       назначает разворот в обход решения, и первая редакция v1.16.84 прошла его, а в гонке ошибок-разворотов не было вовсе.
    ========================================================================== */
 'use strict';
 
 const H = require('./harness');
 const R = require('./report');
 
+const TAN_OUT = 2, TURN_MIN = 10, DRIFT_DEV = 30, PIV_FRONT = 0.3;
 const STOP_MAX = 3.0, PATH_MAX = 120, EDGE_MIN = 0.3, YAW_MAX = 460, JUMP = 1.0, YAWJ = 12, BACK_MAX = 40, OVERLAP = 0.3;
 
 function run(opt) {
   const r = R.result('Ошибка-разворот: срыв в месте разворота, 1–3 с до остановки за линией, без стены и скачков, возврат в езду');
+  const all = [];
   for (const T of H.tracks(true).filter(t => !process.env.SPIN_ONLY || t.name === process.env.SPIN_ONLY)) {
     const env = H.loadGame({ seed: 3, file: opt && opt.file });
     H.setupWeekend(env, { trackIdx: T.idx, diff: 'normal', laps: 30 });
@@ -50,7 +59,8 @@ function run(opt) {
           var oo=ra+rb-d;if(oo<=0)return 0;if(oo<best)best=oo;}return best;}
       /* места: сторона и правило 8 м — своей меркой (медиана места снаружи от апекса до выхода +120 м) */
       var sites=sc.list.map(function(C,ci){var rooms=[];for(var d=0;d<=C.toEx-C.toAp+120;d+=seg){var j=(C.ap+Math.round(d/seg))%M;rooms.push(wallAt(j,C.side)-halfAt(j));}
-        rooms.sort(function(a,b){return a-b;});return {ci:ci,S:Math.round(track.S[C.ap]),side:C.side,sideOk:C.side===Math.sign(track.K[C.ap]),room:+rooms[rooms.length>>1].toFixed(1)};});
+        rooms.sort(function(a,b){return a-b;});var tI=-1;for(var j=0;j<M;j++)if(sc.trig[j]===ci)tI=j;var V=errCorners().V,dec=[-0.5,0,0.5].some(function(l){return spinAhead({speed:V[tI],lane:l*halfAt(tI)},C,tI);});   // решение в игре — за ERR_LEAD до входа: разворот там должен проходить (v1.16.84: не проходил нигде)
+        return {ci:ci,S:Math.round(track.S[C.ap]),side:C.side,sideOk:C.side===Math.sign(track.K[C.ap]),room:+rooms[rooms.length>>1].toFixed(1),dec:dec};});
       /* дым ставится только у камеры (SMOKE_RANGE), а камера — у игрока: считаются заявки на дым, а не частицы */
       var front=0,__pa=retSmokeQ,cur=null;retSmokeQ=function(c,iu,kind){if(c===cur&&kind==='lock')front++;return __pa.apply(null,arguments);};
       var used={},ev=[],t0=raceTime,TRIES=10;
@@ -59,11 +69,15 @@ function run(opt) {
           c.spinPend={C:sc.list[si],ret:false,d0:c.dist,until:c.dist+sc.list[si].toEx};var dDec=c.dist;
           var e={ci:si,S:sites[si].S,code:c.code},f=null,T=0,d0=0,px=0,pz=0,qx=0,qz=0,py=0,n=0,yawMax=0,yawJ=0,jump=0,ov=0,ovWho='',stopped=false;front=0;cur=c;
           while(n<60*60){__drive(1,dt,'auto');n++;
-            if(!f){if(c.fail&&c.fail.on){f=c.fail;T=raceTime;d0=c.dist;e.onAt=+(c.dist-dDec-sc.list[si].lead).toFixed(1);e.v0=+(c.speed*3.6).toFixed(0);px=c.mesh.position.x;pz=c.mesh.position.z;py=c.mesh.rotation.y;qx=null;}
+            if(!f){if(c.fail&&c.fail.on){f=c.fail;T=raceTime;d0=c.dist;e.onAt=+(c.dist-dDec-sc.list[si].lead).toFixed(1);e.v0=+(c.speed*3.6).toFixed(0);e.drift=!!f.drift;e.h0=f.tr.h[0];e.tanOut=-9;e.bodyDev=0;{var tn=0,j0=carIdx(c);for(var dd=0;dd<f.X;dd+=seg)tn+=track.K[(j0+Math.round(dd/seg))%M]/24*seg;e.turn=+Math.abs(tn*57.3).toFixed(1);}px=c.mesh.position.x;pz=c.mesh.position.z;py=c.mesh.rotation.y;qx=null;}
               else if(!c.spinPend){e.skip=+(c.speed*3.6).toFixed(0);e.why=c.speed<SPIN_MIN_V?'медленно':(spinCrowd(c,sc.list[si].side)?'сосед рядом':'негде встать');e.err=!!c.err;break;}continue;}
-            var m=c.mesh.position,mx=m.x-px,mz=m.z-pz,jj=qx===null?0:Math.hypot(mx-qx,mz-qz),wh=(c.fail?(c.fail.ph===undefined?(c.fail.world?'скольжение':'скольжение по полосе'):'возврат '+c.fail.ph):'езда')+' '+(c.speed*3.6).toFixed(0)+' км/ч';if(jj>jump){jump=jj;e.jumpAt=wh;}qx=mx;qz=mz;px=m.x;pz=m.z;
+            var m=c.mesh.position,mx=m.x-px,mz=m.z-pz,hm=Math.atan2(mx,mz),jj=qx===null?0:Math.hypot(mx-qx,mz-qz),wh=(c.fail?(c.fail.ph===undefined?(c.fail.world?'скольжение':'скольжение по полосе'):'возврат '+c.fail.ph):'езда')+' '+(c.speed*3.6).toFixed(0)+' км/ч';if(jj>jump){jump=jj;e.jumpAt=wh;}
+            if(f.ph===undefined&&c.speed>5&&Math.hypot(mx,mz)>0.01){var dv=Math.atan2(Math.sin(hm-e.h0),Math.cos(hm-e.h0))*57.3;if(-f.side*dv>e.tanOut)e.tanOut=-f.side*dv;   // увод наружу от касательной (курс хода против курса в момент срыва)
+              if(f.drift){var bd=Math.abs(Math.atan2(Math.sin(c.mesh.rotation.y-hm),Math.cos(c.mesh.rotation.y-hm)))*57.3;if(bd>e.bodyDev)e.bodyDev=bd;}}   // «унесло»: кузов против хода
+            if(f.ph===1){var hh=c.mesh.rotation.y,fx=m.x+2.0*Math.sin(hh),fz=m.z+2.0*Math.cos(hh);if(e.pfx===undefined){e.pfx=fx;e.pfz=fz;e.pivF=0;e.pivA=0;e.pivC=0;e.pcx=m.x;e.pcz=m.z;e.ph0=hh;}   // доворот: передняя ось — на месте, середина — по дуге
+              e.pivF=Math.max(e.pivF,Math.hypot(fx-e.pfx,fz-e.pfz));e.pivC=Math.max(e.pivC,Math.hypot(m.x-e.pcx,m.z-e.pcz));e.pivA=Math.max(e.pivA,Math.abs(Math.atan2(Math.sin(hh-e.ph0),Math.cos(hh-e.ph0)))*57.3);}qx=mx;qz=mz;px=m.x;pz=m.z;
             var dy=Math.abs(((c.mesh.rotation.y-py+Math.PI*3)%(2*Math.PI))-Math.PI);if(dy>yawJ){yawJ=dy;e.yawAt=wh;}if(dy/dt>yawMax)yawMax=dy/dt;py=c.mesh.rotation.y;
-            for(var k2=0;k2<field.length;k2++){var c2=field[k2];if(c2===c||c2.retired||Math.hypot(c2.x-c.x,c2.z-c.z)>7)continue;var pp=pen(rect(c),rect(c2));if(pp>ov){ov=pp;ovWho=c2.code;}}
+            for(var k2=0;k2<field.length;k2++){var c2=field[k2];if(c2===c||c2.retired||Math.hypot(c2.x-c.x,c2.z-c.z)>7)continue;var pp=pen(rect(c),rect(c2));if(pp>ov){ov=pp;ovWho=c2.code;e.ovAt=wh;}}
             if(!stopped&&f.ph!==undefined){stopped=true;var iu=carIdx(c),hw=halfAt(iu),Pp=track.P[iu],Rr=track.R[iu],h=c.mesh.rotation.y,s=Math.sin(h),co=Math.cos(h),near=1e9,w=-9;
               [[1.285,3.02],[-1.285,3.02],[1.285,-3.02],[-1.285,-3.02]].forEach(function(b){var x=m.x+b[0]*co+b[1]*s,z=m.z-b[0]*s+b[1]*co,lat=((x-Pp.x)*Rr.x+(z-Pp.z)*Rr.z)*f.side;if(lat<near)near=lat;});
               BODY.forEach(function(b){var bq=beyond(m.x+b[0]*co+b[1]*s,m.z-b[0]*s+b[1]*co,f.side,iu);if(bq>w)w=bq;});
@@ -79,6 +93,7 @@ function run(opt) {
     for (const s of o.sites) {
       if (!s.sideOk) r.fail(`${tag} S ${s.S}: сторона разворота — внутренняя`);
       if (s.room < 8) r.fail(`${tag} S ${s.S}: место снаружи ${s.room} м < 8`);
+      if (!s.dec) r.fail(`${tag} S ${s.S}: решение в гонке (за ERR_LEAD до входа) разворот здесь не пропускает ни с одной полосы — в игре его не бывает`);
     }
     const done = o.ev.filter(e => e.v0 !== undefined);
     for (const e of o.ev) {
@@ -98,13 +113,23 @@ function run(opt) {
       if (e.back > BACK_MAX) r.fail(`${t}: вернулся в езду через ${e.back} с (предел ${BACK_MAX})`);
       if (e.laneOut > o.lane + 0.01) r.fail(`${t}: отдал езду в полосе ${e.laneOut} полуширины (обычная держит ≤ 0.75)`);
       if (e.crabJ > 3) r.fail(`${t}: после возврата кузов повернулся за кадр на ${e.crabJ}°`);
-      if (e.ov > OVERLAP) r.fail(`${t}: соперник ${e.ovWho} вошёл в корпус на ${e.ov} м`);
+      if (e.tanOut > TAN_OUT) r.fail(`${t}: путь увело наружу от касательной на ${e.tanOut.toFixed(1)}° (v1.16.84: только по касательной, с остатком сцепления — внутрь)`);
+      if (e.turn < TURN_MIN) r.fail(`${t}: дорога на пути разворота поворачивает лишь на ${e.turn}° — почти прямая (v1.16.84)`);
+      if (e.drift && e.bodyDev > DRIFT_DEV) r.fail(`${t}: «унесло», а кузов против хода на ${e.bodyDev.toFixed(0)}° (предел ${DRIFT_DEV})`);
+      if (e.pivF !== undefined && e.pivF > PIV_FRONT) r.fail(`${t}: доворот не вокруг передних колёс — передняя ось сдвинулась на ${e.pivF.toFixed(2)} м`);
+      if (e.ov > OVERLAP) r.fail(`${t}: соперник ${e.ovWho} вошёл в корпус на ${e.ov} м (${e.ovAt})`);
     }
+    all.push(...done);
     if (done.length * 2 < o.sites.length) r.fail(`${tag}: разворотов ${done.length} из ${o.sites.length} мест — меньше половины`);
     const f1 = (a, k) => a.length ? `${Math.min(...a.map(e => e[k]))}–${Math.max(...a.map(e => e[k]))}` : '—';
     r.line(`${tag.padEnd(12)} мест ${o.sites.length}, разворотов ${done.length} (срыв ${f1(done, 'v0')} км/ч): до остановки ${f1(done, 'stopT')} с, ` +
       `${f1(done, 'path')} м, за линией ${f1(done, 'edge')} м, угол ${done.map(e => e.ang + '°').join('/')}; в езде через ${f1(done, 'back')} с`);
   }
+  const nd = all.filter(e => e.drift).length, piv = all.filter(e => e.pivF !== undefined);
+  r.line(`всего ${all.length}: «унесло» ${nd}, «развернуло» ${all.length - nd}; увод наружу от касательной не больше ${Math.max(...all.map(e => e.tanOut)).toFixed(1)}°, ` +
+    `дорога на пути поворачивает ${Math.min(...all.map(e => e.turn))}–${Math.max(...all.map(e => e.turn))}°; доворотов ${piv.length}` +
+    (piv.length ? ` (до ${Math.max(...piv.map(e => e.pivA)).toFixed(0)}°, передняя ось ≤ ${Math.max(...piv.map(e => e.pivF)).toFixed(2)} м, середина по дуге до ${Math.max(...piv.map(e => e.pivC)).toFixed(1)} м)` : ''));
+  if (all.length >= 6 && (nd === 0 || nd === all.length)) r.fail(`все ${all.length} разворотов одного вида — «унесло» и «развернуло» должны быть пополам`);
   return r;
 }
 
