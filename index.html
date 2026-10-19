@@ -7289,7 +7289,7 @@ function update(dt){
         const ec=errCorners(),sc=spinCorners(),M=track.M,n=(iu-c.errI+M)%M,S=sc.list.length?SPIN_SHARE:0,fk=(1.02-(c.skill||0.9))/0.13;   // слабый ошибается чаще: 0.81 даёт 1.6 от средней частоты, 0.98 — 0.31
         if(n>0&&n<12)for(let q=1;q<=n;q++){const ix=(c.errI+q)%M,ci=ec.trig[ix],si=sc.trig[ix];if(ci<0&&si<0)continue;
           if(c.fail&&c.fail.wait){if(c.fail.spin){if(si>=0){const d0=c.dist-(n-q)*track.length/M;const wu=c.fail.until;c.fail=null;c.spinPend={C:sc.list[si],ret:true,d0:d0,until:d0+sc.list[si].toEx,wu:wu};}
-            else if(ci>=0&&!spinSiteWithin(ix,c.fail.until-c.dist))crashStart(c,ec.list[ci],n-q);}   // места разворота до конца ожидания нет — вылет здесь, а не отказ техники (v1.16.86: Монца, 2 места на круг)
+            else if(ci>=0&&(c.fail.tried||!spinSiteWithin(ix,c.fail.until-c.dist)))crashStart(c,ec.list[ci],n-q);}   // места разворота до конца ожидания нет или разворот уже сорвался (сосед) — вылет здесь, а не отказ техники (v1.16.86)
           else if(ci>=0)crashStart(c,ec.list[ci],n-q);break;}   // сход ждал своего места (v1.16.79, разворот — v1.16.82)
           /* Разворот — доля SPIN_SHARE ошибок, поделенная поровну между местами разворота; остальное — прежние ошибки «проскочил
              поворот» поровну между их поворотами. Нет мест разворота (Монако, Майами) — S=0, и жребий тот же, что до v1.16.82. */
@@ -7428,9 +7428,9 @@ function update(dt){
       if(!P.ret&&(neutralAt(iu)||neutAhead(iu,c.speed)))c.spinPend=null;       // флаг — ошибки нет, как у «проскочил поворот»
       else if(c.dist>=P.d0+P.C.on||c.dist>=P.until){c.spinPend=null;
         if(!spinStart(c,P.C,0,P.ret)){if(P.ret){const wait=P.wu&&c.dist<P.wu;   // сход: сосед на пути — ждёт следующего места разворота
-            if(wait&&spinSiteWithin(iu,P.wu-c.dist))c.fail={wait:true,spin:true,until:P.wu};
+            if(wait&&spinSiteWithin(iu,P.wu-c.dist))c.fail={wait:true,spin:true,until:P.wu,tried:true};
             else if(P.C.err)crashStart(c,P.C,(c.dist-P.d0)/(track.length/track.M));   // его не дождаться — вылет здесь, в тяжёлом торможении (v1.16.86; до неё — отказ техники)
-            else if(wait)c.fail={wait:true,spin:true,until:P.wu};else techStart(c,iu);}   // быстрый поворот — вылет в ближайшем тяжёлом торможении (ветка ошибок)
+            else if(wait)c.fail={wait:true,spin:true,until:P.wu,tried:true};else techStart(c,iu);}   // быстрый поворот — вылет в ближайшем тяжёлом торможении (ветка ошибок)
           else if(P.C.err){const C=P.C;c.err={d0:P.until-C.toEx,side:C.side,lead:C.lead,toAp:C.toAp,toEx:C.toEx};}}}}   // ошибке негде развернуться (сосед, стена) — обычная «проскочил поворот»
     if(c.retireAt&&c.dist>=c.retireAt)failBegin(c,iu);                     // отказ: дальше — failStep (v1.16.79; до неё — retireCar на месте за один кадр)
     if(c.fail&&c.fail.wait&&c.dist>c.fail.until)techStart(c,iu);           // вылета не дождался — отказ техники
