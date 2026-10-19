@@ -8289,7 +8289,7 @@ function spinCorners(){if(track._spinC)return track._spinC;
     q=b;}
   return track._spinC={list:list,trig:trig};}
 /* Есть ли место разворота (точка решения spinCorners.trig) в пределах X м впереди точки ix (v1.16.86: сход-разворот,
-   которому места не дождаться, становится вылетом — на Монце мест два, и половина таких сходов была отказом техники). */
+   которому места не дождаться, становится вылетом — до неё отказом техники были 64–90 % сходов-разворотов, на Монце 94 из 105). */
 function spinSiteWithin(ix,X){const sc=spinCorners(),M=track.M,n=Math.ceil(Math.max(0,X)/(track.length/M));
   for(let k=1;k<=n;k++)if(sc.trig[(ix+k)%M]>=0)return true;return false;}
 function entryAhead(i){const M=track.M;
