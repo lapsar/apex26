@@ -178,7 +178,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.16.85</div>
+    <div class="verstamp">v1.16.86</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -690,6 +690,7 @@ const ERR_BACK=150;                       // м после выхода: воз�
 const ERR_OUT=1.5;                        // м: центр болида за белой линией в глубине ошибки (v1.16.68: было 1.0) — колёса снаружи на поребрике и за ним
 const ERR_WALL=1.6;                       // м: цель полосы — центр не ближе этого к стене по данным (полуширина болида 1.29 + зазор); точнее — errWallFit по видимой стене
 const ERR_GAP=0.15;                       // м: угол кузова (с доворотом) не ближе этого к ВИДИМОЙ стене — errWallFit
+const ERR_SEE_T=1.0, ERR_SEE_N=4;        // с, точек: видимую стену ошибка смотрит на столько вперёд (v1.16.86; стену по данным — на секунду, см. errOut)
 /* ДЫМ БЛОКИРОВКИ (v1.16.69, владелец 12.10.2026 по кадрам Баку и Майами: «юбка» и шлейф, оба передних колеса, гуще —
    у заблокированного). Ошибающийся «держит» колёса ~50 м пути от точки решения (ERR_LEAD до входа) — около секунды:
    каждые SMOKE_STEP м пути у ВНУТРЕННЕГО переднего колеса частица шлейфа и частица «юбки» (разлёт вбок от шины),
@@ -7287,7 +7288,9 @@ function update(dt){
       else if(c.errI!==undefined&&!c.spinPend&&!neutralAt(iu)&&!neutAhead(iu,c.speed)&&raceTime>c.react+3&&!c.ovLock){
         const ec=errCorners(),sc=spinCorners(),M=track.M,n=(iu-c.errI+M)%M,S=sc.list.length?SPIN_SHARE:0,fk=(1.02-(c.skill||0.9))/0.13;   // слабый ошибается чаще: 0.81 даёт 1.6 от средней частоты, 0.98 — 0.31
         if(n>0&&n<12)for(let q=1;q<=n;q++){const ix=(c.errI+q)%M,ci=ec.trig[ix],si=sc.trig[ix];if(ci<0&&si<0)continue;
-          if(c.fail&&c.fail.wait){if(c.fail.spin){if(si>=0){const d0=c.dist-(n-q)*track.length/M;const wu=c.fail.until;c.fail=null;c.spinPend={C:sc.list[si],ret:true,d0:d0,until:d0+sc.list[si].toEx,wu:wu};}}else if(ci>=0)crashStart(c,ec.list[ci],n-q);break;}   // сход ждал своего места (v1.16.79, разворот — v1.16.82)
+          if(c.fail&&c.fail.wait){if(c.fail.spin){if(si>=0){const d0=c.dist-(n-q)*track.length/M;const wu=c.fail.until;c.fail=null;c.spinPend={C:sc.list[si],ret:true,d0:d0,until:d0+sc.list[si].toEx,wu:wu};}
+            else if(ci>=0&&!spinSiteWithin(ix,c.fail.until-c.dist))crashStart(c,ec.list[ci],n-q);}   // места разворота до конца ожидания нет — вылет здесь, а не отказ техники (v1.16.86: Монца, 2 места на круг)
+          else if(ci>=0)crashStart(c,ec.list[ci],n-q);break;}   // сход ждал своего места (v1.16.79, разворот — v1.16.82)
           /* Разворот — доля SPIN_SHARE ошибок, поделенная поровну между местами разворота; остальное — прежние ошибки «проскочил
              поворот» поровну между их поворотами. Нет мест разворота (Монако, Майами) — S=0, и жребий тот же, что до v1.16.82. */
           const pS=si>=0?ERR_RATE*S/sc.list.length*fk:0,pE=ci>=0?ERR_RATE*(1-S)/ec.list.length*fk:0;
@@ -7424,7 +7427,10 @@ function update(dt){
     if(c.spinPend){const P=c.spinPend;                                       // разворот решён: срыв — посреди торможения или сразу (v1.16.82)
       if(!P.ret&&(neutralAt(iu)||neutAhead(iu,c.speed)))c.spinPend=null;       // флаг — ошибки нет, как у «проскочил поворот»
       else if(c.dist>=P.d0+P.C.on||c.dist>=P.until){c.spinPend=null;
-        if(!spinStart(c,P.C,0,P.ret)){if(P.ret){if(P.wu&&c.dist<P.wu)c.fail={wait:true,spin:true,until:P.wu};else techStart(c,iu);}   // сход: сосед на пути — ждёт следующего места разворота (не дождался — отказ техники)
+        if(!spinStart(c,P.C,0,P.ret)){if(P.ret){const wait=P.wu&&c.dist<P.wu;   // сход: сосед на пути — ждёт следующего места разворота
+            if(wait&&spinSiteWithin(iu,P.wu-c.dist))c.fail={wait:true,spin:true,until:P.wu};
+            else if(P.C.err)crashStart(c,P.C,(c.dist-P.d0)/(track.length/track.M));   // его не дождаться — вылет здесь, в тяжёлом торможении (v1.16.86; до неё — отказ техники)
+            else if(wait)c.fail={wait:true,spin:true,until:P.wu};else techStart(c,iu);}   // быстрый поворот — вылет в ближайшем тяжёлом торможении (ветка ошибок)
           else if(P.C.err){const C=P.C;c.err={d0:P.until-C.toEx,side:C.side,lead:C.lead,toAp:C.toAp,toEx:C.toEx};}}}}   // ошибке негде развернуться (сосед, стена) — обычная «проскочил поворот»
     if(c.retireAt&&c.dist>=c.retireAt)failBegin(c,iu);                     // отказ: дальше — failStep (v1.16.79; до неё — retireCar на месте за один кадр)
     if(c.fail&&c.fail.wait&&c.dist>c.fail.until)techStart(c,iu);           // вылета не дождался — отказ техники
@@ -7479,6 +7485,11 @@ function update(dt){
     if(c.errPh&&c.err){const WS=c.err.side>0?track.WR:track.WL,nA=Math.ceil((c.speed+8)/(track.length/track.M));
       let W=1e9;for(let a=0;a<=nA;a++)W=Math.min(W,WS[(iu+a)%track.M]||1e9);   // стену — на секунду вперёд: выезд-карман (Сент-Девот) кончается стеной, и болид въезжал в её торец
       errOut=Math.max(hw*0.62,Math.min(hw+ERR_OUT,W-ERR_WALL));
+      /* И ВИДИМУЮ стену — тоже на секунду вперёд (v1.16.86): стена по данным в кармане выезда дальше нарисованной, и у торца
+         кармана (Монца T1) и у внутренней стены следующего поворота (Монако, шпилька Лёвс) страховка ниже выталкивала болид
+         из нарисованной стены на 2–3 м за кадр. */
+      for(let a=1;a<=ERR_SEE_N;a++){const d=Math.max(c.speed,8)*ERR_SEE_T*a/ERR_SEE_N,b=errWallBeyond({u:c.u+d/track.length,crab:c.crab},c.err.side*errOut,c.err.side);
+        if(b>-ERR_GAP)errOut=Math.max(0,errOut-(b+ERR_GAP));}   // и ниже коридора hw*0.62: после выхода из ошибки (возврат ERR_BACK) следующий поворот бывает в ту же сторону, и там видимая стена внутри (Монако, шпилька — hug)
       if(!c.ovLock&&c.err.cut===undefined)want+=(c.err.side*errOut-want)*c.errPh;}   // объезд вставшего и флаг важнее: туда не тянем, но предел полосы спадает плавно
     let eff=c.settle;
     if((c.ovLock||(c.ahd&&c.gp<20&&c.free>c.ahd.speed+1.0&&c.ahd.speed<6))&&raceTime>c.react+2.0)eff=Math.max(eff,0.92); // rolling up on a near-stopped car (not the grid launch): pull out now
@@ -7508,7 +7519,8 @@ function update(dt){
     const mlat=8*dt;nl=Math.max(c.lane-mlat,Math.min(c.lane+mlat,nl));   // no car crosses the road faster than 8 m/s sideways: the push-apart rule alone reached 18, and at 60 m/s forward that is a 17-degree crab — the car slid sideways instead of steering
     for(const r of __hard){if(r===c||Math.abs(c.x-r.x)>14||Math.abs(c.z-r.z)>14)continue;               // вбок — тоже не глубже в корпус вставшего
       if(ghostPen(c,nl,0,r)>ghostPen(c,c.lane,0,r)+1e-4)nl=c.lane;}
-    const hard=Math.max(hw*0.75,hw*0.75+(errOut-hw*0.75)*(c.errPh||0));c.lane=gP?Math.max(-Math.max(hard,gP[0]),Math.min(Math.max(hard,gP[1]),nl)):Math.max(-hard,Math.min(hard,nl));
+    const hard=Math.max(hw*0.75,hw*0.75+(errOut-hw*0.75)*(c.errPh||0)),hiB=gP?Math.max(hard,gP[1]):hard,loB=gP?-Math.max(hard,gP[0]):-hard;
+    c.lane=Math.max(Math.min(loB,c.lane+mlat),Math.min(Math.max(hiB,c.lane-mlat),nl));   // за коридором (кончилась ошибка, объезд) — назад не быстрее mlat: обрезка разом бросала болид вбок на 2 м за кадр (v1.16.86)
     if(c.errPh&&c.err&&c.lane*c.err.side>hw*0.62){const b=errWallBeyond(c,c.lane,c.err.side);if(b>-ERR_GAP)c.lane-=c.err.side*(b+ERR_GAP);}   // ошибающийся выпускается за кромку
     if(__hard.length)ghostSeparate(c,__hard);}
   retireClearTick();
@@ -8276,6 +8288,10 @@ function spinCorners(){if(track._spinC)return track._spinC;
         if(trig[t]<0&&spinSiteOk(C,t,V)){trig[t]=list.length;list.push(C);}}}
     q=b;}
   return track._spinC={list:list,trig:trig};}
+/* Есть ли место разворота (точка решения spinCorners.trig) в пределах X м впереди точки ix (v1.16.86: сход-разворот,
+   которому места не дождаться, становится вылетом — на Монце мест два, и половина таких сходов была отказом техники). */
+function spinSiteWithin(ix,X){const sc=spinCorners(),M=track.M,n=Math.ceil(Math.max(0,X)/(track.length/M));
+  for(let k=1;k<=n;k++)if(sc.trig[(ix+k)%M]>=0)return true;return false;}
 function entryAhead(i){const M=track.M;
   if(Math.abs(track.K[i])>ATK_ENTRY_K)return -1;
   for(let a=1;a<=ATK_ENTRY_LOOK;a++){if(Math.abs(track.K[(i+a)%M])>ATK_ENTRY_K)return a;}

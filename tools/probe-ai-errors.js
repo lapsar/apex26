@@ -18,14 +18,17 @@
      • дым рождается у ПЕРЕДНИХ колёс: вдоль кузова у передней оси (+2.0 ± SMOKE_AXLE), вбок — у шины (v1.16.69: в v1.16.68
        место бралось до перемещения болида в кадре — +0.96 м, и дым был виден от задних колёс; замечание владельца 12.10.2026);
      • углы кузова (8 точек, с доворотом) не заходят за ВИДИМЫЙ отбойник — мерка пробника wallvis (до 11.10.2026
-       мерилась стена по данным, она дальше видимой: углы заходили в борт до 0.39 м, Майами).
+       мерилась стена по данным, она дальше видимой: углы заходили в борт до 0.39 м, Майами);
+     • ни кадра скачка вбок: полоса ошибающегося за кадр меняется не больше LAT_JUMP (v1.16.86: у торца кармана выезда
+       и у внутренней стены следующего поворота страховка «не в стене» бросала болид на 2–3 м за кадр — Монца T1,
+       Монако у шпильки; обычная езда — не быстрее 8 м/с вбок, 0.13 м за кадр).
    ========================================================================== */
 'use strict';
 
 const H = require('./harness');
 const R = require('./report');
 
-const RACE_SECS = 1800, MIN_ERR = 5, WHEELS_OUT = 0.8, DEEP_STRAIGHT = 0.35, MAX_DEC = 60, SMOKE_AXLE = 0.3;
+const RACE_SECS = 1800, MIN_ERR = 5, WHEELS_OUT = 0.8, DEEP_STRAIGHT = 0.35, MAX_DEC = 60, SMOKE_AXLE = 0.3, LAT_JUMP = 0.3;
 
 function run() {
   const r = R.result('Ошибка соперника — «проскочил поворот»: наружу, за линию, в повороте');
@@ -57,13 +60,15 @@ function run() {
           if(!best||bd>8)continue;var hh=best.mesh.rotation.y,dx=q.x-best.mesh.position.x,dz=q.z-best.mesh.position.z;
           var al=dx*Math.sin(hh)+dz*Math.cos(hh),sd=Math.abs(dx*Math.cos(hh)-dz*Math.sin(hh));
           if(Math.abs(al-2.0)>axWorst)axWorst=Math.abs(al-2.0);if(sd<0.9||sd>1.6)sideBad++;}}
-      var ec=errCorners(),badSide=0;
+      var ec=errCorners(),badSide=0,LAT_JUMP_=${LAT_JUMP};
       ec.list.forEach(function(C){if(C.side!==Math.sign(track.K[C.ap]))badSide++;});
-      var dt=1/60,ev=[],hist={},wall=0,wallWorst=-9;
+      var dt=1/60,ev=[],hist={},wall=0,wallWorst=-9,latJ=0,latWorst=0,latAt='';
       for(var f=0;f<${RACE_SECS}*60&&phase!=='';f++){__AP.drive();update(dt);axleCheck();
         for(var i=0;i<field.length;i++){var c=field[i];if(c===player||c.retired)continue;
           var h=hist[c.num]||(hist[c.num]={v:[]});h.v.push(c.speed);if(h.v.length>31)h.v.shift();
           var d=h.v.length>30?(h.v[0]-h.v[30])/0.5:0;
+          var pl=h.l,pe=h.er;h.l=c.lane;h.er=!!c.err;   // скачок вбок: у ошибающегося и в кадр, когда ошибка кончилась
+          if(pl!==undefined&&(c.err||pe)){var lj=Math.abs(c.lane-pl);if(lj>LAT_JUMP_)latJ++;if(lj>latWorst){latWorst=lj;latAt='S '+Math.round(track.S[Math.floor(((c.u%1)+1)%1*track.M)%track.M]);}}
           if(!c.err){h.e=null;h.eo=null;continue;}
           if(c.err!==h.eo){h.eo=c.err;h.e={side:c.err.side,out:-99,dec:0,wheels:0,deep:0,deepStr:0};ev.push(h.e);}
           var e=h.e,iu=Math.floor(((c.u%1)+1)%1*track.M)%track.M,hw=halfAt(iu),o=c.lane*e.side;
@@ -82,7 +87,7 @@ function run() {
         for(var q2=0;q2<track._smoke.p.length;q2++){var pq=track._smoke.p[q2];if(ca[q2*16+3]<=0)continue;live++;if(raceTime-pq.born>pq.life)left++;}
         if(track._smoke.mesh.visible&&!live)left=-1;}
       var ended=phase!=='race';
-      return {puffs:__pn,pool:pool,left:left,ended:ended,rt:raceTime,axWorst:axWorst,sideBad:sideBad,n:ec.list.length,badSide:badSide,ev:ev,wall:wall,wallWorst:wallWorst};})()`);
+      return {puffs:__pn,pool:pool,left:left,ended:ended,rt:raceTime,axWorst:axWorst,sideBad:sideBad,n:ec.list.length,badSide:badSide,ev:ev,wall:wall,wallWorst:wallWorst,latJ:latJ,latWorst:latWorst,latAt:latAt};})()`);
     const tag = T.name, ev = o.ev, n = ev.length;
     const wheels = n ? ev.filter(e => e.wheels).length / n : 0;
     const deep = ev.reduce((s, e) => s + e.deep, 0), deepStr = deep ? ev.reduce((s, e) => s + e.deepStr, 0) / deep : 0;
@@ -90,7 +95,7 @@ function run() {
     const outs = ev.map(e => e.out).sort((a, b) => a - b), med = n ? outs[n >> 1] : NaN;
     r.line(`${tag}: поворотов ошибок ${o.n}; ошибок ${n}; колёса за линией ${(100 * wheels).toFixed(0)} %,`
       + ` центр за линией (медиана) ${med.toFixed(2)} м; глубина на прямой ${(100 * deepStr).toFixed(0)} %;`
-      + ` замедление ошибки до ${dec.toFixed(0)} м/с²; угол кузова до видимой стены ${(-o.wallWorst).toFixed(2)} м; частиц дыма ${o.puffs} (пул ${o.pool}), от передней оси до ${o.axWorst.toFixed(2)} м${o.ended ? "; гонка к концу замера закончилась (" + o.rt.toFixed(0) + " с)" : ""}`);
+      + ` замедление ошибки до ${dec.toFixed(0)} м/с²; угол кузова до видимой стены ${(-o.wallWorst).toFixed(2)} м; сдвиг вбок за кадр до ${o.latWorst.toFixed(2)} м; частиц дыма ${o.puffs} (пул ${o.pool}), от передней оси до ${o.axWorst.toFixed(2)} м${o.ended ? "; гонка к концу замера закончилась (" + o.rt.toFixed(0) + " с)" : ""}`);
     if (n >= MIN_ERR && !o.puffs) r.fail(`${tag}: ${n} ошибок и ни одной частицы дыма блокировки`);
     if (o.pool > 192) r.fail(`${tag}: частиц в пуле ${o.pool} — пул должен быть ограничен (SMOKE_N)`);
     if (o.left) r.fail(`${tag}: ${o.left < 0 ? 'меш дыма виден без живых частиц' : o.left + ' частиц видны дольше срока жизни'}`);
@@ -102,6 +107,7 @@ function run() {
     if (n && wheels < WHEELS_OUT) r.fail(`${tag}: колёса за белой линией лишь у ${(100 * wheels).toFixed(0)} % ошибок (порог ${100 * WHEELS_OUT} %)`);
     if (deepStr > DEEP_STRAIGHT) r.fail(`${tag}: глубина ошибки на прямой ${(100 * deepStr).toFixed(0)} % (порог ${100 * DEEP_STRAIGHT} %)`);
     if (dec > MAX_DEC) r.fail(`${tag}: ошибка тормозит резко — ${dec.toFixed(0)} м/с² за 0.5 с (порог ${MAX_DEC})`);
+    if (o.latJ) r.fail(`${tag}: ошибающийся болид прыгает вбок — ${o.latJ} кадров со сдвигом полосы больше ${LAT_JUMP} м за кадр (до ${o.latWorst.toFixed(2)} м, ${o.latAt})`);
     if (o.wall) r.fail(`${tag}: ошибающийся болид углом кузова за видимым отбойником ${o.wall} кадров (до ${o.wallWorst.toFixed(2)} м)`);
   }
   r.note('вариант Б владельца 10.10.2026; до v1.16.66 колёса за линией — 0 %, увод шёл внутрь поворота');
