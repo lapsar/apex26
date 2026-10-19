@@ -7445,7 +7445,7 @@ function update(dt){
     /* Объезд вставшего заперт (v1.16.87): стоит — добирает отступ (GHOST_PAD: его угол в чужом сечении дороги выступает дальше,
        чем ширина поперёк его участка), не помогло за GHOST_FLIP — другой стороной. */
     if(c.ovLock&&c.ovLock.isGhost){if(c.ovPadFor!==c.ovLock){c.ovPadFor=c.ovLock;c.ovPad=0;c.ovStk=0;}
-      if(c.speed<0.5){c.ovStk+=dt;c.ovPad=Math.min(GHOST_PAD,c.ovPad+GHOST_PAD_V*dt);if(c.ovStk>GHOST_FLIP){c.ovDir=-c.ovDir;c.ovStk=0;c.ovPad=0;}}else c.ovStk=0;}
+      if(c.speed<0.5){c.ovStk+=dt;c.ovPad=Math.min(GHOST_PAD,c.ovPad+GHOST_PAD_V*dt);if(c.ovStk>GHOST_FLIP){c.ovStk=0;if(ghostFits(c.ovLock,-c.ovDir)){c.ovDir=-c.ovDir;c.ovPad=0;}}}else c.ovStk=0;}   // другая сторона — только где болид помещается (v1.16.88: у стены за вставшим уходил на 4 с туда, где места нет вовсе, и терял очередь)
     if(c.ovLock){const o=c.ovLock;                                           // committed to passing a stopped car: hold the line until actually past it
       if(o.retired||o.speed>c.pace*0.5||c.dist>o.dist+(o.isGhost?o.spanL+3.1:3.0)||o.dist-c.dist>20)c.ovLock=null;   // without this the car drifts back to the racing line the moment it clears the 2.3 m "same lane" window, gets caught again and crawls behind forever
       else want=o.lane+c.ovDir*((o.spanX!==undefined?Math.max(3.4,o.spanX+1.535):3.4)+(o.isGhost&&c.ovPadFor===o?c.ovPad:0));}   // вставшего игрока объезжаем по его ширине: две полуширины + 0.25 м
@@ -7944,6 +7944,7 @@ function ghostSeparate(c,list){for(const r of list){if(r===c||Math.abs(c.x-r.x)>
    после тоннеля Монако дорога у них смотрит по-разному, сторона выходила к стене, и соперник стоял за вставшим до конца VSC (~24 с). */
 function ghostLim(iu,hw){return [Math.max(hw*0.75,Math.min(hw*1.1,wallAt(iu,-1)-1.45)),Math.max(hw*0.75,Math.min(hw*1.1,wallAt(iu,1)-1.45))];}
 function ghostSide(g){const L=ghostLim(g.i,halfAt(g.i)),need=g.spanX+1.535,l=g.lane0;return L[1]-(l+need)>=(l-need)+L[0]?1:-1;}
+function ghostFits(g,s){const L=ghostLim(g.i,halfAt(g.i)),need=g.spanX+1.535,l=g.lane0;return s>0?L[1]>=l+need:L[0]>=need-l;}   // объезд с этой стороны в его сечении помещается (v1.16.88)
 const GHOST_PAD=2.5, GHOST_PAD_V=1.0;    // м, м/с: встал перед вставшим — добирает отступ объезда (в шикане его угол выступает в чужом сечении)
 const GHOST_FLIP=4.0;                    // с: не помогло — объезд с другой стороны (страховка: выбранная сторона заперта)
 function sectorAt(u){const s=Math.floor(((u%1)+1)%1*MARSHAL_SECTORS);return (s%MARSHAL_SECTORS+MARSHAL_SECTORS)%MARSHAL_SECTORS;}
