@@ -7523,7 +7523,7 @@ function update(dt){
       if(Math.abs(lon)<3.02+(player.spanL||3.02)-1.5){
         const sep=(player.spanX||1.285)+1.285+0.13, gNow=Math.abs(c.lane-player.lane), gMin=Math.min(gNow,sep);
         if(Math.abs(nl-player.lane)<gMin){const sd=Math.sign(c.lane-player.lane)||(c.ovSide||1);nl=player.lane+sd*gMin;}}}
-    for(const r of __ghosts){const g=r.ghost;if(Math.abs(g.dist-c.dist)>=g.spanL+3.32)continue;   // вставший — как игрок сбоку: ближе его ширины не подходить, а если уже ближе — не ближе, чем есть
+    for(const r of __ghosts){const g=r.ghost,ga=g.dist-c.dist;if(ga>=g.spanL+3.1||ga<=-(g.spanL+3.32))continue;   // вставший — как игрок сбоку: ближе его ширины не подходить, а если уже ближе — не ближе, чем есть; стоящий ПОЗАДИ него (упор — на spanL+3.32) не сбоку: ему вбок можно, в корпус не пустит ghostPen ниже (v1.16.88: окно ловило его на 1 см, и «другая сторона» не могла пересечь полосу за вставшим)
       const sep=g.spanX+carHalfWidth(c.crab||0)+0.13,gNow=Math.abs(c.lane-g.lane),gMin=Math.min(gNow,sep);
       if(Math.abs(nl-g.lane)<gMin){const sd=Math.sign(c.lane-g.lane)||1;nl=g.lane+sd*gMin;}}
     const mlat=8*dt;nl=Math.max(c.lane-mlat,Math.min(c.lane+mlat,nl));   // no car crosses the road faster than 8 m/s sideways: the push-apart rule alone reached 18, and at 60 m/s forward that is a 17-degree crab — the car slid sideways instead of steering
