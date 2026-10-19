@@ -7530,7 +7530,12 @@ function update(dt){
     const mlat=8*dt;nl=Math.max(c.lane-mlat,Math.min(c.lane+mlat,nl));   // no car crosses the road faster than 8 m/s sideways: the push-apart rule alone reached 18, and at 60 m/s forward that is a 17-degree crab — the car slid sideways instead of steering
     if(c.gBlk&&!c.ovLock)nl=c.gBlk>0?Math.max(nl,c.lane+mlat*0.5):Math.min(nl,c.lane-mlat*0.5);   // вставший держит, а объезда нет (защёлка отпущена по dist, его угол ещё у борта) — отойти от него, а не стоять (v1.16.87)
     for(const r of __hard){if(r===c||Math.abs(c.x-r.x)>14||Math.abs(c.z-r.z)>14)continue;               // вбок — тоже не глубже в корпус вставшего
-      if(ghostPen(c,nl,0,r)>ghostPen(c,c.lane,0,r)+1e-4)nl=c.lane;}
+      const p0=ghostPen(c,c.lane,0,r);if(ghostPen(c,nl,0,r)<=p0+1e-4)continue;
+      /* Держит этот вставший, нос — в его углу (стоит косо), и вбок угол не пускает: откатиться, пока сзади свободно (v1.16.88:
+         в шикане Монако соперник упирался в угол разбитого и стоял, а за ним — игрок; назад соперники не ездили вовсе). */
+      const bk=GHOST_BACK*dt;
+      if(r.ghost&&c.gHold===r.ghost&&c.ovLock===r.ghost&&ghostPen(c,nl,-bk,r)<=p0+1e-4&&!ghostBackBlocked(c,iu,bk)){c.u=(((c.u-bk/track.length)%1)+1)%1;c.dist-=bk;}
+      else nl=c.lane;}
     const hard=Math.max(hw*0.75,hw*0.75+(errOut-hw*0.75)*(c.errPh||0)),hiB=gP?Math.max(hard,gP[1]):hard,loB=gP?-Math.max(hard,gP[0]):-hard;
     c.lane=Math.max(Math.min(loB,c.lane+mlat),Math.min(Math.max(hiB,c.lane-mlat),nl));   // за коридором (кончилась ошибка, объезд) — назад не быстрее mlat: обрезка разом бросала болид вбок на 2 м за кадр (v1.16.86)
     if(c.errPh&&c.err&&c.lane*c.err.side>hw*0.62){const b=errWallBeyond(c,c.lane,c.err.side);if(b>-ERR_GAP)c.lane-=c.err.side*Math.min(b+ERR_GAP,mlat);}   // ошибающийся выпускается за кромку; из стены — не быстрее mlat (v1.16.87: у шпильки Лёвс мерка углов врёт до 3 м — «в стене» и обычные соперники, и разом бросало на 2.9 м)
@@ -7943,11 +7948,16 @@ function ghostSeparate(c,list){for(const r of list){if(r===c||Math.abs(c.x-r.x)>
 /* Сторона объезда вставшего: где от его борта до предела полосы (ghostLim) просторнее — В ЕГО СЕЧЕНИИ дороги: его настоящая
    полоса (lane0) и стены там, где он стоит (v1.16.87). До неё — его полоса в мерке подъезжающего и стены у подъезжающего: в шикане
    после тоннеля Монако дорога у них смотрит по-разному, сторона выходила к стене, и соперник стоял за вставшим до конца VSC (~24 с). */
-function ghostLim(iu,hw){return [Math.max(hw*0.75,Math.min(hw*1.1,wallAt(iu,-1)-1.45)),Math.max(hw*0.75,Math.min(hw*1.1,wallAt(iu,1)-1.45))];}
+function ghostLim(iu,hw){return [Math.max(hw*0.75,Math.min(hw+GHOST_RUN,wallAt(iu,-1)-1.45)),Math.max(hw*0.75,Math.min(hw+GHOST_RUN,wallAt(iu,1)-1.45))];}
+const GHOST_RUN=4.0;                     // м за белой линией: столько объезд вставшего может уйти в выезд — болид (2.6 м) целиком за линией и ещё ~1.4 м (v1.16.88; до неё — до 1.1·hw: в шикане Монако за линией выезд в 43 м, а объезд упирался в 6.6 м от оси и стоял)
 function ghostSide(g){const L=ghostLim(g.i,halfAt(g.i)),need=g.spanX+1.535,l=g.lane0;return L[1]-(l+need)>=(l-need)+L[0]?1:-1;}
 function ghostFits(g,s){const L=ghostLim(g.i,halfAt(g.i)),need=g.spanX+1.535,l=g.lane0;return s>0?L[1]>=l+need:L[0]>=need-l;}   // объезд с этой стороны в его сечении помещается (v1.16.88)
 const GHOST_PAD=2.5, GHOST_PAD_V=1.0;    // м, м/с: встал перед вставшим — добирает отступ объезда (в шикане его угол выступает в чужом сечении)
 const GHOST_FLIP=4.0;                    // с: не помогло — объезд с другой стороны (страховка: выбранная сторона заперта)
+const GHOST_BACK=1.0;                    // м/с: упёрся носом в угол вставшего — откат, чтобы обогнуть угол (v1.16.88)
+function ghostBackBlocked(c,iu,bk){const F=track.F[iu],R=track.R[iu];   // сзади вплотную кто-то (и игрок) — не откатываться
+  for(const o of cars){if(o===c||o.retired)continue;const dx=c.x-o.x,dz=c.z-o.z,lon=dx*F.x+dz*F.z;
+    if(lon>0&&lon<CAR_LEN+0.4+bk&&Math.abs(dx*R.x+dz*R.z)<(o.spanX||1.285)+1.285+0.13)return true;}return false;}
 function sectorAt(u){const s=Math.floor(((u%1)+1)%1*MARSHAL_SECTORS);return (s%MARSHAL_SECTORS+MARSHAL_SECTORS)%MARSHAL_SECTORS;}
 /* Yellow covers the incident sector AND the one before it, so the flag is seen
    BEFORE the car, exactly as a marshal post works. */
