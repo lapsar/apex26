@@ -1,11 +1,16 @@
-/* Съёмка схода соперника (v1.16.79): сценарии 'tech' (отказ техники), 'crash' (вылет), 'seize' (заклинило).
+/* Съёмка схода соперника (v1.16.79): сценарии 'tech' (отказ техники), 'crash' (вылет), 'spin' (сход-разворот) и 'spinerr'
+   (ошибка-разворот: развернулся, постоял, вернулся). До v1.16.86 здесь был 'seize' — «заклинило», убранное из игры в v1.16.82,
+   и инструмент по умолчанию падал (seizeStart is not defined).
    Гонка крутится до --warm секунд (Math.random — на зерне --seed), затем ищется пара подряд идущих соперников T и F1,
-   где F1 — в 10–45 м за T, а T — на прямой или в пологом повороте (для 'crash' — у точки решения ошибки, errCorners).
-   T получает сход принудительно; --spin=рад задаёт разворот «заклинило» (по умолчанию — жребий игры).
+   где F1 — в 10–45 м за T (для разворотов — сразу за зоной spinCrowd, до +35 м), а T — на прямой или в пологом повороте (для 'crash' — у точки решения ошибки, errCorners;
+   для 'spin'/'spinerr' — у точки решения места разворота, spinCorners: у Монако, Монреаля, Майами мест нет).
+   T получает сход принудительно; разворот случается в точке срыва (C.on, дальше по ходу) — отсчёт кадров (--times) идёт
+   с момента срыва. --spin=рад задаёт угол разворота (по умолчанию — жребий игры); соседа на пути разворот не ждёт
+   ни в игре, ни здесь — тогда сход-разворот уходит в вылет или ожидание, а ошибка становится обычной: смените --seed/--warm.
    Кадры (--times, с от начала схода) — виды --views:
      f1 — кокпит болида позади (y=1.42, 0.62 м позади центра — как у игрока); tv — «вертолёт» спереди-сверху;
      close — сзади-сбоку крупно; top — строго сверху; side — сбоку на уровне болида; stop — после остановки (+1 с), «вертолёт».
-     node tools/shot-retire.js --track=0 --kind=seize --spin=2.6 --out=/tmp/ret
+     node tools/shot-retire.js --track=1 --kind=spin --spin=2.6 --out=/tmp/ret
    Оговорки: программный рендерер (swiftshader), земляная плита опущена, как в shot-track. Игра не меняется. */
 'use strict';
 const path = require('path'), fs = require('fs');
@@ -13,7 +18,7 @@ const args = {};
 process.argv.slice(2).forEach(a => { const m = /^--([^=]+)=(.*)$/.exec(a); if (m) args[m[1]] = m[2]; });
 const HTML = path.resolve(args.html || path.join(__dirname, '..', 'index.html'));
 const OUT = path.resolve(args.out || '/tmp/ret');
-const TRACK = +(args.track || 0), WARM = +(args.warm || 40), KIND = args.kind || 'seize';
+const TRACK = +(args.track || 1), WARM = +(args.warm || 40), KIND = args.kind || 'spin';
 const SPIN = args.spin === undefined ? null : +args.spin;
 const TIMES = (args.times || '0.5,1.5,2.5,3.5').split(',').map(Number);
 const VIEWS = (args.views || 'f1,tv,close').split(',');
@@ -52,7 +57,8 @@ const CHROME = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
     document.querySelectorAll('.btnrow,.pad,.touch,.hud,#pauseov,#topbtns,#kb,.kb,#pad').forEach(el => (el.style.display = 'none'));
     scene.children.forEach(o => { if (o.isMesh && o.geometry && o.geometry.parameters && o.geometry.parameters.width === 9000) o.position.y = -0.6; });
     for (let f = 0; f < Math.round(WARM * 60); f++) { controls.gas = 0; update(1 / 60); }
-    const ec = errCorners(), M = track.M;
+    const ec = errCorners(), sc = spinCorners(), M = track.M, SPINK = KIND === 'spin' || KIND === 'spinerr';
+    if (SPINK && !sc.list.length) return { name: track.spec.name, fail: 'на трассе нет мест разворота' };
     for (let f = 0; f < 60 * 120; f++) {
       controls.gas = 0; update(1 / 60);
       const ord = field.filter(c => !c.retired).sort((a, c) => c.dist - a.dist);
@@ -61,13 +67,16 @@ const CHROME = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
         if (T.err || neutral.mode) continue;
         const iu = carIdx(T);
         if (KIND === 'crash') { if (ec.trig[iu] < 0) continue; }
+        else if (SPINK) { if (sc.trig[iu] < 0) continue; }
         else { let km = 0; for (let a = 0; a < 25; a++) km = Math.max(km, Math.abs(track.K[(iu + a) % M])); if (km > 0.05 || T.speed < 45) continue; }
         const g1 = Math.hypot(T.x - F1.x, T.z - F1.z);
-        if (g1 < 10 || g1 > 45) continue;
+        const gMin = SPINK ? Math.max(10, T.speed * SPIN_CROWD_T + 4) : 10;   // разворот с соседом вплотную сзади игра не начинает (spinCrowd) — «оператор» дальше
+        if (g1 < gMin || g1 > gMin + 35) continue;
         if (KIND === 'crash') { T.fail = { wait: true, until: T.dist + 1500 }; T.err = null; T.errI = (iu - 1 + M) % M; }
         else if (KIND === 'tech') techStart(T, iu);
-        else { seizeStart(T, iu); if (SPIN !== null) T.fail.spinMax = SPIN * (T.fail.spinMax < 0 ? -1 : 1); }
-        window.__L = { T, F1, born: raceTime };
+        else { const C = sc.list[sc.trig[iu]]; T.err = null; T.spinPend = KIND === 'spin' ? { C, ret: true, d0: T.dist, until: T.dist + C.toEx, wu: T.dist + 1500 }
+          : { C, ret: false, d0: T.dist, until: T.dist + C.toEx }; }
+        window.__L = { T, F1, born: raceTime, wait: SPINK };
         window.__camF1 = () => { const m = F1.mesh, h = m.rotation.y;
           cam.position.set(m.position.x - Math.sin(h) * 0.62, m.position.y + 1.42, m.position.z - Math.cos(h) * 0.62);
           cam.lookAt(m.position.x + Math.sin(h) * 40, m.position.y + 0.9, m.position.z + Math.cos(h) * 40); cam.updateMatrixWorld(); };
@@ -103,11 +112,14 @@ const CHROME = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
     console.log(f, JSON.stringify(st));
   };
   for (const t of TIMES) {
-    const st = await p.evaluate(([t]) => { const L = window.__L;
+    const st = await p.evaluate(([t, SPIN]) => { const L = window.__L;
+      for (let f = 0; L.wait && f < 60 * 30; f++) { controls.gas = 0; __camF1(); update(1 / 60);   // разворот — с точки срыва, а не с назначения
+        const ff = L.T.fail; if (ff && ff.on) { L.wait = false; L.born = raceTime; L.kind = ff.kind; if (SPIN !== null && ff.kind === 'spin') ff.spinMax = SPIN * (ff.spinMax < 0 ? -1 : 1); }
+        else if (!L.T.spinPend && !(ff && ff.wait)) { L.wait = false; L.kind = L.T.err ? 'обычная ошибка (разворота нет)' : 'нет схода'; } }
       while (raceTime - L.born < t - 1e-6 && !L.T.retired) { controls.gas = 0; __camF1(); update(1 / 60); }
-      const T = L.T, f = T.fail; return { t: +(raceTime - L.born).toFixed(2), kind: f && f.kind, v: +(T.speed * 3.6).toFixed(0),
+      const T = L.T, f = T.fail; return { t: +(raceTime - L.born).toFixed(2), kind: (f && f.kind) || L.kind, v: +(T.speed * 3.6).toFixed(0),
         yaw: +((T.crab || 0) * 57.3).toFixed(0), lane: +T.lane.toFixed(2), hw: +halfAt(carIdx(T)).toFixed(1), g1: +Math.hypot(T.x - L.F1.x, T.z - L.F1.z).toFixed(1),
-        retired: T.retired, flag: neutral.mode }; }, [t]);
+        retired: T.retired, flag: neutral.mode }; }, [t, SPIN]);
     for (const v of VIEWS) await shoot(v, v + '-' + t.toFixed(2), st);
   }
   const st = await p.evaluate(() => { const L = window.__L;
