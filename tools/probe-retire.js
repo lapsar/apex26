@@ -21,6 +21,8 @@
      • дым есть: у отказа техники — мотора (сизый, вид 2), у разворота — передних колёс (до v1.16.82 у «заклинило» — задних);
      • вставший на полотне — не призрак: корпус соперника не заходит в его корпус глубже OVERLAP за 30 с после остановки
        (до v1.16.79 соперники вставшего не видели вовсе и проезжали сквозь него).
+     • уборка после VSC (v1.16.92): у трассы с clearAway (Монако) болид увозят совсем — не виден, не дымит, игрока не толкает;
+       у остальных — за отбойник и виден.
    ========================================================================== */
 'use strict';
 
@@ -123,6 +125,28 @@ function run(opt) {
     r.line(`${T.name.padEnd(12)} ${fmt('tech')} · ${fmt('crash')} · ${fmt('spin')}`);
     const w = rows.reduce((m, o) => ({ jump: Math.max(m.jump, o.jump), yawJ: Math.max(m.yawJ, o.yawJ), ov: Math.max(m.ov, o.ov), wall: Math.max(m.wall, o.wall) }), { jump: 0, yawJ: 0, ov: 0, wall: -9 });
     r.line(`${''.padEnd(12)} худшие: скачок ${w.jump} м, поворот кузова ${w.yawJ}°/кадр, угол в стене ${w.wall} м, соперник в корпусе ${w.ov} м`);
+    // Уборка после VSC (v1.16.92): у трассы с clearAway (Монако) болид увозят совсем — не виден, корпус игрока не держит, дым гаснет;
+    // у остальных — убран за отбойник и виден, как раньше. Сход мгновенный, на полотне, камеру смотрит игрок-автопилот.
+    {
+      const env = H.loadGame({ seed: 3, file: opt.file });
+      H.setupWeekend(env, { trackIdx: T.idx, diff: 'normal', laps: 3 });
+      H.startRaceAt(env, 11); H.lightsOut(env); H.noRetirements(env);
+      const q = env.evalIn(`(function(){var dt=1/60;for(var f=0;f<60;f++)__drive(1,dt,'auto');
+        var v=field[8];v.lane=0;retireCar(v,true);v.blocking=true;v.retiredSide=1;raiseNeutral('vsc',v);v.smokeTill=raceTime+60;
+        for(var f=0;f<Math.round((VSC_SECS+VSC_END_SECS+RET_CLEAR_MAX+3)/dt)&&!v.cleared;f++)__drive(1,dt,'auto');
+        var out={away:!!track.spec.clearAway,cleared:!!v.cleared,vis:v.mesh.visible,smoke:v.smokeTill>raceTime,push:0};
+        var px=player.x,pz=player.z,ph=player.hdg,ps=player.speed;player.x=v.x;player.z=v.z;player.speed=10;carContacts(dt);
+        out.push=+(Math.hypot(player.x-v.x,player.z-v.z)+Math.abs(player.speed-10)).toFixed(2);
+        player.x=px;player.z=pz;player.hdg=ph;player.speed=ps;return out;})()`);
+      const tag = `${T.name} уборка после VSC`;
+      if (!q.cleared) r.fail(`${tag}: болид не убран за ${'VSC + RET_CLEAR_MAX'}`);
+      else if (q.away) {
+        if (q.vis) r.fail(`${tag}: clearAway — болид должен быть увезён, а он виден`);
+        if (q.smoke) r.fail(`${tag}: увезённый болид ещё дымит`);
+        if (q.push > 0.01) r.fail(`${tag}: увезённый болид толкнул игрока (${q.push})`);
+      } else if (!q.vis) r.fail(`${tag}: болид пропал, а у трассы нет clearAway`);
+      r.line(`${''.padEnd(12)} уборка после VSC: ${q.away ? 'увезён (clearAway), игрок проходит его место свободно' : 'за отбойник, виден'}`);
+    }
   }
   return r;
 }
