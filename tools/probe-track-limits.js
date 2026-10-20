@@ -71,7 +71,8 @@ function retCheck(r, T, zi, tag) {
   const u = env.evalIn(`(function(){var o={},a;totalLaps=99;
     /* 1. выиграл две позиции: A и B впереди на въезде, позади на выезде; C впереди и остался */
     a=__R.setup();__R.pass(${zi},1030);o.t1=__R.codes();o.k1=tlKind;o.pl1=tlPlate;o.pos1=tlRetPos();o.plate1=__R.plate();
-    __R.run(1);o.left1=tlRet.left;neutral.mode='vsc';__R.run(5);o.leftV=tlRet.left;o.plateV=__R.plate();neutral.mode='';
+    __R.run(1);o.left1=tlRet.left;neutral.mode='vsc';__R.run(5);o.leftV=tlRet.left;o.plateV=__R.plate();
+    neutral.mode='yellow';neutral.secs=[];__R.run(1);o.leftY=tlRet.left;o.plateY=__R.plate();neutral.mode='';   // жёлтый вне его зоны: плашка «верни», отсчёт стоит
     a[0].dist=player.dist+TOWER_HYST-0.5;__R.run(0.1);o.near=__R.codes();   // нос впереди, но не на корпус — ещё не пропустил
     a[0].dist=player.dist+TOWER_HYST+1;__R.run(0.1);o.t2=__R.codes();o.pos2=tlRetPos();o.plate2=__R.plate();
     a[1].retired=true;__R.run(0.1);o.k3=tlKind;o.ret3=!!tlRet;o.pen3=tlPen;o.plate3=__R.plate();
@@ -103,6 +104,8 @@ function retCheck(r, T, zi, tag) {
     bad.push(`плашка: ждали «ВЕРНИ 4 ПОЗИЦИЮ» и отсчёт 15, вышло позиция ${u.pos1}: ${u.plate1.slice(0, 160)}`);
   if (Math.abs(u.left1 - 14) > 1e-6 || Math.abs(u.leftV - 14) > 1e-6 || !/vsc/.test(u.plateV))
     bad.push(`отсчёт: ждали 14 с после секунды и 14 с после 5 с под VSC (на плашке VSC), вышло ${u.left1.toFixed(2)} и ${u.leftV.toFixed(2)}`);
+  if (!/ВЕРНИ 4 ПОЗИЦИЮ · ОТСЧЁТ ПОСЛЕ VSC/.test(u.plateV)) bad.push(`плашка VSC без строки «ВЕРНИ 4 ПОЗИЦИЮ · ОТСЧЁТ ПОСЛЕ VSC» (v1.16.91): ${u.plateV.slice(0, 160)}`);
+  if (Math.abs(u.leftY - 14) > 1e-6 || !/tlret/.test(u.plateY)) bad.push(`жёлтый вне его зоны: ждали плашку «верни» и стоящий отсчёт 14 с, вышло ${u.leftY.toFixed(2)}: ${u.plateY.slice(0, 120)}`);
   if (/:ok/.test(u.near)) bad.push(`соперник впереди меньше чем на корпус засчитан пропущенным: ${u.near}`);
   if (!/:ok/.test(u.t2) || u.pos2 !== 4 || !/ВЕРНИ 4 ПОЗИЦИЮ/.test(u.plate2) || !/tlchip ok/.test(u.plate2))
     bad.push(`один пропущен: ждали отметку и ту же 4 позицию, вышло ${u.t2}, позиция ${u.pos2}`);
