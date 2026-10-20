@@ -90,6 +90,10 @@ function retCheck(r, T, zi, tag) {
     /* 7. финиш, пока отсчёт стоит под VSC: невозвращённые впереди, без штрафа */
     a=__R.setup();__R.pass(${zi},1030);neutral.mode='vsc';__R.run(3);finishRace();clearTimeout(raceOutroTimer);
     var ro=window.__raceOrder,ip=ro.indexOf(player);o.fin=ip>ro.indexOf(a[0])&&ip>ro.indexOf(a[1])&&ip===3;o.pen10=tlPen;o.out10=(tlRetOut||[]).length;
+    o.ord10=ro[ip-2]===a[1]&&ro[ip-1]===a[0];   // между собой — в своём порядке: B (1020) впереди A (1010)
+    /* башня после такого финиша (v1.16.90): у игрока «УСТУПИЛ», следующий — от того, кому игрок отдал позицию, а не от самого игрока */
+    cars.forEach(function(c){if(c.tm){c.tm.pd=0;c.tm.pt=0;}});raceTime=10;   // секундомеры: все шли ровно от 0 — отставания у разных пар разные
+    raceOutro=true;o.cell10=towerGapText(a[0],player);o.self10=gapSec(player,ro[ip+1]);o.next10=towerGap(player,ro[ip+1]);o.want10=gapSec(a[0],ro[ip+1]);o.cellA=towerGapText(a[1],a[0]);raceOutro=false;
     showRaceResult();o.res10=document.getElementById('rGap').innerHTML;
     return o;})()`);
   const bad = [];
@@ -114,8 +118,11 @@ function retCheck(r, T, zi, tag) {
   if (u.t9 || u.pen9 !== 5 || u.k9 !== 'pen') bad.push(`вторая срезка с выигрышем: ждали только +5, вышло «верни» ${u.t9}, штраф ${u.pen9}, ${u.k9}`);
   if (!u.fin || u.pen10 !== 0 || u.out10 !== 2 || !/поставлены впереди/.test(u.res10))
     bad.push(`финиш под VSC с отсчётом: ждали обоих впереди (игрок P4) без штрафа и строку в итогах, вышло ${u.fin}, штраф ${u.pen10}, ${u.out10}`);
+  if (!u.ord10) bad.push('финиш под VSC с отсчётом: поставленные впереди стоят между собой не в своём порядке');
+  if (u.cell10 !== 'УСТУПИЛ' || !/^\+\d/.test(u.cellA) || Math.abs(u.next10 - u.want10) > 1e-9 || !(Math.abs(u.self10 - u.want10) > 0.05))
+    bad.push(`башня после финиша с отданной позицией: ждали у игрока «УСТУПИЛ», у следующего — отставание от отданного (${u.want10.toFixed(3)}), вышло «${u.cell10}» и ${u.next10.toFixed(3)}`);
   bad.forEach(b => r.fail(`${tag}: верни позицию — ${b}`));
-  if (!bad.length) r.line(`  верни позицию: две позиции → «ВЕРНИ 4 ПОЗИЦИЮ», 15 с, под VSC стоит; пропустил на корпус / сошёл → возвращена; 15 с → +5; ошибка и разворот засчитаны; без выигрыша, второй срезкой и ошибавшийся — без «верни»; финиш под VSC — оба впереди без штрафа`);
+  if (!bad.length) r.line(`  верни позицию: две позиции → «ВЕРНИ 4 ПОЗИЦИЮ», 15 с, под VSC стоит; пропустил на корпус / сошёл → возвращена; 15 с → +5; ошибка и разворот засчитаны; без выигрыша, второй срезкой и ошибавшийся — без «верни»; финиш под VSC — оба впереди без штрафа, в башне «УСТУПИЛ», следующий — от отданного`);
 
   // часть 2: живой заезд — срезка газом в пол за соперником, уступка вбок на 3 м вполсилы
   const env2 = H.loadGame({ seed: 11 });

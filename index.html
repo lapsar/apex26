@@ -194,7 +194,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.16.89</div>
+    <div class="verstamp">v1.16.90</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -8464,10 +8464,14 @@ function gapSec(a,b){if(b.dist>=a.dist)return 0;   // на сколько сек
   const t=tmAt(a,b.dist);if(isFinite(t))return Math.max(0,raceTime-t);
   return (a.dist-b.dist)/(track.paceSpeed||(track.length/100));}
 function towerGap(ah,c){   // отставание строки c от строки ah выше; после финиша со штрафом (v1.16.64) — по итоговому времени игрока, с его +tlPen
+  if(raceOutro&&!tlPen&&ah===player&&tlRetOut&&tlRetOut.length)return gapSec(tlRetOut[tlRetOut.length-1],c);   // игрок отдал позицию на финише — «приехал вровень» с последним, кому отдал (v1.16.90)
   if(raceOutro&&tlPen>0){
     if(c===player)return ah.dist<player.dist?Math.max(0,tlPen-gapSec(player,ah)):gapSec(ah,player)+tlPen;   // ah встал вперёд по штрафу / и так был впереди
     if(ah===player)return Math.max(0,gapSec(player,c)-tlPen);}
   return gapSec(ah,c);}
+function towerGapText(ah,c){   // ячейка отставания; игрок, отдавший позицию на финише (отсчёт стоял под VSC), — «УСТУПИЛ» вместо +0.000 (v1.16.90)
+  if(raceOutro&&!tlPen&&c===player&&tlRetOut&&tlRetOut.length)return 'УСТУПИЛ';
+  return '+'+towerGap(ah,c).toFixed(3);}
 function updateHUD(){const order=(raceOutro&&window.__raceOrder)?window.__raceOrder:towerOrder();const rank=order.findIndex(c=>c.isPlayer)+1;const total=cars.length;
   if(++towerT%6===0){
     if(phase==='quali'){
@@ -8491,7 +8495,7 @@ function updateHUD(){const order=(raceOutro&&window.__raceOrder)?window.__raceOr
         else if(i===0)gap=raceOutro?'ПОБЕДА':'ЛИДЕР';                 // у лидера отставания нет, и пустая ячейка читается как недоделка
         else{const down=Math.floor((leadDist-c.dist)/track.length);   // laps behind the leader
           if(down>=1)gap='+'+down+' '+lapWord(down);
-          else{const ah=ord[i-1];gap=ah.retired?'':'+'+towerGap(ah,c).toFixed(3);}}   // внутри защёлки идущий выше может быть на полкорпуса позади — отставание не бывает отрицательным
+          else{const ah=ord[i-1];gap=ah.retired?'':towerGapText(ah,c);}}   // внутри защёлки идущий выше может быть на полкорпуса позади — отставание не бывает отрицательным
         fillRow(rows[i],i+1,c.color,c.code,gap,c.isPlayer,i===0&&!c.retired);});
       markFastestRow(document.getElementById('tower'),rows,flShown?ord.indexOf(flShown.car):-1);
       markLimitsRow(document.getElementById('tower'),rows,ord.indexOf(player));
@@ -8510,7 +8514,7 @@ function updateHUD(){const order=(raceOutro&&window.__raceOrder)?window.__raceOr
 function releaseTouches(){clearControls();for(const k in keys)keys[k]=0;}
 function finishRace(){raceOver=true;releaseTouches();let order=[...cars].sort(rankCmp);
   if(tlRet){const pi=order.indexOf(player);   // «верни позицию» не успели (отсчёт стоял под VSC) — невозвращённые впереди, без штрафа (v1.16.89)
-    tlRetOut=tlRet.cars.filter(t=>!t.done&&!t.c.retired&&order.indexOf(t.c)>pi).map(t=>t.c);
+    tlRetOut=tlRet.cars.filter(t=>!t.done&&!t.c.retired&&order.indexOf(t.c)>pi).map(t=>t.c).sort(rankCmp);   // между собой — в своём порядке (v1.16.90)
     order=order.filter(c=>!tlRetOut.includes(c));order.splice(order.indexOf(player),0,...tlRetOut);tlRet=null;}
   if(tlPen>0){const pi=order.indexOf(player);   // штраф: вперёд встают те, кто отстаёт меньше чем на него — по секундомеру точек трассы, как «+x.xxx» башни
     const up=order.filter((c,i)=>i>pi&&!c.retired&&gapSec(player,c)<tlPen);
