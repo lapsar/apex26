@@ -124,13 +124,29 @@
   #flagpanel.tlwarn .fl,#flagpanel.tldel .fl{background:linear-gradient(135deg,#111 50%,#fff 50%);animation:none;box-shadow:0 0 0 1px #8A94A3;}
   #flagpanel.tlwarn .ft{color:#F5C400;}
   #flagpanel.tldel{border-color:#fff;} #flagpanel.tldel .ft{color:#fff;}
-  #flagpanel.tlpen{border-color:#E10600;} #flagpanel.tlpen .ft{color:#FF3B30;}
-  #flagpanel.tlpen .fl{width:18px;height:18px;background:#E10600;animation:none;color:#fff;font-weight:800;font-size:15px;line-height:18px;text-align:center;}
-  #flagpanel.tlpen .fl::after{content:"!";}
+  #flagpanel.tlpen,#flagpanel.tlretpen{border-color:#E10600;} #flagpanel.tlpen .ft,#flagpanel.tlretpen .ft{color:#FF3B30;}
+  #flagpanel.tlpen .fl,#flagpanel.tlretpen .fl{width:18px;height:18px;background:#E10600;animation:none;color:#fff;font-weight:800;font-size:15px;line-height:18px;text-align:center;}
+  #flagpanel.tlpen .fl::after,#flagpanel.tlretpen .fl::after{content:"!";}
+  /* «Верни позицию» (v1.16.89): плашка с отсчётом и полоской, обогнанные — фишками с цветом команды; вернул — зелёная. */
+  #flagpanel.tlret .fl{background:linear-gradient(135deg,#111 50%,#fff 50%);animation:none;box-shadow:0 0 0 1px #8A94A3;}
+  #flagpanel.tlretok,#flagpanel.tlretnone{border-color:#39d353;} #flagpanel.tlretok .fl,#flagpanel.tlretnone .fl{background:#39d353;animation:none;}
+  #flagpanel.tlretok .ft,#flagpanel.tlretnone .ft{color:#39d353;}
+  #flagpanel .fk{font-size:10px;letter-spacing:.14em;color:#cfd4da;margin-bottom:2px;}
+  #flagpanel .tlchip{display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,.1);padding:1px 6px 1px 0;margin:0 1px;font-weight:700;color:#fff;letter-spacing:.04em;vertical-align:middle;}
+  #flagpanel .tlchip i{display:block;width:4px;height:14px;} #flagpanel .tlchip svg{display:block;}
+  #flagpanel .tlchip.ok{background:rgba(57,211,83,.18);color:#9fe7ad;} #flagpanel .tlchip.out{background:rgba(255,255,255,.06);color:#8A94A3;}
+  #flagpanel .tlchip em{font-style:normal;font-weight:400;font-size:10px;}
+  #flagpanel .tlcd{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:42px;height:42px;border-radius:6px;background:#F5C400;color:#111;
+    font-weight:800;font-size:24px;line-height:1;font-variant-numeric:tabular-nums;}
+  #flagpanel .tlcd small{font-size:9px;letter-spacing:.12em;font-weight:700;margin-top:1px;}
+  #flagpanel .tlbar{position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(245,196,0,.2);border-radius:0 0 7px 7px;overflow:hidden;}
+  #flagpanel .tlbar i{display:block;height:3px;background:#F5C400;}
   .rfl{display:inline-block;width:16px;height:16px;padding:2px;box-sizing:border-box;background:#b57bff;vertical-align:-3px;margin-left:4px;}
   .rpen{display:inline-block;background:#E10600;color:#fff;font-weight:800;font-size:11px;padding:1px 5px;border-radius:3px;margin-left:4px;vertical-align:1px;}
   #tower .tlmark{position:absolute;left:100%;display:none;background:#F5C400;color:#111;font-weight:800;text-align:center;box-sizing:border-box;font-family:Arial,sans-serif;}
   #tower .tlmark.on{display:block;} #tower .tlmark.pen{background:#E10600;color:#fff;}
+  #tower .trow.tlt{box-shadow:inset 0 0 0 2px #F5C400;animation:tlt 1s ease-in-out infinite;}   /* кого пропустить (v1.16.89) */
+  @keyframes tlt{50%{box-shadow:inset 0 0 0 2px rgba(245,196,0,.2)}}
   @keyframes flagwave{0%,100%{opacity:1;transform:skewX(0deg)}50%{opacity:.35;transform:skewX(-14deg)}}
   #lightsG{position:absolute;top:8%;left:50%;transform:translateX(-50%);z-index:6;display:none;gap:10px;pointer-events:none;}
   #lightsG.on{display:flex;}
@@ -178,7 +194,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.16.88</div>
+    <div class="verstamp">v1.16.90</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -482,23 +498,53 @@ let qualiOutro=false,qualiOutroTimer=0,raceOutro=false,raceOutroTimer=0;
    срезка — предупреждение (жёлтый «!» у строки игрока в башне), каждая следующая — штраф TL_PEN с, значок
    красный; штраф прибавляется на финише (finishRace). Только игрок: соперники выезд не используют. */
 const TL_PEN=5,TL_SHOW=4,TL_TRIES=2;   // квала: попыток не больше TL_TRIES — второй удалённый круг = без времени, старт последним (владелец 09.10.2026)
+/* «Верни позицию» (v1.16.89, владелец 20.10.2026; tracks/monaco.md): первая срезка, на которой игрок выиграл позиции, — кроме
+   предупреждения требование пропустить обогнанных за TL_RET_SECS, иначе +TL_PEN. Обогнанные — были впереди (dist, как rankCmp)
+   на въезде в зону и позади на выезде; ошибающийся или сходящий в этот миг — не в счёт (обогнан не срезкой). Отсчёт — с выезда
+   (возвращение на трассу), под флагом стоит (обгон запрещён). Пропустил — соперник впереди на корпус (TOWER_HYST, как строка
+   башни); сошёл, ошибся, развернулся — засчитан (владелец: «нечестно ждать того, кто ошибся»). Финиш при идущем отсчёте
+   (без флага не успеть: от шиканы до линии ~18 с) — невозвращённые встают впереди в итогах, без штрафа (finishRace).
+   15 с, а не 10 — замер yield-back-audit: отъехав вбок, за 10 с пропускают ~95 %, по своей линии — 21–37 %. */
+const TL_RET_SECS=15;
 let tlCount=0,tlPen=0,tlPlate=0,tlKind='',tlWhat='',tlLatch=-1;
-function tlReset(){tlCount=0;tlPen=0;tlPlate=0;tlKind='';tlWhat='';tlLatch=-1;player.lapCut=false;player.lapCutR=false;player.qTry=1;player.noTime=false;}   // qTry — номер попытки в квале
+let tlIn=-1,tlAhead=null,tlFirst=false,tlRet=null,tlRetOut=null,tlRetPen=false;   // tlIn — зона, в которой игрок сейчас; tlAhead — кто был впереди на въезде
+function tlReset(){tlCount=0;tlPen=0;tlPlate=0;tlKind='';tlWhat='';tlLatch=-1;player.lapCut=false;player.lapCutR=false;player.qTry=1;player.noTime=false;   // qTry — номер попытки в квале
+  tlIn=-1;tlAhead=null;tlFirst=false;tlRet=null;tlRetOut=null;tlRetPen=false;}
 function checkCut(idx,off){const Z=track.spec.cuts;if(!Z)return;
   if(phase==='race'?(!lights.go||raceOver||raceOutro):(phase!=='quali'||!player.started||qualiOutro))return;
   const s=track.S[idx];
   for(let k=0;k<Z.length;k++){const z=Z[k];
-    if(s<z.fromS||s>z.toS){if(tlLatch===k)tlLatch=-1;continue;}
+    if(s<z.fromS||s>z.toS){if(tlLatch===k)tlLatch=-1;
+      if(tlIn===k){tlIn=-1;if(tlFirst)tlRetBegin();tlFirst=false;tlAhead=null;}   // выезд из зоны: первая срезка выиграла позиции — «верни позицию»
+      continue;}
+    if(tlIn!==k&&phase==='race'){tlIn=k;tlFirst=false;tlAhead=cars.filter(c=>c!==player&&!c.retired&&c.dist>player.dist);}   // въезд: кто впереди
     if(tlLatch!==k&&(z.side==='R'?off:-off)-halfAt(idx)>z.depth){tlLatch=k;tlWhat=z.name;   // одна срезка — один раз за проезд зоны
       if(phase==='quali'){if(player.lapCut)continue;player.lapCut=true;tlKind='del';}
-      else{tlCount++;player.lapCutR=true;if(tlCount>1){tlPen+=TL_PEN;tlKind='pen';}else tlKind='warn';}   // круг со срезкой не в счёт лучшего
+      else{tlCount++;player.lapCutR=true;if(tlCount>1){tlPen+=TL_PEN;tlKind='pen';}else{tlKind='warn';tlFirst=true;}}   // круг со срезкой не в счёт лучшего
       tlPlate=TL_SHOW;AUDIO.beep(tlKind==='warn'?520:330,0.35,0.22);}}}
+function tlBusy(c){   // соперник сошёл / ошибся / развернулся — '' если едет как обычно
+  if(c.retired||(c.fail&&c.fail.on&&(c.fail.kind!=='spin'||c.fail.ret)))return 'сошёл';
+  if(c.fail&&c.fail.on)return 'развернулся';return c.err?'ошибка':'';}
+function tlRetBegin(){const T=(tlAhead||[]).filter(c=>c.dist<player.dist&&!tlBusy(c));if(!T.length)return;
+  tlRet={cars:T.map(c=>({c,done:''})),left:TL_RET_SECS};tlPlate=0;}   // предупреждение уступает место плашке «верни позицию» (в ней та же строка нарушения)
+function tlRetHold(){return neutral.mode==='vsc'||neutral.mode==='ending'||neutral.mode==='yellow';}   // под флагом обгонять нельзя — отсчёт стоит
+function tlRetStep(dt){const R=tlRet;if(!R||phase!=='race'||!lights.go||raceOver||raceOutro)return;
+  for(const t of R.cars)if(!t.done)t.done=tlBusy(t.c)||(t.c.dist-player.dist>TOWER_HYST?'ok':'');
+  if(R.cars.every(t=>t.done)){tlKind=R.cars.some(t=>t.done==='ok')?'retok':'retnone';tlPlate=TL_SHOW;tlRet=null;AUDIO.beep(760,0.3,0.22);return;}
+  if(tlRetHold())return;
+  if((R.left-=dt)<=0){tlPen+=TL_PEN;tlRetPen=true;tlKind='retpen';tlPlate=TL_SHOW;tlRet=null;AUDIO.beep(330,0.35,0.22);}}
+function tlRetPos(){   // какую позицию вернуть: своя (как в башне) + сколько ещё пропустить; сход впереди уменьшает её сам
+  const o=towerOrd&&towerOrd.length===cars.length?towerOrd:[...cars].sort(rankCmp);
+  return o.indexOf(player)+1+tlRet.cars.filter(t=>!t.done).length;}
+function tlChip(t){const d=t.done;
+  return `<span class="tlchip${d==='ok'?' ok':d?' out':''}"><i style="background:${t.c.color}"></i>${t.c.code}${d==='ok'?'<svg width="10" height="10" viewBox="0 0 12 12"><path d="M2 6.5l2.6 2.6L10 3.5" fill="none" stroke="#39d353" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>':d?' <em>'+d+'</em>':''}</span>`;}
 function markLimitsRow(el,rows,idx){if(!rows||!rows.length)return;
   let m=el.querySelector('.tlmark');
   if(!m){m=document.createElement('div');m.className='tlmark';m.textContent='!';el.appendChild(m);}
   const row=tlCount>0&&idx>=0?rows[idx]:null;m.classList.toggle('on',!!row);m.classList.toggle('pen',tlPen>0);
+  m.textContent=tlRet?String(Math.max(1,Math.ceil(tlRet.left))):'!';   // пока отсчёт — вместо «!» его секунды (v1.16.89)
   if(row){const h=row.offsetHeight,f=el.querySelector('.flmark.on'),both=f&&Math.abs(parseFloat(f.style.top)-row.offsetTop)<1;
-    m.style.top=row.offsetTop+'px';m.style.width=m.style.height=h+'px';m.style.lineHeight=h+'px';m.style.fontSize=Math.round(h*0.8)+'px';
+    m.style.top=row.offsetTop+'px';m.style.height=h+'px';m.style.width=tlRet?'auto':h+'px';m.style.minWidth=h+'px';m.style.padding=tlRet?'0 3px':'0';m.style.lineHeight=h+'px';m.style.fontSize=Math.round(h*0.8)+'px';
     m.style.left=both?`calc(100% + ${h}px)`:'100%';}}   // у владельца лучшего круга — рядом со значком секундомера
 let retireCount=0,lastThud=0,wallTouch=false;
 /* ---- race neutralisation: yellow flags and the virtual safety car ----
@@ -7249,7 +7295,7 @@ function update(dt){
       if(phase==='quali'){qualiLapsLeft--;if(qualiLapsLeft<=0){beginQualiOutro();return;}}
       else if(player.lap>=totalLaps){finishRace();return;}}
   }
-  checkCut(idx,pr3.off);if(tlPlate>0)tlPlate-=dt;
+  checkCut(idx,pr3.off);tlRetStep(dt);if(tlPlate>0)tlPlate-=dt;
   player.prevIdx=idx;player.lapT+=dt;
   // сглаженная скорость игрока: соперники судят о нём тем же мерилом, что и друг о друге
   player.spdAvg+=(player.speed-player.spdAvg)*Math.min(1,dt/PACE_TAU);
@@ -8418,10 +8464,14 @@ function gapSec(a,b){if(b.dist>=a.dist)return 0;   // на сколько сек
   const t=tmAt(a,b.dist);if(isFinite(t))return Math.max(0,raceTime-t);
   return (a.dist-b.dist)/(track.paceSpeed||(track.length/100));}
 function towerGap(ah,c){   // отставание строки c от строки ah выше; после финиша со штрафом (v1.16.64) — по итоговому времени игрока, с его +tlPen
+  if(raceOutro&&!tlPen&&ah===player&&tlRetOut&&tlRetOut.length)return gapSec(tlRetOut[tlRetOut.length-1],c);   // игрок отдал позицию на финише — «приехал вровень» с последним, кому отдал (v1.16.90)
   if(raceOutro&&tlPen>0){
     if(c===player)return ah.dist<player.dist?Math.max(0,tlPen-gapSec(player,ah)):gapSec(ah,player)+tlPen;   // ah встал вперёд по штрафу / и так был впереди
     if(ah===player)return Math.max(0,gapSec(player,c)-tlPen);}
   return gapSec(ah,c);}
+function towerGapText(ah,c){   // ячейка отставания; игрок, отдавший позицию на финише (отсчёт стоял под VSC), — «УСТУПИЛ» вместо +0.000 (v1.16.90)
+  if(raceOutro&&!tlPen&&c===player&&tlRetOut&&tlRetOut.length)return 'УСТУПИЛ';
+  return '+'+towerGap(ah,c).toFixed(3);}
 function updateHUD(){const order=(raceOutro&&window.__raceOrder)?window.__raceOrder:towerOrder();const rank=order.findIndex(c=>c.isPlayer)+1;const total=cars.length;
   if(++towerT%6===0){
     if(phase==='quali'){
@@ -8445,10 +8495,11 @@ function updateHUD(){const order=(raceOutro&&window.__raceOrder)?window.__raceOr
         else if(i===0)gap=raceOutro?'ПОБЕДА':'ЛИДЕР';                 // у лидера отставания нет, и пустая ячейка читается как недоделка
         else{const down=Math.floor((leadDist-c.dist)/track.length);   // laps behind the leader
           if(down>=1)gap='+'+down+' '+lapWord(down);
-          else{const ah=ord[i-1];gap=ah.retired?'':'+'+towerGap(ah,c).toFixed(3);}}   // внутри защёлки идущий выше может быть на полкорпуса позади — отставание не бывает отрицательным
+          else{const ah=ord[i-1];gap=ah.retired?'':towerGapText(ah,c);}}   // внутри защёлки идущий выше может быть на полкорпуса позади — отставание не бывает отрицательным
         fillRow(rows[i],i+1,c.color,c.code,gap,c.isPlayer,i===0&&!c.retired);});
       markFastestRow(document.getElementById('tower'),rows,flShown?ord.indexOf(flShown.car):-1);
       markLimitsRow(document.getElementById('tower'),rows,ord.indexOf(player));
+      ord.forEach((c,i)=>rows[i]&&rows[i].classList.toggle('tlt',!!tlRet&&tlRet.cars.some(t=>t.c===c&&!t.done)));   // кого пропустить — жёлтая рамка
     }
   }
   renderFlagUI();
@@ -8462,6 +8513,9 @@ function updateHUD(){const order=(raceOutro&&window.__raceOrder)?window.__raceOr
 /* ---------- finish ---------- */
 function releaseTouches(){clearControls();for(const k in keys)keys[k]=0;}
 function finishRace(){raceOver=true;releaseTouches();let order=[...cars].sort(rankCmp);
+  if(tlRet){const pi=order.indexOf(player);   // «верни позицию» не успели (отсчёт стоял под VSC) — невозвращённые впереди, без штрафа (v1.16.89)
+    tlRetOut=tlRet.cars.filter(t=>!t.done&&!t.c.retired&&order.indexOf(t.c)>pi).map(t=>t.c).sort(rankCmp);   // между собой — в своём порядке (v1.16.90)
+    order=order.filter(c=>!tlRetOut.includes(c));order.splice(order.indexOf(player),0,...tlRetOut);tlRet=null;}
   if(tlPen>0){const pi=order.indexOf(player);   // штраф: вперёд встают те, кто отстаёт меньше чем на него — по секундомеру точек трассы, как «+x.xxx» башни
     const up=order.filter((c,i)=>i>pi&&!c.retired&&gapSec(player,c)<tlPen);
     order=order.filter(c=>!up.includes(c));order.splice(order.indexOf(player),0,...up);}
@@ -8478,7 +8532,7 @@ function showRaceResult(){const order=window.__raceOrder||[...cars].sort(rankCmp
   document.getElementById('rHead').textContent=yp===1?'🏆 Победа!':yp<=3?`Подиум — P${yp}`:`Финиш — P${yp}`;
   document.getElementById('rHead').style.color=yp===1?player.color:'';
   const flTxt=isFinite(fastestLap.time)?`Быстрый круг гонки: <b style="color:#b57bff">${fastestLap.name} ${fmt(fastestLap.time)}</b>`:'';
-  document.getElementById('rGap').innerHTML=`Твой лучший круг <b style="color:var(--text)">${isFinite(player.best)?fmt(player.best):'—'}</b>. ${flTxt}${tlPen?` Штраф <b style="color:#FF3B30">+${tlPen} с</b> за срезку ${tlWhat}.`:''}`;
+  document.getElementById('rGap').innerHTML=`Твой лучший круг <b style="color:var(--text)">${isFinite(player.best)?fmt(player.best):'—'}</b>. ${flTxt}${tlPen?` Штраф <b style="color:#FF3B30">+${tlPen} с</b> ${!tlRetPen?'за срезку '+tlWhat:tlPen>TL_PEN?'за срезку '+tlWhat+' и за невозвращённую позицию':'за невозвращённую позицию после срезки '+tlWhat}.`:''}${tlRetOut&&tlRetOut.length?` ${tlRetOut.map(c=>c.name).join(', ')} ${tlRetOut.length>1?'поставлены':'поставлен'} впереди: позиция не была возвращена до финиша.`:''}`;
   const tb=document.getElementById('rTable');tb.innerHTML='<tr><th>Поз</th><th>Пилот</th><th>Команда</th><th style="text-align:right">Очки</th></tr>';
   const PTS=[25,18,15,12,10,8,6,4,2,1];
   order.forEach((c,i)=>{const rr=ROSTER.find(r=>r.num===c.num);const team=c.isPlayer?ROSTER[sel.roster].team:(rr?rr.team:'');
@@ -8498,11 +8552,19 @@ function renderFlagUI(){const el=document.getElementById('flagpanel');if(!el)ret
   const inZ=neutral.mode==='yellow'&&inFlagZone();
   if(wasInZone&&!inZ&&neutral.mode==='yellow')zoneOut=ZONE_OUT_SECS;
   wasInZone=inZ;
-  let cls='',main='',sub='';
+  let cls='',main='',sub='',kick='',extra='';
+  const tlK='НАРУШЕНИЕ ГРАНИЦ ТРАССЫ · СРЕЗКА '+String(tlWhat).toUpperCase();
   if(tlPlate>0&&(phase==='race'||phase==='quali')){cls='tl'+tlKind;   // своя срезка важнее флагов: 4 с, и игрок должен понять, за что
     if(tlKind==='del'){main='ВРЕМЯ КРУГА УДАЛЕНО';sub='срезка '+tlWhat+(player.qTry<TL_TRIES?' · доедь круг — будет ещё одна попытка':' · попыток больше нет — старт последним');}
     else if(tlKind==='warn'){main='НАРУШЕНИЕ ГРАНИЦ ТРАССЫ';sub='срезка '+tlWhat+' · предупреждение · дальше штраф +'+TL_PEN+' с';}
+    else if(tlKind==='retok'||tlKind==='retnone'){kick=tlK;main=tlKind==='retok'?'ПОЗИЦИЯ ВОЗВРАЩЕНА':'УСТУПАТЬ БОЛЬШЕ НЕКОМУ';
+      sub='штрафа нет · предупреждение осталось — следующая срезка +'+TL_PEN+' с';}
+    else if(tlKind==='retpen'){kick='ПОЗИЦИЯ НЕ ВОЗВРАЩЕНА ЗА '+TL_RET_SECS+' С';main='ШТРАФ +'+TL_PEN+' СЕК';
+      sub='прибавится на финише · следующая срезка — ещё +'+TL_PEN+' с';}
     else{main='ШТРАФ +'+TL_PEN+' СЕК';sub='срезка '+tlWhat+(tlPen>TL_PEN?' · всего +'+tlPen+' с':'')+' · прибавится на финише';}}
+  else if(tlRet&&phase==='race'&&!tlRetHold()){cls='tlret';kick=tlK;main='ВЕРНИ '+tlRetPos()+' ПОЗИЦИЮ';   // под флагом — плашка флага, отсчёт стоит
+    sub='пропусти '+tlRet.cars.map(tlChip).join(' ')+' · иначе штраф +'+TL_PEN+' с';
+    extra=`<div class="tlcd">${Math.max(1,Math.ceil(tlRet.left))}<small>СЕК</small></div><div class="tlbar"><i></i></div>`;}
   else if(phase==='race'){
     if(vscOn()){cls='vsc';main=neutral.mode==='ending'?'VSC ЗАКАНЧИВАЕТСЯ':'VSC';sub='скорость ограничена · обгон запрещён';}
     else if(neutral.mode==='green'&&greenSeen){cls='green';main='ЗЕЛЁНЫЙ ФЛАГ';sub='ограничения сняты · гонка';}
@@ -8511,9 +8573,10 @@ function renderFlagUI(){const el=document.getElementById('flagpanel');if(!el)ret
     else if(zoneOut>0){cls='green';main='КОНЕЦ ЗОНЫ';sub='ограничения сняты';}
     if(!main&&flPlate>0&&flShown){cls='best';main='ЛУЧШИЙ КРУГ ГОНКИ';   // флаг важнее: плашка рекорда ждёт своей очереди и не перебивает ограничение
       sub=`${flShown.name}${flShown.team?' · '+flShown.team.toUpperCase():''} · ${fmt(flShown.time)}`;}}
-  const key=cls+'|'+main+'|'+sub;if(key===flagKey)return;flagKey=key;
-  el.className=main?('on '+cls):'';
-  el.innerHTML=main?`<div class="fl"></div><div><div class="ft">${main}</div><div class="fs">${sub}</div></div>`:'';}
+  const key=cls+'|'+kick+'|'+main+'|'+sub+'|'+extra;
+  if(key!==flagKey){flagKey=key;el.className=main?('on '+cls):'';
+    el.innerHTML=main?`<div class="fl"></div><div>${kick?`<div class="fk">${kick}</div>`:''}<div class="ft">${main}</div><div class="fs">${sub}</div></div>${extra}`:'';}
+  if(cls==='tlret'){const b=el.querySelector('.tlbar i');if(b)b.style.width=(100*Math.max(0,tlRet.left)/TL_RET_SECS).toFixed(1)+'%';}}   // полоска — каждый кадр, без пересборки плашки
 function renderLightsUI(){document.querySelectorAll('#lightsG .col').forEach((c,i)=>{const on=i<lights.seq&&!lights.go;c.querySelectorAll('.lb').forEach(l=>l.classList.toggle('on',on));});}
 
 /* ---------- loop / misc ---------- */
