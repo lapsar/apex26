@@ -194,7 +194,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.16.91</div>
+    <div class="verstamp">v1.16.92</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -346,8 +346,9 @@ const TRACKS=[
      v1.16.59: пит-лейн у въезда и выезда — вплотную к отбойнику; бортик по обоим краям сплошной и бежевый, как дома.
      v1.16.60: бортик пит-лейна — светлый, как боксы и стена у бассейна.
      v1.16.61: по верху борта и бортика — тёмная «шапка», у земли — цоколь: светлый борт сливался с отбойником.
-     v1.16.62: границы трассы у шиканы после тоннеля (ключ cuts): квала — круг удалён, 2 попытки; гонка — предупреждение, потом +5 с. */
-  {name:"Monaco",key:"Monaco",vscAlways:true,cuts:[{name:"шиканы",fromS:2061,toS:2161,side:"R",depth:4}],railAdsFit:true,railAds:[[0,-1],[176,12],[270,14],[500,2],[790,13],[900,4],[1150,12],[1430,14],[1545,-1],[1925,8],[2400,14],[2730,-1],[2840,3],[2990,12],[3200,-1]],cc:"Монако",c:"#C6A15B",half:6.0,style:"street",runoff:1.6,grip:.94,twist:6,speed:2,sfShift:2416,
+     v1.16.62: границы трассы у шиканы после тоннеля (ключ cuts): квала — круг удалён, 2 попытки; гонка — предупреждение, потом +5 с.
+     v1.16.92: сошедший болид после VSC увозят совсем (ключ clearAway): за стеной он висел над склоном, садом шпильки, обрывом и водой. */
+  {name:"Monaco",key:"Monaco",vscAlways:true,clearAway:true,cuts:[{name:"шиканы",fromS:2061,toS:2161,side:"R",depth:4}],railAdsFit:true,railAds:[[0,-1],[176,12],[270,14],[500,2],[790,13],[900,4],[1150,12],[1430,14],[1545,-1],[1925,8],[2400,14],[2730,-1],[2840,3],[2990,12],[3200,-1]],cc:"Монако",c:"#C6A15B",half:6.0,style:"street",runoff:1.6,grip:.94,twist:6,speed:2,sfShift:2416,
    desc:"Улицы княжества: стены у самой кромки, тоннель, шпилька, гавань с яхтами. Самая медленная трасса в игре."},
   {name:"Montreal",key:"Montreal",cc:"Канада",c:"#D52B1E",half:7.0,style:"park",runoff:3,grip:0.98,twist:4,speed:4,sfShift:196,
    desc:"Остров на реке: длинные прямые, шпилька, тесные шиканы и стены у самой кромки."},
@@ -6886,7 +6887,7 @@ function playerWallPush(){const s=Math.sin(player.hdg),co=Math.cos(player.hdg);l
    глубину; скорость, звук — не трогаются (их отработал обычный проход). */
 function carContacts(dt,nudge){
   const fx=Math.sin(player.hdg),fz=Math.cos(player.hdg),rx=fz,rz=-fx;   // вперёд и вбок у игрока
-  for(const c of field){if(nudge&&c.retired)continue;const dx=player.x-c.x,dz=player.z-c.z;
+  for(const c of field){if(nudge&&c.retired||c.gone)continue;const dx=player.x-c.x,dz=player.z-c.z;   // увезённого (clearAway) нет
     if(dx*dx+dz*dz>42.25)continue;                                      // 6.5 м — две полудиагонали: дальше корпуса не достают
     const hc=c.mesh.rotation.y,gx=Math.sin(hc),gz=Math.cos(hc),qx=gz,qz=-gx;
     let best=Infinity,nx=0,nz=0,apart=false,latO=0;
@@ -7096,7 +7097,7 @@ function startRace(){document.getElementById('s-quali').classList.remove('active
     const cornerK=DIFF_GRIP[sel.diff];
     c.base=aiBase(gd.skill,diffMul)*(0.965+Math.random()*0.035);
     c.cornerK=aiGrip(gd.skill,cornerK)*(0.95+Math.random()*0.08);c.dist=-g.back;c.prevU=c.u;c.retired=false;c.retireAt=0;c.lapStart=undefined;
-    c.skill=gd.skill;c.err=null;c.errI=undefined;c.fail=null;c.spinPend=null;c.ghost=null;c.cleared=false;c.clearWant=false;c.spanX=undefined;c.smokeTill=0;c.paceAvg=c.base;c.spdAvg=0;c.duel=null;c.duelT=0;      // сглаженный темп начинается со своего же, скорость — с нуля: на решётке все и правда стоят
+    c.skill=gd.skill;c.err=null;c.errI=undefined;c.fail=null;c.spinPend=null;c.ghost=null;c.cleared=false;c.gone=false;c.clearWant=false;c.spanX=undefined;c.smokeTill=0;c.paceAvg=c.base;c.spdAvg=0;c.duel=null;c.duelT=0;      // сглаженный темп начинается со своего же, скорость — с нуля: на решётке все и правда стоят
     scene.add(c.mesh);field.push(c);cars.push(c);});
   // reset race timing + fastest lap + smoke
   raceTime=0;fastestLap={time:Infinity,name:'',team:'',color:'',you:false,car:null};retireCount=0;
@@ -7957,12 +7958,17 @@ function retireCar(c,here){c.retired=true;c.speed=0;c.retireOrder=++retireCount;
    С v1.16.79 — не на глазах: VSC кончился, а камера смотрит на болид — ждём (retireClearTick, retSeen). */
 function clearCarToBarrier(c){
   if(!c||!c.retired||!(c.blocking||track.spec.vscAlways))return;   // vscAlways — убирают и вставшего вне полотна (v1.16.57)
+  if(track.spec.clearAway){carRemove(c);return;}
   const i=c.retiredIdx,P=track.P[i],R=track.R[i];
   const off=wallAt(i,c.retiredSide)+carHalfWidth(c.retiredAng)+0.4;   // hard against the far side of the barrier: pushed further out it can reach a grandstand
   const x=P.x+R.x*c.retiredSide*off, z=P.z+R.z*c.retiredSide*off;
   for(let j=0;j<track.M;j++){let ij=Math.abs(j-i);ij=Math.min(ij,track.M-ij);if(ij<=3)continue;
     if(Math.hypot(track.P[j].x-x,track.P[j].z-z)<halfAt(j)+3.5)return;}   // behind the barrier sits another leg of the track: leave it be
   c.x=x;c.z=z;c.mesh.position.set(x,0,z);reliefSit(c);c.blocking=false;c.cleared=true;if(c.ghost)c.ghost.retired=true;}
+/* clearAway у трассы (v1.16.92, Монако, решение владельца 20.10.2026): болид не ставят за отбойник, а увозят совсем — за стеной
+   Монако склон, подпорные стены, сад шпильки, обрыв у Массне и вода гавани, и болид на высоте дороги висел над ними до 32 м.
+   Болид в башне остаётся «СХ»; его корпус больше никого не держит и не толкает, дым мотора гаснет. */
+function carRemove(c){c.mesh.visible=false;c.gone=true;c.blocking=false;c.cleared=true;c.smokeTill=0;if(c.ghost)c.ghost.retired=true;}
 function retSeen(c){if(!cam)return false;const dx=c.x-cam.position.x,dz=c.z-cam.position.z,d=Math.hypot(dx,dz);
   if(d>RET_SEEN_FAR)return false;if(d<RET_SEEN_NEAR)return true;
   const e=cam.matrixWorld.elements,fx=-e[8],fz=-e[10],fl=Math.hypot(fx,fz)||1;   // камера смотрит по −Z своей матрицы

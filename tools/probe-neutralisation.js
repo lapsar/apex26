@@ -264,7 +264,7 @@ function run(opt) {
                 rank0:rank0, rankEnd:rankEnd,
                 blocking0:v.blockedRoad, offEnd:+offEnd.toFixed(2),
                 wall:+((v.retiredSide>0?track.WR:track.WL)[i]).toFixed(2),
-                inScene:scene.children.indexOf(v.mesh)>=0, blockingEnd:v.blocking,
+                inScene:scene.children.indexOf(v.mesh)>=0, blockingEnd:v.blocking, away:!!track.spec.clearAway, gone:!!v.gone&&!v.mesh.visible,
                 retired:cars.filter(function(c){return c.retired;}).length};
       })()`);
 
@@ -281,7 +281,7 @@ function run(opt) {
         + ((res.nAllowed + res.nAllowedY) ? ` · объехали вставшего ${res.nAllowed + res.nAllowedY}` : '')
         + (res.pRank0 === null ? '' : ` · место игрока P${res.pRank0}→P${res.pRankEnd}`)
         + ((res.breachY||res.breachV) ? ` · зазор проваливался на ${Math.max(res.breachY,res.breachV)} м` : '')
-        + ` · болид стоит в ${res.offEnd} м (стена ${res.wall})`);
+        + (res.away ? ` · болид увезён (clearAway)` : ` · болид стоит в ${res.offEnd} м (стена ${res.wall})`));
 
       /* Обгоны и место игрока — общая часть для обоих режимов. Пары с игроком считаются
          наравне с остальными: до 08.2026 они выбрасывались, и пробник был зелёным, пока
@@ -307,7 +307,8 @@ function run(opt) {
         if (res.nOver) r.fail(`${tag}: под VSC состоялось ${res.nOver} обгонов: ${res.overtakes.join(', ')}`);
         if (res.capBad) r.fail(`${tag}: игрок ${res.capBad} кадров ехал быстрее потолка VSC`);
         if (res.breachV > 1.5) r.fail(`${tag}: под VSC игрок подобрался к переднему на ${res.breachV} м ближе, чем позволяет правило`);
-        if (res.offEnd < res.wall) r.fail(`${tag}: после эвакуации болид остался перед отбойником (${res.offEnd} м при стене ${res.wall} м)`);
+        if (res.away) { if (!res.gone) r.fail(`${tag}: clearAway — после VSC болид должен быть увезён, а он на месте`); }   // Монако (v1.16.92): увозят совсем
+        else if (res.offEnd < res.wall) r.fail(`${tag}: после эвакуации болид остался перед отбойником (${res.offEnd} м при стене ${res.wall} м)`);
         if (res.blockingEnd) r.fail(`${tag}: после эвакуации болид всё ещё помечен как мешающий`);
       }
       if (Math.abs(grn - 3) > 0.6) r.fail(`${tag}: зелёный флаг показан ${grn} с вместо 3`);
