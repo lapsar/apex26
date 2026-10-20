@@ -194,7 +194,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.16.90</div>
+    <div class="verstamp">v1.16.91</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -8562,14 +8562,15 @@ function renderFlagUI(){const el=document.getElementById('flagpanel');if(!el)ret
     else if(tlKind==='retpen'){kick='ПОЗИЦИЯ НЕ ВОЗВРАЩЕНА ЗА '+TL_RET_SECS+' С';main='ШТРАФ +'+TL_PEN+' СЕК';
       sub='прибавится на финише · следующая срезка — ещё +'+TL_PEN+' с';}
     else{main='ШТРАФ +'+TL_PEN+' СЕК';sub='срезка '+tlWhat+(tlPen>TL_PEN?' · всего +'+tlPen+' с':'')+' · прибавится на финише';}}
-  else if(tlRet&&phase==='race'&&!tlRetHold()){cls='tlret';kick=tlK;main='ВЕРНИ '+tlRetPos()+' ПОЗИЦИЮ';   // под флагом — плашка флага, отсчёт стоит
+  else if(tlRet&&phase==='race'&&!vscOn()&&!(neutral.mode==='yellow'&&inFlagZone())){cls='tlret';kick=tlK;main='ВЕРНИ '+tlRetPos()+' ПОЗИЦИЮ';   // под флагом — плашка флага со строкой «верни» (v1.16.91); вне зоны жёлтого — эта, отсчёт стоит
     sub='пропусти '+tlRet.cars.map(tlChip).join(' ')+' · иначе штраф +'+TL_PEN+' с';
     extra=`<div class="tlcd">${Math.max(1,Math.ceil(tlRet.left))}<small>СЕК</small></div><div class="tlbar"><i></i></div>`;}
   else if(phase==='race'){
-    if(vscOn()){cls='vsc';main=neutral.mode==='ending'?'VSC ЗАКАНЧИВАЕТСЯ':'VSC';sub='скорость ограничена · обгон запрещён';}
+    if(vscOn()){cls='vsc';main=neutral.mode==='ending'?'VSC ЗАКАНЧИВАЕТСЯ':'VSC';sub='скорость ограничена · обгон запрещён';
+      if(tlRet)kick='ВЕРНИ '+tlRetPos()+' ПОЗИЦИЮ · ОТСЧЁТ ПОСЛЕ VSC';}   // «верни позицию» не забыта, пока стоит отсчёт (вариант Б владельца, v1.16.91)
     else if(neutral.mode==='green'&&greenSeen){cls='green';main='ЗЕЛЁНЫЙ ФЛАГ';sub='ограничения сняты · гонка';}
     else if(neutral.mode==='yellow'&&inFlagZone()){   // a marshal post is seen from its own sector, as in life
-      main='ЖЁЛТЫЙ ФЛАГ';sub='скорость ограничена · обгон запрещён';}
+      main='ЖЁЛТЫЙ ФЛАГ';sub='скорость ограничена · обгон запрещён';if(tlRet)kick='ВЕРНИ '+tlRetPos()+' ПОЗИЦИЮ · ОТСЧЁТ ПОСЛЕ ФЛАГА';}
     else if(zoneOut>0){cls='green';main='КОНЕЦ ЗОНЫ';sub='ограничения сняты';}
     if(!main&&flPlate>0&&flShown){cls='best';main='ЛУЧШИЙ КРУГ ГОНКИ';   // флаг важнее: плашка рекорда ждёт своей очереди и не перебивает ограничение
       sub=`${flShown.name}${flShown.team?' · '+flShown.team.toUpperCase():''} · ${fmt(flShown.time)}`;}}
