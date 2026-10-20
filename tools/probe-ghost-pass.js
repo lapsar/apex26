@@ -17,6 +17,9 @@
        (кто-то в 150–250 м; переставляется самый далёкий от места болид); за 100 с соседи не стоят
        перед ним дольше STUCK_MAX. Не в счёт — стояние рядом (ближе 8 м) со стоящим игроком-автопилотом: соперник к игроку не
        подходит ближе ширины (v1.16.21), а автопилот в заторе стоит, где человек бы поехал. Зуб: v1.16.86 — Монако S 2097, 27.6 с.
+   (в) v1.16.88: тот же разбитый посреди дороги (полоса 0.18·hw, кузов под 34°). Подъехавшие встают рядом, и до v1.16.88 объезд
+       цеплялся за стоящего соседа, а не за вставшего: машины запирали друг друга. Предел — 12 с (третий в очереди ждёт двоих).
+       Зуб: v1.16.87 — 10 поворотов из 31 дольше 12 с, до 23 с (Хунгароринг S 1809).
    ========================================================================== */
 'use strict';
 
@@ -24,6 +27,13 @@ const H = require('./harness');
 const R = require('./report');
 
 const STUCK_MAX = 8, NEAR = 15;
+/* Позы разбитого для (б) и (в): полоса (выражение от hw — halfAt(iA)) и угол кузова — к внешней стороне поворота C.side.
+   Предел (в) — 12 с, а не 8: посреди дороги объезжают по одному с каждой стороны, и третий в очереди ждёт двоих (замер v1.16.88:
+   до 8.6 с — очередь, а не запирание; предел выбран ПОСЛЕ замера, зуб — v1.16.87: 10 поворотов из 31 дольше 12 с, до 23 с). */
+const POSES = [
+  { name: 'у внешней стены', lane: '(halfAt(iA)-1.56)', crab: 1.16, secs: 100, max: STUCK_MAX },
+  { name: 'посреди дороги', lane: '(halfAt(iA)*0.18)', crab: 0.59, secs: 60, max: 12 },
+];
 
 function watch(env, secs) {
   return env.evalIn(`(function(){var dt=1/60,stk=new Map(),worst=0,who='',at='',near=new Set(),byPl=0;
@@ -38,7 +48,7 @@ function watch(env, secs) {
 }
 
 function run(opt) {
-  const r = R.result('Объезд вставшего: соперник не стоит перед ним дольше ' + STUCK_MAX + ' с');
+  const r = R.result('Объезд вставшего: соперник не стоит перед ним дольше ' + STUCK_MAX + ' с (вставший посреди дороги — 12 с)');
   /* (а) — гонка стресс-прогона 19.10.2026 */
   {
     const T = H.tracks(true).find(t => t.name === 'Monaco');
@@ -51,8 +61,9 @@ function run(opt) {
     r.line(`Монако, гонка стресс-прогона (зерно 1, 400 с): вставших ${o.ghosts}, у ${o.near} побывали соседи; дольше всех стоял перед вставшим ${o.who || '—'} ${o.worst} с${o.at ? ' (' + o.at + ')' : ''}`);
     if (o.worst > STUCK_MAX) r.fail(`Монако (гонка стресс-прогона): ${o.who} стоял перед вставшим ${o.worst} с (${o.at}) — предел ${STUCK_MAX}`);
   }
-  /* (б) — все видимые трассы, разбитый у внешней стены каждого поворота тяжёлого торможения */
-  for (const T of H.tracks(true)) {
+  /* (б) — все видимые трассы, разбитый у внешней стены каждого поворота тяжёлого торможения;
+     (в) — он же посреди дороги, под углом (v1.16.88): подъехавшие встают рядом и до v1.16.88 цеплялись объездом за стоящего соседа */
+  for (const P of POSES) for (const T of H.tracks(true)) {
     const env0 = H.loadGame({ seed: 3, file: opt.file });
     H.setupWeekend(env0, { trackIdx: T.idx, laps: 3 });
     const nC = env0.evalIn('errCorners().list.length');
@@ -68,14 +79,14 @@ function run(opt) {
         __drive(20*60,dt,'auto');
         for(var f=0;f<200*60&&!field.some(function(c){var a=ahead(c);return a>150&&a<250;});f++)__drive(1,dt,'auto');   // кто-то подъезжает: иначе к вставшему поле придёт через круг, после VSC
         var v=field.slice().sort(function(a,b){return Math.min(ahead(a),L-ahead(a))-Math.min(ahead(b),L-ahead(b));}).pop();   // переставляется самый далёкий от места
-        v.u=uA;v.lane=C.side*(halfAt(iA)-1.56);v.crab=-C.side*1.16;v.speed=0;v.fail={kind:'crash'};v.err=null;v.spinPend=null;
+        v.u=uA;v.lane=C.side*${P.lane};v.crab=-C.side*${P.crab};v.speed=0;v.fail={kind:'crash'};v.err=null;v.spinPend=null;
         placeAI(v,0);retireCar(v,true);return Math.round(track.S[iA]);})()`);
-      const o = watch(env, 100);
+      const o = watch(env, P.secs);
       rows.push({ S, ...o });
-      if (o.worst > STUCK_MAX) r.fail(`${T.name} S ${S}: ${o.who} стоял перед вставшим ${o.worst} с — предел ${STUCK_MAX}`);
-      if (!o.near) r.fail(`${T.name} S ${S}: за 100 с к вставшему никто не подъехал — сценарий не проверяет ничего`);
+      if (o.worst > P.max) r.fail(`${T.name} S ${S} (${P.name}): ${o.who} стоял перед вставшим ${o.worst} с — предел ${P.max}`);
+      if (!o.near) r.fail(`${T.name} S ${S} (${P.name}): за ${P.secs} с к вставшему никто не подъехал — сценарий не проверяет ничего`);
     }
-    r.line(`${T.name.padEnd(12)} поворотов ${rows.length}: дольше всех стоял перед вставшим ${Math.max(...rows.map(x => x.worst)).toFixed(1)} с`
+    r.line(`${P.name.padEnd(16)} ${T.name.padEnd(12)} поворотов ${rows.length}: дольше всех стоял перед вставшим ${Math.max(...rows.map(x => x.worst)).toFixed(1)} с`
       + ` (стояли рядом со стоящим игроком-автопилотом, не в счёт: ${rows.reduce((a, x) => a + x.byPl, 0).toFixed(1)} с)`);
   }
   return r;
