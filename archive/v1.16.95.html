@@ -7051,7 +7051,7 @@ function secPos(k,c){const at=r=>k<2?r.at[k]:r.time,ref=qualiField[0];
 function secStep(a0,dA,dt){if(qSec.flash>0)qSec.flash-=dt;
   const L=track.spec.sectors,n=qSec.at.length;if(!L||n>=2||dA<=0)return;const x=L[n];
   if(a0<x&&a0+dA>=x){qSec.at.push(player.lapT+dt*(x-a0)/dA);qSec.k=n;qSec.flash=SEC_FLASH;}}   // доля кадра: лапТ — время прошлого кадра
-const secRun=t=>t<60?t.toFixed(1):Math.floor(t/60)+':'+(t%60<10?'0':'')+(Math.floor(t%60*10)/10).toFixed(1);   // секундомер как в онбоарде: «44.9», «1:05.3»
+const secRun=t=>{const d=Math.floor(t*10)/10,m=Math.floor(d/60),s=(d-m*60).toFixed(1);return m?m+':'+(s<10?'0':'')+s:s;};   // секундомер как в онбоарде, десятые отбрасываются: «44.9», «1:05.3»
 const secSign=d=>(d<0?'−':'+')+Math.abs(d).toFixed(3);
 let secHtml='';
 function renderSecBox(){const b=document.getElementById('sbox');if(!b)return;
