@@ -212,7 +212,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.16.95</div>
+    <div class="verstamp">v1.16.96</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -7146,14 +7146,14 @@ function showQualiResult(grid){document.getElementById('game').classList.remove(
     tb.innerHTML+=`<tr class="${g.you?'you':''}"><td class="pos">${i+1}</td><td><span class="tdot" style="background:${g.color}"></span><b>${g.name}</b> <span style="color:var(--muted)">#${g.num}</span></td><td style="color:var(--muted)">${g.team}</td><td class="gap">${gap}</td></tr>`;});
   document.getElementById('s-quali').classList.add('active');}
 
-/* Итоги квалы (v1.16.95, вариант А владельца): твои секторы против поула — строка «Ты», строка поула (если поул твой — второго),
+/* Итоги квалы (v1.16.95, вариант А владельца): твои секторы против поула — строка «Твой круг» (v1.16.96, владелец; до неё «Ты»), строка поула (если поул твой — второго),
    разница. Цвета те же, что в плашке; круг удалён или без времени — таблицы нет. */
 function renderQualiSectors(grid){const el=document.getElementById('qSec');if(!el)return;el.innerHTML='';
   const me=player.qSec,you=grid.find(g=>g.you),ref=qualiField[0];if(!me||!you||!isFinite(you.time)||!ref||!ref.at)return;
   const rs=[0,1,2].map(k=>secOf(ref.at,ref.time,k)),rp=grid.findIndex(g=>!g.you)+1;
   const cell=(v,c)=>`<td><b class="c${c}">${v}</b></td>`,dc=d=>d<0?'P':'Y';
   el.innerHTML=`<table class="rt"><tr><th></th><th>S1</th><th>S2</th><th>S3</th><th>Круг</th></tr>`+
-    `<tr class="you"><td><b>Ты</b></td>${me.map((x,k)=>cell(x.toFixed(3),secColor(k,x))).join('')}<td><b>${fmt(you.time)}</b></td></tr>`+
+    `<tr class="you"><td><b>Твой круг</b></td>${me.map((x,k)=>cell(x.toFixed(3),secColor(k,x))).join('')}<td><b>${fmt(you.time)}</b></td></tr>`+
     `<tr><td>${rp===1?'Поул':'P'+rp} · ${ref.code}</td>${rs.map(x=>`<td>${x.toFixed(3)}</td>`).join('')}<td>${fmt(ref.time)}</td></tr>`+
     `<tr><td style="color:var(--muted)">Разница</td>${me.map((x,k)=>cell(secSign(x-rs[k]),dc(x-rs[k]))).join('')}${cell(secSign(you.time-ref.time),dc(you.time-ref.time))}</tr></table>`;}
 
