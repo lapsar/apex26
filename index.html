@@ -148,6 +148,24 @@
   #tower .trow.tlt{box-shadow:inset 0 0 0 2px #F5C400;animation:tlt 1s ease-in-out infinite;}   /* кого пропустить (v1.16.89) */
   @keyframes tlt{50%{box-shadow:inset 0 0 0 2px rgba(245,196,0,.2)}}
   @keyframes flagwave{0%,100%{opacity:1;transform:skewX(0deg)}50%{opacity:.35;transform:skewX(-14deg)}}
+  /* Секторы квалификации (v1.16.95): плашка под «КВАЛ · БЫСТРЫЙ», как в онбоарде — секундомер, на линии время сектора цветом, полоска S1/S2/S3,
+     ниже разница с поулом и место. Фиолетовый — быстрее всех, зелёный — в десятке, жёлтый — дальше, серый — круг удалён. */
+  #sbox{position:absolute;top:calc(env(safe-area-inset-top) + 100px);right:calc(env(safe-area-inset-right) + 12px);z-index:6;display:none;pointer-events:none;
+    font-family:"Arial Narrow",sans-serif;background:rgba(8,10,14,.86);border-radius:9px;padding:8px 12px 7px;min-width:196px;box-sizing:border-box;color:#fff;}
+  #sbox.on{display:block;}
+  #sbox .big{font-weight:800;font-size:32px;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:.01em;}
+  #sbox .lbl{display:flex;justify-content:space-between;font-size:10px;letter-spacing:.14em;color:#cfd4da;margin-top:6px;font-weight:700;}
+  #sbox .bar{display:flex;gap:3px;margin-top:3px;} #sbox .bar i{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.22);}
+  #sbox .row2{display:flex;align-items:center;justify-content:space-between;margin-top:7px;padding-top:6px;border-top:1px solid rgba(255,255,255,.1);
+    font-size:12px;color:#cfd4da;letter-spacing:.06em;}
+  #sbox .row2 b{font-size:18px;font-variant-numeric:tabular-nums;letter-spacing:.02em;margin-left:4px;}
+  #sbox .row2.cut{color:#8A94A3;font-weight:800;font-size:14px;letter-spacing:.1em;}
+  #sbox .pchip{background:var(--f1);color:#fff;font-weight:800;font-size:14px;padding:2px 7px;border-radius:4px;letter-spacing:.04em;}
+  .cP{color:#b57bff;} .cG{color:#39d353;} .cY{color:#F5C400;} .cX{color:#8A94A3;}
+  #sbox .bar i.bP{background:#b57bff;} #sbox .bar i.bG{background:#39d353;} #sbox .bar i.bY{background:#F5C400;} #sbox .bar i.bX{background:#8A94A3;}
+  @media (max-height:400px){#sbox{top:calc(env(safe-area-inset-top) + 92px);padding:6px 10px 5px;min-width:172px;}#sbox .big{font-size:26px;}#sbox .row2 b{font-size:15px;}}
+  #qSec .rt td,#qSec .rt th{text-align:right;font-variant-numeric:tabular-nums;} #qSec .rt td:first-child,#qSec .rt th:first-child{text-align:left;}
+  #qSec .rt{margin:2px 0 10px;max-width:520px;} #qSec .rt td b{font-weight:800;}
   #lightsG{position:absolute;top:8%;left:50%;transform:translateX(-50%);z-index:6;display:none;gap:10px;pointer-events:none;}
   #lightsG.on{display:flex;}
   #lightsG .col{display:flex;flex-direction:column;gap:6px;background:rgba(6,7,10,.9);padding:8px;border-radius:10px;}
@@ -194,7 +212,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.16.94</div>
+    <div class="verstamp">v1.16.96</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -236,7 +254,7 @@
   </section>
 
   <section class="screen" id="s-quali">
-    <div class="step cond">Квалификация</div><h1 class="headline cond" id="qHead">Итоги</h1><div id="qGap" class="sub" style="margin:0 0 6px"></div>
+    <div class="step cond">Квалификация</div><h1 class="headline cond" id="qHead">Итоги</h1><div id="qGap" class="sub" style="margin:0 0 6px"></div><div id="qSec"></div>
     <div style="overflow-x:auto"><table class="rt" id="qTable"></table></div><div class="spacer"></div>
     <div class="actionbar"><button class="btn ghost" onclick="quitToMenu()">В меню</button><button class="btn primary" onclick="startRace()">Старт гонки →</button></div>
   </section>
@@ -249,7 +267,7 @@
 
   <div id="game">
     <canvas id="cv"></canvas>
-    <div id="tower"></div><div id="topinfo"></div><div id="posbadge"></div><div id="bigmsg"></div><div id="lightsG"></div><div id="flagpanel"></div>
+    <div id="tower"></div><div id="topinfo"></div><div id="posbadge"></div><div id="bigmsg"></div><div id="lightsG"></div><div id="flagpanel"></div><div id="sbox"></div>
     <div id="topbtns"><button id="btnPause" class="cond" onclick="togglePause()">Пауза</button><button id="snd" class="cond" onclick="toggleMute()">Звук</button><button id="btnCam" class="cond" onclick="toggleCam()">Камера</button><button id="exit" class="cond" onclick="quitToMenu()">Выход</button></div>
     <div class="pad l"><div class="kb" data-c="left">◄<small>LEFT</small></div><div class="kb" data-c="right">►<small>RIGHT</small></div></div>
     <div class="pad r"><div class="kb" data-c="brake">▼<small>BRAKE</small></div><div class="kb gas" data-c="gas">▲<small>GAS</small></div></div>
@@ -288,12 +306,15 @@ const TEAMS=[
 const ROSTER=[]; TEAMS.forEach((t,ti)=>t.d.forEach(d=>ROSTER.push({team:t.name,teamIdx:ti,color:t.c,name:d[0],num:d[1],skill:d[2]})));
 const code3=n=>n.slice(0,3).toUpperCase();
 
+/* sectors:[S1,S2] — настоящие линии секторов FIA, метры от НАШЕЙ линии старта (v1.16.95): где машина поул-круга 2026
+   была через duration_sector_1 (и +sector_2) секунд от начала круга — openf1, совмещение с нашей осевой, медиана 6–8 кругов
+   разных пилотов, разброс ±8 м (tools/sector-lines.js). Только показ в квалификации; езда, якорь и Math.random их не читают. */
 const TRACKS=[
-  {name:"Monza",key:"Monza",railAds:[[0,5],[1020,6],[1850,7],[2980,8],[4250,3],[5060,4],[5560,5]],cc:"Италия",c:"#E8002D",half:8.0,style:"park",runoff:24,grip:1.06,twist:2,speed:5,sfShift:5440,
+  {name:"Monza",key:"Monza",sectors:[1948,3768],railAds:[[0,5],[1020,6],[1850,7],[2980,8],[4250,3],[5060,4],[5560,5]],cc:"Италия",c:"#E8002D",half:8.0,style:"park",runoff:24,grip:1.06,twist:2,speed:5,sfShift:5440,
    desc:"Храм скорости. Длинные прямые, шиканы, гравий и трава по краям."},
-  {name:"Silverstone",key:"Silverstone",cc:"Британия",c:"#1E9BE0",half:7.5,style:"open",runoff:30,grip:1.0,twist:3,speed:4,sfShift:3120,
+  {name:"Silverstone",key:"Silverstone",sectors:[1746,4208],cc:"Британия",c:"#1E9BE0",half:7.5,style:"open",runoff:30,grip:1.0,twist:3,speed:4,sfShift:3120,
    desc:"Бывший аэродром: быстрые связки, широкие асфальтовые зоны вылета."},
-  {name:"Suzuka",key:"Suzuka",cc:"Япония",c:"#00A57A",half:7.0,style:"park",runoff:16,grip:1.0,twist:4,speed:3,sfShift:5690,hidden:true,
+  {name:"Suzuka",key:"Suzuka",sectors:[2094,4620],cc:"Япония",c:"#00A57A",half:7.0,style:"park",runoff:16,grip:1.0,twist:4,speed:3,sfShift:5690,hidden:true,
    desc:"Восьмёрка. Техничные «эски», перепады, близкий гравий."},
   /* Монако, этап 0 (v1.16.22): контур mc-1929 пересажен на середину проезжей части по OSM
      (ось улицы + тротуары; тоннель — по оси OSM) и сглажен (5 проходов, сдвиг ≤1.5 м);
@@ -349,13 +370,13 @@ const TRACKS=[
      v1.16.62: границы трассы у шиканы после тоннеля (ключ cuts): квала — круг удалён, 2 попытки; гонка — предупреждение, потом +5 с.
      v1.16.92: сошедший болид после VSC увозят совсем (ключ clearAway): за стеной он висел над склоном, садом шпильки, обрывом и водой.
      v1.16.94: увозят, только когда камера не смотрит, без предела 12 с — не исчезает на глазах (ожидание игрока v1.16.93 снято). */
-  {name:"Monaco",key:"Monaco",vscAlways:true,clearAway:true,cuts:[{name:"шиканы",fromS:2061,toS:2161,side:"R",depth:4}],railAdsFit:true,railAds:[[0,-1],[176,12],[270,14],[500,2],[790,13],[900,4],[1150,12],[1430,14],[1545,-1],[1925,8],[2400,14],[2730,-1],[2840,3],[2990,12],[3200,-1]],cc:"Монако",c:"#C6A15B",half:6.0,style:"street",runoff:1.6,grip:.94,twist:6,speed:2,sfShift:2416,
+  {name:"Monaco",key:"Monaco",sectors:[1071,2472],vscAlways:true,clearAway:true,cuts:[{name:"шиканы",fromS:2061,toS:2161,side:"R",depth:4}],railAdsFit:true,railAds:[[0,-1],[176,12],[270,14],[500,2],[790,13],[900,4],[1150,12],[1430,14],[1545,-1],[1925,8],[2400,14],[2730,-1],[2840,3],[2990,12],[3200,-1]],cc:"Монако",c:"#C6A15B",half:6.0,style:"street",runoff:1.6,grip:.94,twist:6,speed:2,sfShift:2416,
    desc:"Улицы княжества: стены у самой кромки, тоннель, шпилька, гавань с яхтами. Самая медленная трасса в игре."},
-  {name:"Montreal",key:"Montreal",cc:"Канада",c:"#D52B1E",half:7.0,style:"park",runoff:3,grip:0.98,twist:4,speed:4,sfShift:196,
+  {name:"Montreal",key:"Montreal",sectors:[1122,2516],cc:"Канада",c:"#D52B1E",half:7.0,style:"park",runoff:3,grip:0.98,twist:4,speed:4,sfShift:196,
    desc:"Остров на реке: длинные прямые, шпилька, тесные шиканы и стены у самой кромки."},
-  {name:"Miami",key:"Miami",ground:"asphalt",rail:"#17418f",railAds:[[0,0],[800,1],[1950,4],[2900,2],[4200,3],[5150,0]],cc:"США",c:"#00B7C7",half:7.0,style:"park",runoff:2,grip:1.0,twist:4,speed:5,sfShift:5274,
+  {name:"Miami",key:"Miami",sectors:[1852,3750],ground:"asphalt",rail:"#17418f",railAds:[[0,0],[800,1],[1950,4],[2900,2],[4200,3],[5150,0]],cc:"США",c:"#00B7C7",half:7.0,style:"park",runoff:2,grip:1.0,twist:4,speed:5,sfShift:5274,
    desc:"Стадион Hard Rock: круг против часовой, длиннейшая прямая в игре, стены у самой кромки."},
-  {name:"Hungaroring",key:"Hungaroring",railAds:[[0,9],[880,10],[1020,8],[1240,10],[1400,11],[2240,3],[2480,2],[2820,4],[3420,3],[3660,8],[3900,9]],cc:"Венгрия",c:"#4E9C45",half:6.0,style:"park",runoff:12,grip:1.0,twist:5,speed:2,sfShift:4118,
+  {name:"Hungaroring",key:"Hungaroring",sectors:[1729,3252],railAds:[[0,9],[880,10],[1020,8],[1240,10],[1400,11],[2240,3],[2480,2],[2820,4],[3420,3],[3660,8],[3900,9]],cc:"Венгрия",c:"#4E9C45",half:6.0,style:"park",runoff:12,grip:1.0,twist:5,speed:2,sfShift:4118,
    desc:"«Монако без стен»: узкое полотно, как в Монако, широкие вылеты, четырнадцать поворотов почти без прямых."},
 ];
 const sel={track:null,roster:null,custom:"",laps:3,view:"cockpit",diff:"easy"};
@@ -6999,13 +7020,57 @@ function beginQuali(){phase='quali';raceOver=false;cars=[player];towerOrd=null;f
   // start on the S/F line
   const f=track.F[0],p=track.P[0];player.x=p.x;player.z=p.z;player.hdg=Math.atan2(f.x,f.z);player.yawLag=0;
   player.speed=0;player.lap=0;player.lapT=0;player.best=Infinity;player.last=0;player.started=false;player.prevIdx=0;player.hint=0;player.dist=0;player.arcPrev=0;
+  player.qSec=null;qSec=null;
   // provisional field (as if everyone has already set a time and you run last)
-  qualiField=ROSTER.filter((_,i)=>i!==sel.roster).map(r=>{
-    return {name:r.name,code:code3(r.name),num:r.num,color:r.color,team:r.team,skill:r.skill,time:qualiLapTime(r.skill,sel.diff)*(1+(Math.random()*0.004-0.002))};});   // ±0.2 %, симметрично: шире разброс делал решётку лотереей там, где поле плотное (Сильверстоун/Профи)
+  qualiField=ROSTER.filter((_,i)=>i!==sel.roster).map(r=>{const cum=[];
+    const time=qualiLapTime(r.skill,sel.diff,cum)*(1+(Math.random()*0.004-0.002));   // ±0.2 %, симметрично: шире разброс делал решётку лотереей там, где поле плотное (Сильверстоун/Профи)
+    return {name:r.name,code:code3(r.name),num:r.num,color:r.color,team:r.team,skill:r.skill,time,at:secSplits(cum,time)};});
   qualiField.sort((a,b)=>a.time-b.time);
   document.getElementById('tower').innerHTML='';document.getElementById('tower').dataset.head='';
   qualiOutro=false;clearTimeout(qualiOutroTimer);hideQualiBanner();
   showGantry(false);big("КВАЛИФИКАЦИЯ","Прогревочный круг",2200);qualiLapsLeft=1;startLoop();}
+/* ---------- СЕКТОРЫ КВАЛИФИКАЦИИ (v1.16.95, решения владельца 21.10.2026) ----------
+   Как в онбоарде Ф-1: на настоящей линии сектора (track.spec.sectors) секундомер на SEC_FLASH с сменяется временем сектора
+   до тысячных, часть полоски S1/S2/S3 заливается цветом; ниже — разница с поулом на этой линии и место, на которое едешь.
+   Цвет: фиолетовый — быстрее всех соперников в этом секторе, зелёный — не хуже десятого (SEC_TOP), жёлтый — дальше
+   (рекордов игра не хранит — решение владельца). Прогрев — без секторов; круг со срезкой — серым, «КРУГ УДАЛЁН».
+   Соперники в квале не едут: время на линии — доля их же расчётного круга (estLapTime, cum), сумма секторов = их время.
+   Только показ: езда, якорь, решётка и Math.random не трогаются. */
+const SEC_FLASH=4;   // с — время сектора крупно, как в онбоарде (там ~4 с)
+const SEC_TOP=10;    // зелёный — сектор в первой десятке соперников
+var qSec=null;       // текущий быстрый круг игрока: at — время на линиях, k — какой сектор показан крупно, flash — сколько ещё
+function secSplits(cum,time){const L=track.spec.sectors;if(!L)return null;const M=track.M,S=track.S,T=cum[M];
+  return L.map(x=>{let i=0;while(i<M-1&&S[i+1]<=x)i++;const s1=i+1<M?S[i+1]:track.length,f=(x-S[i])/(s1-S[i]);
+    return (cum[i]+f*(cum[i+1]-cum[i]))/T*time;});}
+const secOf=(at,time,k)=>k===0?at[0]:k===1?at[1]-at[0]:time-at[1];   // длительность сектора k по временам на линиях
+/* место сектора среди соперников: 'P' — быстрее всех, 'G' — в десятке, 'Y' — дальше */
+function secColor(k,x){const n=qualiField.filter(r=>r.at&&secOf(r.at,r.time,k)<x).length;return n===0?'P':n<SEC_TOP?'G':'Y';}
+/* на линии k (2 — финиш) с общим временем c: разница с поулом (самым быстрым соперником) и место */
+function secPos(k,c){const at=r=>k<2?r.at[k]:r.time,ref=qualiField[0];
+  return {d:c-at(ref),p:1+qualiField.filter(r=>r.at&&at(r)<c).length};}
+function secStep(a0,dA,dt){if(qSec.flash>0)qSec.flash-=dt;
+  const L=track.spec.sectors,n=qSec.at.length;if(!L||n>=2||dA<=0)return;const x=L[n];
+  if(a0<x&&a0+dA>=x){qSec.at.push(player.lapT+dt*(x-a0)/dA);qSec.k=n;qSec.flash=SEC_FLASH;}}   // доля кадра: лапТ — время прошлого кадра
+const secRun=t=>{const d=Math.floor(t*10)/10,m=Math.floor(d/60),s=(d-m*60).toFixed(1);return m?m+':'+(s<10?'0':'')+s:s;};   // секундомер как в онбоарде, десятые отбрасываются: «44.9», «1:05.3»
+const secSign=d=>(d<0?'−':'+')+Math.abs(d).toFixed(3);
+let secHtml='';
+function renderSecBox(){const b=document.getElementById('sbox');if(!b)return;
+  let h='';
+  if(phase==='quali'&&player.started&&qSec&&track.spec.sectors){
+    const at=qSec.at,fin=qualiOutro&&!player.noTime&&at.length===2,cut=player.lapCut||player.noTime,n=fin?3:at.length;
+    const lc=[0,1,2].map(k=>k>=n?'':cut?'X':secColor(k,secOf(at,player.last,k))),lbl=['S1','S2','S3'];   // S3 бывает только на финише — там player.last уже время круга
+    let big,bc='';
+    if(fin)big=fmt(player.last);
+    else if(player.noTime)big='—';
+    else if(qSec.flash>0){const k=qSec.k;big=secOf(at,0,k).toFixed(3);bc=lc[k];lbl[k]='СЕКТОР '+(k+1);}
+    else big=secRun(player.lapT);
+    let row='';
+    if(cut&&(n>0||player.noTime))row='<div class="row2 cut">КРУГ УДАЛЁН</div>';
+    else if(n>0){const q=fin?secPos(2,player.last):secPos(n-1,at[n-1]);
+      row=`<div class="row2"><span>ПОУЛ <b class="${q.d<0?'cP':'cY'}">${secSign(q.d)}</b></span><span class="pchip">P${q.p}</span></div>`;}
+    h=`<div class="big${bc?' c'+bc:''}">${big}</div><div class="lbl">${lbl.map((t,k)=>`<span${lc[k]?` class="c${lc[k]}"`:''}>${t}</span>`).join('')}</div>`+
+      `<div class="bar">${lc.map(c=>`<i${c?` class="b${c}"`:''}></i>`).join('')}</div>${row}`;}
+  if(h!==secHtml){secHtml=h;b.innerHTML=h;b.classList.toggle('on',!!h);}}
 var ESTFUDGE=1.0;
 const AIBRAKE=44;                       // m/s^2 the AI is willing to shed. НЕ равен тормозам игрока (50) намеренно: это оставленный игроку запас. 38 -> 44 в v1.15.77: починенный aiTarget тормозит раньше, и прежние 38 отнимали ещё секунду сверх платы за починку
 /* Возможности болида в повороте — ОДНА функция на игрока и на ИИ.
@@ -7027,17 +7092,17 @@ function aiTarget(iu,speed,base,cornerK){const M=track.M,seg=track.length/M;
     const vc=aiCornerV(24/K+halfAt(j)*0.8)*cornerK;if(vc>=t)continue;   // cornerK здесь — ДОЛЯ от сцепления игрока на этом радиусе, а не боковое ускорение
     const v=Math.sqrt(vc*vc+2*AIBRAKE*a*seg);if(v<t)t=v;}
   return t;}
-function estLapTime(base,cornerK,prof){const M=track.M;let v=base*0.5,t=0;   // prof — массив M: скорость в каждой точке второго круга (errCorners)
+function estLapTime(base,cornerK,prof,cum){const M=track.M;let v=base*0.5,t=0;   // prof — массив M: скорость в каждой точке второго круга (errCorners); cum — M+1: время второго круга до точки i (секторы квалы)
   // run the AI's own rule round the lap instead of assuming it is instantly at speed:
   // on short straights (Monaco) a car never reaches its top speed, and the old estimate ignored that.
-  for(let lap=0;lap<2;lap++){t=0;
+  for(let lap=0;lap<2;lap++){t=0;if(cum)cum[0]=0;
     for(let i=0;i<M;i++){const i2=(i+1)%M,ds=track.P[i].distanceTo(track.P[i2]);
       const target=aiTarget(i,v,base,cornerK);
       const dt=ds/Math.max(v,5);
       if(v<target)v+=Math.min(target-v,13.5*Math.max(0.14,1-0.85*v/MAXSPEED)*dt);
       else v+=(target-v)*Math.min(1,dt*3.0);
       if(prof)prof[i]=v;
-      t+=ds/Math.max(v,5);}}
+      t+=ds/Math.max(v,5);if(cum)cum[i+1]=t;}}
   return t*ESTFUDGE;}
 /* КВАЛИФИКАЦИОННЫЙ круг соперника быстрее его же ГОНОЧНОГО темпа — как в жизни:
    мягкая резина, мало топлива, режим мотора. До v1.15.79 они почти совпадали, и это
@@ -7052,8 +7117,8 @@ function estLapTime(base,cornerK,prof){const M=track.M;let v=base*0.5,t=0;   // 
    ГОНОЧНЫЙ темп не тронут вовсе (`startRace` читает свои множители), поэтому трафик,
    обгоны, ошибки и струя остаются как были. */
 const QUALI_PACE=1.0075;
-function qualiLapTime(skill,diff){
-  return estLapTime(aiBase(skill,DIFF_MUL[diff]),aiGrip(skill,DIFF_GRIP[diff]))/QUALI_PACE;}
+function qualiLapTime(skill,diff,cum){
+  return estLapTime(aiBase(skill,DIFF_MUL[diff]),aiGrip(skill,DIFF_GRIP[diff]),null,cum)/QUALI_PACE;}
 function beginQualiOutro(){
   releaseTouches();
   const diffMul=DIFF_MUL[sel.diff];
@@ -7074,11 +7139,23 @@ function hideQualiBanner(){const b=document.getElementById('qbanner');if(b)b.cla
 function showQualiResult(grid){document.getElementById('game').classList.remove('active');
   const pole=grid[0].time,yp=grid.findIndex(g=>g.you)+1;
   document.getElementById('qHead').textContent=`P${yp} на старте`;
+  renderQualiSectors(grid);
   document.getElementById('qGap').innerHTML=(isFinite(grid[yp-1].time)?`Твой круг <b style="color:var(--text)">${fmt(grid[yp-1].time)}</b>.`:'Оба круга удалены за срезку — старт с последнего места.')+` Поул: ${grid[0].name} ${fmt(pole)}.`;
   const tb=document.getElementById('qTable');tb.innerHTML='<tr><th>Поз</th><th>Пилот</th><th>Команда</th><th style="text-align:right">Круг</th></tr>';
   grid.forEach((g,i)=>{const gap=i===0?fmt(g.time):isFinite(g.time)?'+'+(g.time-pole).toFixed(3):'без времени';
     tb.innerHTML+=`<tr class="${g.you?'you':''}"><td class="pos">${i+1}</td><td><span class="tdot" style="background:${g.color}"></span><b>${g.name}</b> <span style="color:var(--muted)">#${g.num}</span></td><td style="color:var(--muted)">${g.team}</td><td class="gap">${gap}</td></tr>`;});
   document.getElementById('s-quali').classList.add('active');}
+
+/* Итоги квалы (v1.16.95, вариант А владельца): твои секторы против поула — строка «Твой круг» (v1.16.96, владелец; до неё «Ты»), строка поула (если поул твой — второго),
+   разница. Цвета те же, что в плашке; круг удалён или без времени — таблицы нет. */
+function renderQualiSectors(grid){const el=document.getElementById('qSec');if(!el)return;el.innerHTML='';
+  const me=player.qSec,you=grid.find(g=>g.you),ref=qualiField[0];if(!me||!you||!isFinite(you.time)||!ref||!ref.at)return;
+  const rs=[0,1,2].map(k=>secOf(ref.at,ref.time,k)),rp=grid.findIndex(g=>!g.you)+1;
+  const cell=(v,c)=>`<td><b class="c${c}">${v}</b></td>`,dc=d=>d<0?'P':'Y';
+  el.innerHTML=`<table class="rt"><tr><th></th><th>S1</th><th>S2</th><th>S3</th><th>Круг</th></tr>`+
+    `<tr class="you"><td><b>Твой круг</b></td>${me.map((x,k)=>cell(x.toFixed(3),secColor(k,x))).join('')}<td><b>${fmt(you.time)}</b></td></tr>`+
+    `<tr><td>${rp===1?'Поул':'P'+rp} · ${ref.code}</td>${rs.map(x=>`<td>${x.toFixed(3)}</td>`).join('')}<td>${fmt(ref.time)}</td></tr>`+
+    `<tr><td style="color:var(--muted)">Разница</td>${me.map((x,k)=>cell(secSign(x-rs[k]),dc(x-rs[k]))).join('')}${cell(secSign(you.time-ref.time),dc(you.time-ref.time))}</tr></table>`;}
 
 /* ---------- RACE ---------- */
 function startRace(){document.getElementById('s-quali').classList.remove('active');document.getElementById('game').classList.add('active');releaseTouches();
@@ -7279,6 +7356,7 @@ function update(dt){
   // progress = true arc position along the track (bar matches the car you actually see)
   const arcNow=track.S[pr2.idx]+((player.x-track.P[pr2.idx].x)*track.F[pr2.idx].x+(player.z-track.P[pr2.idx].z)*track.F[pr2.idx].z);
   let dArc=arcNow-player.arcPrev;if(dArc<-track.length*0.5)dArc+=track.length;else if(dArc>track.length*0.5)dArc-=track.length;
+  if(phase==="quali"&&player.started&&qSec&&!qualiOutro)secStep(player.arcPrev,dArc,dt);   // линии секторов — до того, как прошлое место затёрто
   player.dist+=dArc;player.arcPrev=arcNow;
   // lap detection (HUD/finish) via forward wrap of projected index
   const pr3=project(player.x,player.z,player.hint);player.hint=pr3.idx;const idx=pr3.idx;
@@ -7286,15 +7364,17 @@ function update(dt){
   if(player.lapLock===0 && !qualiOutro && !raceOutro && player.prevIdx>track.M*0.62 && idx<track.M*0.38
      && (!player.started || player.dist-player.lapMark>track.length*0.5)){   // задним ходом через линию круг не намотать
     player.lapLock=25;player.lapMark=player.dist;
-    if(!player.started){player.started=true;player.lapT=0;if(phase==='quali'){big("БЫСТРЫЙ КРУГ!","",800);AUDIO.beep(700,0.4,0.26);}}
+    if(!player.started){player.started=true;player.lapT=0;if(phase==='quali'){qSec={at:[],k:-1,flash:0};big("БЫСТРЫЙ КРУГ!","",800);AUDIO.beep(700,0.4,0.26);}}
     else if(phase==='quali'&&player.lapCut){player.lapCut=false;player.lap++;player.lapT=0;
+      if(player.qTry<TL_TRIES)qSec={at:[],k:-1,flash:0};   // последняя попытка удалена — её секторы остаются серыми до итогов (noTime)
       if(player.qTry>=TL_TRIES){player.noTime=true;big("БЕЗ ВРЕМЕНИ","оба круга удалены · старт с последнего места",2500);beginQualiOutro();return;}
       player.qTry++;big("ЕЩЁ ПОПЫТКА!","последняя · круг со срезкой не засчитан",2500);AUDIO.beep(700,0.4,0.26);}
     else{player.last=player.lapT;const clean=!player.lapCutR;player.lapCutR=false;   // гонка: круг со срезкой не идёт в лучший и в быстрый круг гонки (как в Ф-1)
       if(clean&&player.last<player.best)player.best=player.last;
       if(clean&&phase==='race'&&lights.go&&player.last<fastestLap.time)fastestLap={time:player.last,name:player.name,team:ROSTER[sel.roster].team,color:player.color,you:true,car:player};
       player.lap++;player.lapT=0;
-      if(phase==='quali'){qualiLapsLeft--;if(qualiLapsLeft<=0){beginQualiOutro();return;}}
+      if(phase==='quali'){if(qSec&&qSec.at.length===2)player.qSec=[0,1,2].map(k=>secOf(qSec.at,player.last,k));
+        qualiLapsLeft--;if(qualiLapsLeft<=0){beginQualiOutro();return;}}
       else if(player.lap>=totalLaps){finishRace();return;}}
   }
   checkCut(idx,pr3.off);tlRetStep(dt);if(tlPlate>0)tlPlate-=dt;
@@ -8512,7 +8592,8 @@ function updateHUD(){const order=(raceOutro&&window.__raceOrder)?window.__raceOr
   renderFlagUI();
   document.getElementById('topinfo').innerHTML=`<div class="t1">${track.name.toUpperCase()}</div>
     <div class="t2">${phase==='race'?`КРУГ ${Math.min(player.lap+1,totalLaps)}/${totalLaps}`:(player.started?(player.qTry>1?'КВАЛ · ПОПЫТКА '+player.qTry+' ИЗ '+TL_TRIES:'КВАЛ · БЫСТРЫЙ'):'КВАЛ · ПРОГРЕВ')}</div>
-    <div class="t3">${fmt(player.lapT)}${player.last?' · '+fmt(player.last):''}</div>`;
+    ${phase==='quali'&&player.started&&track.spec.sectors?'':`<div class="t3">${fmt(player.lapT)}${player.last?' · '+fmt(player.last):''}</div>`}`;   // быстрый круг квалы — секундомер в плашке секторов
+  renderSecBox();
   document.getElementById('posbadge').innerHTML=phase==='race'
     ?`<div class="p1">ПОЗИЦИЯ</div><div class="p2" style="color:${player.color}">${rank}<span style="font-size:15px;color:#8A94A3">/${total}</span></div><div class="p1" style="margin-top:2px">${Math.round(Math.abs(player.speed)*3.6)} км/ч</div>`
     :`<div class="p1">СКОРОСТЬ</div><div class="p2">${Math.round(Math.abs(player.speed)*3.6)}</div><div class="p1">км/ч</div>`;}
