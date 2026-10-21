@@ -23,6 +23,9 @@
        (до v1.16.79 соперники вставшего не видели вовсе и проезжали сквозь него).
      • уборка после VSC (v1.16.92): у трассы с clearAway (Монако) болид увозят совсем — не виден, не дымит, игрока не толкает;
        у остальных — за отбойник и виден.
+     • сошедший впереди игрока ждёт его (v1.16.93, clearAway): в 1000 м впереди — после VSC стоит под жёлтым, игрок проезжает мимо
+       (ближе 15 м) — убран не позже RET_CLEAR_MAX+1 с, жёлтый гаснет; в 300 м позади — убран сразу после VSC, без жёлтого;
+       игрок стоит — ждёт RET_WAIT_MAX, потом убран.
    ========================================================================== */
 'use strict';
 
@@ -146,6 +149,50 @@ function run(opt) {
         if (q.push > 0.01) r.fail(`${tag}: увезённый болид толкнул игрока (${q.push})`);
       } else if (!q.vis) r.fail(`${tag}: болид пропал, а у трассы нет clearAway`);
       r.line(`${''.padEnd(12)} уборка после VSC: ${q.away ? 'увезён (clearAway), игрок проходит его место свободно' : 'за отбойник, виден'}`);
+    }
+    // Сошедший впереди игрока ждёт его (v1.16.93, только clearAway): A — болид на полотне в 1000 м впереди: после VSC не убран, виден,
+    // у него жёлтый; игрок проезжает мимо — убран не позже RET_CLEAR_MAX+1 с, жёлтый гаснет. B — в 300 м позади: убран сразу после VSC,
+    // жёлтого нет. C — впереди, но игрок стоит: ждёт не дольше RET_WAIT_MAX, потом убран, жёлтый гаснет.
+    for (const sc of [{ k: 'A', d: 1000, mode: 'auto' }, { k: 'B', d: -300, mode: 'auto' }, { k: 'C', d: 1000, mode: 'idle' }]) {
+      const env = H.loadGame({ seed: 3, file: opt.file });
+      H.setupWeekend(env, { trackIdx: T.idx, diff: 'normal', laps: 5 });
+      if (!env.evalIn('!!track.spec.clearAway')) break;
+      H.startRaceAt(env, 11); H.lightsOut(env); H.noRetirements(env);
+      const q = env.evalIn(`(function(){var dt=1/60,L=track.length,MODE='${sc.mode}';for(var f=0;f<240;f++)__drive(1,dt,'auto');
+        var v=null,best=-1;for(var k=0;k<field.length;k++){var c=field[k],dd=Math.hypot(c.x-player.x,c.z-player.z);if(dd>best){best=dd;v=c;}}   // дальний от игрока — не мешает на старте
+        var Sw=((track.S[player.hint]+${sc.d})%L+L)%L,i=0;while(i<track.M-1&&track.S[i]<Sw)i++;
+        v.u=(i+0.5)/track.M;v.lane=0;v.crab=0;v.speed=0;placeAI(v,dt);retireCar(v,true);v.blocking=true;raiseNeutral('vsc',v);
+        var o={endCleared:null,endVis:null,endYel:null,passAt:null,clearAt:null,yelOffAt:null,near:1e9,tEnd:null};
+        for(var f=0;f<Math.round(140/dt)&&phase!=='';f++){var was=neutral.mode;__drive(1,dt,MODE);
+          if(was==='ending'&&neutral.mode!=='ending'){o.tEnd=raceTime;o.endCleared=!!v.cleared;o.endVis=v.mesh.visible;
+            o.endYel=neutral.mode==='yellow'&&neutral.secs.indexOf(sectorAt(v.u))>=0;}
+          if(o.tEnd===null)continue;
+          if(!v.cleared)o.near=Math.min(o.near,Math.hypot(player.x-v.x,player.z-v.z));
+          if(o.passAt===null&&((track.S[i]-track.S[player.hint])%L+L)%L>L/2)o.passAt=raceTime;   // своя мерка, не retAhead игры
+          if(o.clearAt===null&&v.cleared)o.clearAt=raceTime;
+          if(o.clearAt!==null&&o.yelOffAt===null&&!(neutral.mode==='yellow'&&neutral.secs.indexOf(sectorAt(v.u))>=0))o.yelOffAt=raceTime;
+          if(o.yelOffAt!==null)break;}
+        ['passAt','clearAt','yelOffAt'].forEach(function(k){if(o[k]!==null)o[k]=+(o[k]-o.tEnd).toFixed(1);});o.near=+o.near.toFixed(1);
+        o.vis=v.mesh.visible;o.waitMax=typeof RET_WAIT_MAX==='undefined'?60:RET_WAIT_MAX;o.clearMax=RET_CLEAR_MAX;return o;})()`);
+      const tag = `${T.name} ждёт игрока ${sc.k}`;
+      if (q.endCleared === null) { r.fail(`${tag}: VSC не кончился`); continue; }
+      if (sc.k === 'A') {
+        if (q.endCleared || !q.endVis) r.fail(`${tag}: болид в 1000 м впереди убран к концу VSC — игрок его не увидит`);
+        if (!q.endYel) r.fail(`${tag}: после VSC у болида на полотне нет жёлтого`);
+        if (q.passAt === null) r.fail(q.clearAt !== null ? `${tag}: убран на ${q.clearAt} с после VSC — раньше, чем игрок проехал мимо` : `${tag}: игрок не проехал мимо за 140 с`);
+        else if (q.clearAt === null || q.clearAt > q.passAt + q.clearMax + 1) r.fail(`${tag}: проехал мимо на ${q.passAt} с, убран ${q.clearAt === null ? 'не был' : 'на ' + q.clearAt + ' с'}`);
+        if (q.near > 15) r.fail(`${tag}: игрок прошёл от болида не ближе ${q.near} м`);
+      } else if (sc.k === 'B') {
+        if (q.clearAt === null || q.clearAt > q.clearMax + 1) r.fail(`${tag}: болид позади игрока не убран сразу после VSC (${q.clearAt} с)`);
+        if (q.endYel) r.fail(`${tag}: болид позади игрока, а после VSC — жёлтый`);
+      } else {
+        if (q.clearAt === null || q.clearAt > q.waitMax + q.clearMax + 1) r.fail(`${tag}: игрок стоит — болид не убран за ${q.waitMax}+${q.clearMax} с (${q.clearAt})`);
+        else if (q.clearAt < q.waitMax - 1) r.fail(`${tag}: игрок стоит — болид убран раньше срока, на ${q.clearAt} с`);
+      }
+      if (q.clearAt !== null && q.vis) r.fail(`${tag}: убран, но виден`);
+      if (q.clearAt !== null && (q.yelOffAt === null || q.yelOffAt > q.clearAt + 4)) r.fail(`${tag}: болид убран, а жёлтый горит (${q.yelOffAt})`);
+      const mimo = sc.k === 'B' ? 'позади игрока' : `игрок мимо ${q.passAt === null ? '—' : q.passAt + ' с'} (ближе всего ${q.near} м)`;
+      r.line(`${''.padEnd(12)} ждёт игрока ${sc.k}: после VSC ${q.endCleared ? 'убран' : 'стоит'}${q.endYel ? ' под жёлтым' : ''}, ${mimo}, убран ${q.clearAt} с после VSC${q.endYel ? ', жёлтый погас ' + q.yelOffAt + ' с' : ''}`);
     }
   }
   return r;

@@ -194,7 +194,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.16.92</div>
+    <div class="verstamp">v1.16.93</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -347,7 +347,8 @@ const TRACKS=[
      v1.16.60: бортик пит-лейна — светлый, как боксы и стена у бассейна.
      v1.16.61: по верху борта и бортика — тёмная «шапка», у земли — цоколь: светлый борт сливался с отбойником.
      v1.16.62: границы трассы у шиканы после тоннеля (ключ cuts): квала — круг удалён, 2 попытки; гонка — предупреждение, потом +5 с.
-     v1.16.92: сошедший болид после VSC увозят совсем (ключ clearAway): за стеной он висел над склоном, садом шпильки, обрывом и водой. */
+     v1.16.92: сошедший болид после VSC увозят совсем (ключ clearAway): за стеной он висел над склоном, садом шпильки, обрывом и водой.
+     v1.16.93: сошедший впереди игрока ждёт, пока тот проедет мимо (не дольше 60 с после VSC), на полотне — под жёлтым. */
   {name:"Monaco",key:"Monaco",vscAlways:true,clearAway:true,cuts:[{name:"шиканы",fromS:2061,toS:2161,side:"R",depth:4}],railAdsFit:true,railAds:[[0,-1],[176,12],[270,14],[500,2],[790,13],[900,4],[1150,12],[1430,14],[1545,-1],[1925,8],[2400,14],[2730,-1],[2840,3],[2990,12],[3200,-1]],cc:"Монако",c:"#C6A15B",half:6.0,style:"street",runoff:1.6,grip:.94,twist:6,speed:2,sfShift:2416,
    desc:"Улицы княжества: стены у самой кромки, тоннель, шпилька, гавань с яхтами. Самая медленная трасса в игре."},
   {name:"Montreal",key:"Montreal",cc:"Канада",c:"#D52B1E",half:7.0,style:"park",runoff:3,grip:0.98,twist:4,speed:4,sfShift:196,
@@ -7097,7 +7098,7 @@ function startRace(){document.getElementById('s-quali').classList.remove('active
     const cornerK=DIFF_GRIP[sel.diff];
     c.base=aiBase(gd.skill,diffMul)*(0.965+Math.random()*0.035);
     c.cornerK=aiGrip(gd.skill,cornerK)*(0.95+Math.random()*0.08);c.dist=-g.back;c.prevU=c.u;c.retired=false;c.retireAt=0;c.lapStart=undefined;
-    c.skill=gd.skill;c.err=null;c.errI=undefined;c.fail=null;c.spinPend=null;c.ghost=null;c.cleared=false;c.gone=false;c.clearWant=false;c.spanX=undefined;c.smokeTill=0;c.paceAvg=c.base;c.spdAvg=0;c.duel=null;c.duelT=0;      // сглаженный темп начинается со своего же, скорость — с нуля: на решётке все и правда стоят
+    c.skill=gd.skill;c.err=null;c.errI=undefined;c.fail=null;c.spinPend=null;c.ghost=null;c.cleared=false;c.gone=false;c.clearWant=false;c.waitPl=null;c.yHold=false;c.spanX=undefined;c.smokeTill=0;c.paceAvg=c.base;c.spdAvg=0;c.duel=null;c.duelT=0;      // сглаженный темп начинается со своего же, скорость — с нуля: на решётке все и правда стоят
     scene.add(c.mesh);field.push(c);cars.push(c);});
   // reset race timing + fastest lap + smoke
   raceTime=0;fastestLap={time:Infinity,name:'',team:'',color:'',you:false,car:null};retireCount=0;
@@ -7675,6 +7676,7 @@ const SPIN_LANE=0.72;                    // выезжает к краю: пол
 const SPIN_WAIT=12;                      // с: дольше не ждёт — выезжает (страховка; поток у края так плотен редко)
 const RET_SMOKE_AFTER=8;                 // с: мотор дымит и после остановки
 const RET_SEEN_FAR=400, RET_SEEN_NEAR=40, RET_CLEAR_MAX=12;
+const RET_WAIT_MAX=60;                   // с после конца VSC: дольше сошедший впереди игрока его не ждёт (clearAway, v1.16.93)
 const RET_SEP=0.3;                       // м за кадр: так соперника выталкивает из корпуса сходящего или вставшего (ghostSeparate)   // м: маршалы убирают вставшего за отбойник, когда камера его не видит (retSeen)
 function smoothstep01(t){return t<=0?0:(t>=1?1:t*t*(3-2*t));}
 function failBegin(c,iu){c.retireAt=0;c.err=null;c.errPh=0;c.spinPend=null;c.duel=null;c.ovLock=null;
@@ -7973,7 +7975,19 @@ function retSeen(c){if(!cam)return false;const dx=c.x-cam.position.x,dz=c.z-cam.
   if(d>RET_SEEN_FAR)return false;if(d<RET_SEEN_NEAR)return true;
   const e=cam.matrixWorld.elements,fx=-e[8],fz=-e[10],fl=Math.hypot(fx,fz)||1;   // камера смотрит по −Z своей матрицы
   return (dx*fx+dz*fz)/(d*fl)>0.4;}                                              // в кадре (±66°) — не трогаем
-function retireClearTick(){for(const c of field){if(!c.clearWant)continue;if(c.clearAt===undefined)c.clearAt=raceTime;
+/* Сошедший впереди игрока ждёт его (clearAway, v1.16.93, решение владельца 21.10.2026: «болид сошёл, а его не видно было совсем,
+   просто пропал»). После VSC болид, до которого игроку по ходу меньше полкруга, стоит, пока игрок не проедет мимо (не дольше
+   RET_WAIT_MAX, до финиша), потом убирается как всегда — когда камера не смотрит. На полотне — жёлтый в двух секторах у болида,
+   пока его не уберут (yHold; так в Ф-1 и бывает: двойные жёлтые до эвакуации). Позади игрока — убирают сразу после VSC. */
+function retAhead(c){const L=track.length;return ((track.S[c.retiredIdx]-track.S[player.hint||0])%L+L)%L;}   // м по ходу от игрока до вставшего
+function retWaitStart(c){if(track.spec.clearAway&&!raceOver&&!c.cleared&&retAhead(c)<track.length/2){c.waitPl={until:raceTime+RET_WAIT_MAX};c.yHold=!!c.blocking;}
+  else c.clearWant=true;}
+function retWaitSecs(){const ys=[];for(const c of field){if(!c.yHold||c.cleared)continue;const s=sectorAt(c.u),pr=(s+MARSHAL_SECTORS-1)%MARSHAL_SECTORS;
+  for(const k of [pr,s])if(ys.indexOf(k)<0)ys.push(k);}return ys;}
+function retireClearTick(){for(const c of field){if(!c.waitPl)continue;   // проехал мимо (теперь позади), срок вышел или финиш — убирать
+    if(retAhead(c)>track.length/2||raceTime>c.waitPl.until||raceOver){c.waitPl=null;c.clearWant=true;}}
+  if(neutral.mode==='yellow'&&field.some(c=>c.yHold&&!c.cleared))neutral.left=Math.max(neutral.left,GREEN_SECS);   // жёлтый горит, пока болид на полотне не убран
+  for(const c of field){if(!c.clearWant)continue;if(c.clearAt===undefined)c.clearAt=raceTime;
   if(retSeen(c)&&raceTime-c.clearAt<RET_CLEAR_MAX)continue;c.clearWant=false;c.clearAt=undefined;clearCarToBarrier(c);}}   // на глазах — ждём, но не дольше RET_CLEAR_MAX
 /* Насколько корпус соперника c (6.04×2.57 + 0.1 м), поставленный на полосу lane и на ds м дальше, зашёл в корпус вставшего r (SAT). */
 function ghostPen(c,lane,ds,r,crab){const M=track.M,fi=((((c.u+ds/track.length)%1)+1)%1)*M,i=Math.floor(fi)%M,i2=(i+1)%M,t=fi-Math.floor(fi);
@@ -8017,10 +8031,14 @@ function updateNeutral(dt){
   if(!neutral.mode)return;
   neutral.left-=dt;if(neutral.left>0)return;
   if(neutral.mode==='vsc'){neutral.mode='ending';neutral.left=VSC_END_SECS;big('VSC ЗАКАНЧИВАЕТСЯ','',1200);}
-  else if(neutral.mode==='ending'){neutral.cars.forEach(c=>{c.clearWant=true;});neutral.cars=[];   // за отбойник — когда камера отвернётся (retireClearTick)
-    neutral.mode='green';neutral.left=GREEN_SECS;zoneOut=0;
-    neutral.secs=[];for(let k=0;k<MARSHAL_SECTORS;k++)neutral.secs.push(k);   // VSC held the whole lap, so its green flies at every post
-    greenFlagShout();}
+  else if(neutral.mode==='ending'){neutral.cars.forEach(retWaitStart);neutral.cars=[];   // за отбойник — когда камера отвернётся (retireClearTick); впереди игрока — ждёт его (clearAway)
+    const ys=retWaitSecs();zoneOut=0;
+    if(ys.length){neutral.mode='yellow';neutral.left=GREEN_SECS;neutral.secs=ys;greenSeen=false;   // на полотне ждёт игрока — у него жёлтый, пока не убран (v1.16.93)
+      if(inFlagZone()){big('ЖЁЛТЫЙ ФЛАГ','болид на трассе',1400);AUDIO.beep(620,0.22,0.14);}
+      else{big('ЗЕЛЁНЫЙ ФЛАГ','ограничения сняты · гонка',1200);AUDIO.beep(560,0.35,0.18);}}
+    else{neutral.mode='green';neutral.left=GREEN_SECS;
+      neutral.secs=[];for(let k=0;k<MARSHAL_SECTORS;k++)neutral.secs.push(k);   // VSC held the whole lap, so its green flies at every post
+      greenFlagShout();}}
   else if(neutral.mode==='yellow'){neutral.mode='green';neutral.left=GREEN_SECS;zoneOut=0;   // secs kept on purpose: the green is shown at the same posts the yellow was
     greenFlagShout();}
   else{neutral.mode='';neutral.left=0;neutral.secs=[];greenSeen=false;}}
