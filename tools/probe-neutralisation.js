@@ -131,7 +131,7 @@ function run(opt) {
         var pairs=null, ev=[], crawled={}, inY=0, inV=0;
         var gapAhead0=null, gapAheadEnd=null, rank0=null, rankEnd=null, rival=null;
         var gapY0=null, gapYEnd=null, rivalY=null;
-        var pRank0=null, pRankEnd=null;
+        var pRank0=null, pRankEnd=null, pOut=0, pLastIn=null, pWasIn=false;   // pOut — места, сменившиеся, пока игрок был ВНЕ зоны (v1.16.93: жёлтый у вставшего после VSC — полкруга гонки между)
         var floorY=0, floorV=0, breachY=0, breachV=0, breachWho='', firstY='', prevAheadV=0, prevAheadT=0;   // правило «не приближаться»: ниже своего пола падать нельзя
         /* Пол зазора нельзя защёлкивать в тот же кадр, в котором включилась нейтрализация.
            Пробник поднимает флаг присваиванием, мгновенно, а в игре он приходит через
@@ -147,7 +147,8 @@ function run(opt) {
            Окно 75 с отсчитывается от неё: до остановки флага нет и мерить нечего (на старых сборках сход мгновенный — цикл пуст). */
         for(var __w=0;!victim.retired&&__w<Math.round(90/dt);__w++){__AP.drive();update(dt);}
         var neutT=0;
-        while(n<max && !raceOver){
+        var maxHard=Math.round((75+(typeof RET_WAIT_MAX==='undefined'?0:RET_WAIT_MAX+RET_CLEAR_MAX+GREEN_SECS))/dt);   // местный жёлтый после VSC (v1.16.93) — ждать конца флага
+        while((n<max||(neutral.mode&&n<maxHard)) && !raceOver){
           __AP.drive();
           update(dt); n++;
           var m=neutral.mode; if(m)modeSecs[m]=(modeSecs[m]||0)+dt;
@@ -196,8 +197,11 @@ function run(opt) {
              под ограничение, но не ближе NEUT_GAP: подъехать с 50 м до 9 правила разрешают,
              ближе 9 — нет. К тому, кто не держит темп, это не относится. */
           var pnz=neutralAt(player.hint||0);
+          if(!pnz&&pWasIn){pWasIn=false;}
           if(pnz){
             var ord=L.slice().sort(rankCmp), pi=ord.indexOf(player);
+            if(!pWasIn&&pLastIn!==null)pOut+=pi+1-pLastIn;   // вернулся в зону: что сменилось вне её — гонка, не нейтрализация
+            pWasIn=true;pLastIn=pi+1;
             if(pRank0===null)pRank0=pi+1; pRankEnd=pi+1;
             var ahead=pi>0?ord[pi-1]:null;
             if(ahead){
@@ -259,7 +263,7 @@ function run(opt) {
                 nOverY:badY.length, overtakesY:badY.slice(0,4),
                 nAllowed:okAllowed.length, nAllowedY:okY.length,
                 passedPlayer:passedPlayer, playerPassed:playerPassed, edgeBad:edgeBad,
-                pRank0:pRank0, pRankEnd:pRankEnd,
+                pRank0:pRank0, pRankEnd:pRankEnd, pOut:pOut,
                 breachY:+breachY.toFixed(1), breachV:+breachV.toFixed(1), breachWho:breachWho, firstY:firstY,
                 rank0:rank0, rankEnd:rankEnd,
                 blocking0:v.blockedRoad, offEnd:+offEnd.toFixed(2),
@@ -279,7 +283,7 @@ function run(opt) {
         + (res.playerPassed ? ` · ИГРОК обогнал ${res.playerPassed}` : '')
         + (res.edgeBad ? ` · из них на границе зоны ${res.edgeBad}` : '')
         + ((res.nAllowed + res.nAllowedY) ? ` · объехали вставшего ${res.nAllowed + res.nAllowedY}` : '')
-        + (res.pRank0 === null ? '' : ` · место игрока P${res.pRank0}→P${res.pRankEnd}`)
+        + (res.pRank0 === null ? '' : ` · место игрока P${res.pRank0}→P${res.pRankEnd}${res.pOut ? ` (вне зоны ${res.pOut > 0 ? '+' : ''}${res.pOut})` : ''}`)
         + ((res.breachY||res.breachV) ? ` · зазор проваливался на ${Math.max(res.breachY,res.breachV)} м` : '')
         + (res.away ? ` · болид увезён (clearAway)` : ` · болид стоит в ${res.offEnd} м (стена ${res.wall})`));
 
@@ -293,8 +297,8 @@ function run(opt) {
       /* Место — грубый сторож поверх счёта обгонов: две машины, идущие борт в борт, меняются
          строками на сантиметрах, и это не обгон (та же оговорка, что у башни). Поэтому
          сдвиг на одну позицию только печатается, а валит проба с двух. */
-      if (res.pRank0 !== null && res.pRankEnd - res.pRank0 >= 2)
-        r.fail(`${tag}: игрок потерял под нейтрализацией ${res.pRankEnd - res.pRank0} позиции (P${res.pRank0}→P${res.pRankEnd})`);
+      if (res.pRank0 !== null && res.pRankEnd - res.pRank0 - res.pOut >= 2)
+        r.fail(`${tag}: игрок потерял под нейтрализацией ${res.pRankEnd - res.pRank0 - res.pOut} позиции (P${res.pRank0}→P${res.pRankEnd}${res.pOut ? `, из них вне зоны ${res.pOut}` : ''})`);
 
       if (res.mode0 === 'yellow') {
         if (Math.abs(yel - 40) > 0.6) r.fail(`${tag}: жёлтый горел ${yel} с вместо 40`);
