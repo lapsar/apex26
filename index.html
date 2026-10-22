@@ -148,12 +148,12 @@
   #tower .trow.tlt{box-shadow:inset 0 0 0 2px #F5C400;animation:tlt 1s ease-in-out infinite;}   /* кого пропустить (v1.16.89) */
   @keyframes tlt{50%{box-shadow:inset 0 0 0 2px rgba(245,196,0,.2)}}
   @keyframes flagwave{0%,100%{opacity:1;transform:skewX(0deg)}50%{opacity:.35;transform:skewX(-14deg)}}
-  /* Секторы квалификации (v1.16.95): плашка под «КВАЛ · БЫСТРЫЙ», как в онбоарде — секундомер, на линии время сектора цветом, полоска S1/S2/S3,
+  /* Секторы квалификации (v1.16.95; цифры 28 px, как скорость, — v1.16.97, вариант 3 владельца; было 32): плашка под «КВАЛ · БЫСТРЫЙ», как в онбоарде — секундомер, на линии время сектора цветом, полоска S1/S2/S3,
      ниже разница с поулом и место. Фиолетовый — быстрее всех, зелёный — в десятке, жёлтый — дальше, серый — круг удалён. */
   #sbox{position:absolute;top:calc(env(safe-area-inset-top) + 100px);right:calc(env(safe-area-inset-right) + 12px);z-index:6;display:none;pointer-events:none;
     font-family:"Arial Narrow",sans-serif;background:rgba(8,10,14,.86);border-radius:9px;padding:8px 12px 7px;min-width:196px;box-sizing:border-box;color:#fff;}
   #sbox.on{display:block;}
-  #sbox .big{font-weight:800;font-size:32px;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:.01em;}
+  #sbox .big{font-weight:800;font-size:28px;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:.01em;}
   #sbox .lbl{display:flex;justify-content:space-between;font-size:10px;letter-spacing:.14em;color:#cfd4da;margin-top:6px;font-weight:700;}
   #sbox .bar{display:flex;gap:3px;margin-top:3px;} #sbox .bar i{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.22);}
   #sbox .row2{display:flex;align-items:center;justify-content:space-between;margin-top:7px;padding-top:6px;border-top:1px solid rgba(255,255,255,.1);
@@ -163,7 +163,7 @@
   #sbox .pchip{background:var(--f1);color:#fff;font-weight:800;font-size:14px;padding:2px 7px;border-radius:4px;letter-spacing:.04em;}
   .cP{color:#b57bff;} .cG{color:#39d353;} .cY{color:#F5C400;} .cX{color:#8A94A3;}
   #sbox .bar i.bP{background:#b57bff;} #sbox .bar i.bG{background:#39d353;} #sbox .bar i.bY{background:#F5C400;} #sbox .bar i.bX{background:#8A94A3;}
-  @media (max-height:400px){#sbox{top:calc(env(safe-area-inset-top) + 92px);padding:6px 10px 5px;min-width:172px;}#sbox .big{font-size:26px;}#sbox .row2 b{font-size:15px;}}
+  @media (max-height:400px){#sbox{top:calc(env(safe-area-inset-top) + 92px);padding:6px 10px 5px;min-width:172px;}#sbox .big{font-size:24px;}#sbox .row2 b{font-size:15px;}}
   #qSec .rt td,#qSec .rt th{text-align:right;font-variant-numeric:tabular-nums;} #qSec .rt td:first-child,#qSec .rt th:first-child{text-align:left;}
   #qSec .rt{margin:2px 0 10px;max-width:520px;} #qSec .rt td b{font-weight:800;}
   #lightsG{position:absolute;top:8%;left:50%;transform:translateX(-50%);z-index:6;display:none;gap:10px;pointer-events:none;}
@@ -212,7 +212,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.16.96</div>
+    <div class="verstamp">v1.16.98</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -255,7 +255,7 @@
 
   <section class="screen" id="s-quali">
     <div class="step cond">Квалификация</div><h1 class="headline cond" id="qHead">Итоги</h1><div id="qGap" class="sub" style="margin:0 0 6px"></div><div id="qSec"></div>
-    <div style="overflow-x:auto"><table class="rt" id="qTable"></table></div><div class="spacer"></div>
+    <div style="overflow-x:auto;flex-shrink:0"><table class="rt" id="qTable"></table></div><div class="spacer"></div>
     <div class="actionbar"><button class="btn ghost" onclick="quitToMenu()">В меню</button><button class="btn primary" onclick="startRace()">Старт гонки →</button></div>
   </section>
 
