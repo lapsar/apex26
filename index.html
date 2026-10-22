@@ -199,7 +199,30 @@
   #rotate.show{display:flex;}
   #rotate .msg{margin-top:16px;font-size:clamp(16px,5vw,22px);max-width:90vw;line-height:1.3;word-wrap:break-word;}
   #rotate .ico{font-size:52px;animation:rot 2s ease-in-out infinite;} @keyframes rot{0%,40%{transform:rotate(0)}60%,100%{transform:rotate(-90deg)}}
-  #loading{position:absolute;inset:0;z-index:9;display:none;align-items:center;justify-content:center;background:#000;color:#cfd4da;} #loading.show{display:flex;}
+  /* Экран этапа (v1.16.99): стоит на месте прежнего «Загрузка трассы…», пока строится мир. Выше педалей (30) — иначе они закрывают кнопку; ниже «поверни» (50). Размер — от меньшего из ширины и высоты (--u). */
+  #stage{position:absolute;inset:0;z-index:40;display:none;--u:min(1vw,1.6vh);color:var(--text);
+    background:radial-gradient(120% 60% at 50% -10%,rgba(225,6,0,.10),transparent 60%),linear-gradient(180deg,#0B0E13,#0E1219);}
+  #stage.show{display:grid;grid-template-columns:38% 62%;grid-template-rows:100%;}
+  #stage .stl{display:flex;flex-direction:column;gap:calc(1.6*var(--u));min-width:0;
+    padding:max(calc(3.2*var(--u)),env(safe-area-inset-top)) calc(2.4*var(--u)) max(calc(3*var(--u)),env(safe-area-inset-bottom)) max(calc(3.4*var(--u)),env(safe-area-inset-left));}
+  #stage .str{display:flex;flex-direction:column;gap:calc(1.6*var(--u));min-width:0;min-height:0;
+    padding:max(calc(3*var(--u)),env(safe-area-inset-top)) max(calc(3*var(--u)),env(safe-area-inset-right)) max(calc(3*var(--u)),env(safe-area-inset-bottom)) calc(1*var(--u));}
+  #stage .stk{font-size:max(10px,calc(1.5*var(--u)));letter-spacing:.2em;color:var(--muted);font-weight:700;}
+  #stage .stflag{display:block;align-self:flex-start;flex:none;border-radius:calc(.3*var(--u));}
+  #stage .stgp{font-size:calc(4.6*var(--u));line-height:.95;letter-spacing:.03em;}
+  #stage .stsub{color:var(--muted);font-size:max(11px,calc(1.7*var(--u)));line-height:1.3;margin-top:calc(.8*var(--u));}
+  #stage .stfacts{display:grid;grid-template-columns:auto 1fr;gap:calc(.5*var(--u)) calc(1.6*var(--u));align-items:baseline;margin:0;font-size:max(12px,calc(1.75*var(--u)));}
+  #stage .stfacts dt{font-size:max(9px,calc(1.35*var(--u)));letter-spacing:.12em;color:var(--muted);font-weight:700;}
+  #stage .stfacts dd{margin:0;font-variant-numeric:tabular-nums;font-weight:500;}
+  #stage .stsecs{display:flex;gap:calc(.8*var(--u));flex-wrap:wrap;}
+  #stage .stchip{display:flex;align-items:center;gap:calc(.6*var(--u));background:var(--panel);border:1px solid var(--line);border-radius:calc(.8*var(--u));
+    padding:calc(.5*var(--u)) calc(1*var(--u));font-size:max(10px,calc(1.45*var(--u)));font-variant-numeric:tabular-nums;}
+  #stage .stchip i{display:block;width:calc(1.8*var(--u));height:calc(.55*var(--u));border-radius:calc(.3*var(--u));}
+  #stage .stmap{flex:1;min-height:0;} #stage .stmap svg{display:block;width:100%;height:100%;overflow:visible;}
+  #stage .stgo{display:flex;justify-content:flex-end;}
+  #stage .stgo button{border:0;border-radius:calc(1*var(--u));padding:calc(1.3*var(--u)) calc(2.6*var(--u));font-size:max(14px,calc(1.9*var(--u)));
+    background:var(--f1);color:#fff;cursor:pointer;}
+  #stage .stgo button:disabled{background:var(--panel2);color:var(--muted);cursor:default;}
 .verstamp{text-align:right;font-size:11px;letter-spacing:.08em;color:rgba(255,255,255,.26);margin:0 2px 2px;user-select:none;}
 </style>
 </head>
@@ -212,7 +235,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.16.98</div>
+    <div class="verstamp">v1.16.99</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -250,7 +273,7 @@
     <div class="viewsel" id="diffPick"><button data-d="easy" class="sel">Новичок</button><button data-d="normal">Норма</button><button data-d="hard">Профи</button></div>
     <div class="field"><label class="cond">Сводка</label><div class="card" style="cursor:default" id="summaryCard"><div class="stripe" style="background:var(--accent)"></div></div></div>
     <div class="spacer"></div>
-    <div class="actionbar"><button class="btn ghost" onclick="go('s-driver')">Назад</button><button class="btn primary" onclick="startWeekend()">В кокпит →</button></div>
+    <div class="actionbar"><button class="btn ghost" onclick="go('s-driver')">Назад</button><button class="btn primary" onclick="startWeekend(true)">В кокпит →</button></div>
   </section>
 
   <section class="screen" id="s-quali">
@@ -271,7 +294,8 @@
     <div id="topbtns"><button id="btnPause" class="cond" onclick="togglePause()">Пауза</button><button id="snd" class="cond" onclick="toggleMute()">Звук</button><button id="btnCam" class="cond" onclick="toggleCam()">Камера</button><button id="exit" class="cond" onclick="quitToMenu()">Выход</button></div>
     <div class="pad l"><div class="kb" data-c="left">◄<small>LEFT</small></div><div class="kb" data-c="right">►<small>RIGHT</small></div></div>
     <div class="pad r"><div class="kb" data-c="brake">▼<small>BRAKE</small></div><div class="kb gas" data-c="gas">▲<small>GAS</small></div></div>
-    <div id="loading"><div class="cond">Загрузка трассы…</div></div>
+    <div id="stage"><div class="stl" id="stageL"></div><div class="str"><div class="stmap" id="stageMap"></div>
+      <div class="stgo"><button class="cond" id="stageGo" onclick="stageGo()" disabled>Готовим трассу…</button></div></div></div>
     <div id="qbanner"></div>
     <div id="pauseov" onclick="togglePause()"><div class="ico"><i></i><i></i></div><div class="cond lbl">Пауза</div></div>
   </div>
@@ -6832,14 +6856,126 @@ function clearScene(){if(!scene)return;
     scene.remove(o);disposeTree(o,keep);}
   cars=[];field=[];skyMesh=null;}
 
-function startWeekend(){AUDIO.init();AUDIO.resume();releaseTouches();   // кнопка, залипшая на прошлом экране, не должна рулить в новом заезде
+/* ---------- ЭКРАН ЭТАПА (v1.16.99, идея ребёнка владельца, вариант А с точкой из Б) ----------
+   Стоит на месте прежнего чёрного «Загрузка трассы…»: флаг, Гран-при, цифры и карта трассы с секторами, линией старта
+   и стрелкой хода. Карта — по P самой трассы (P[0] — линия старта, север сверху: x — минус, как в makeTrack), секторы —
+   track.spec.sectors. Пока строится мир, кнопка серая; готово — точка едет круг, кнопка «На прогревочный круг».
+   Только показ: Math.random не тянется (поул — qualiLapTime без жребия квалы), мир и гонка те же.
+   startWeekend(true) — из меню; без аргумента (пробники, съёмка) экран сразу уступает квалификации, как раньше. */
+const STAGE={
+  Monza:{gp:'Гран-при Италии',circ:'Autodromo Nazionale Monza',city:'Монца',ru:'Монца',fl:'it'},
+  Silverstone:{gp:'Гран-при Великобритании',circ:'Silverstone Circuit',city:'Сильверстоун',ru:'Сильверстоун',fl:'gb'},
+  Suzuka:{gp:'Гран-при Японии',circ:'Suzuka International Racing Course',city:'Сузука',ru:'Сузука',fl:'jp'},
+  Monaco:{gp:'Гран-при Монако',circ:'Circuit de Monaco',city:'Монте-Карло',ru:'Монако',fl:'mc'},
+  Montreal:{gp:'Гран-при Канады',circ:'Circuit Gilles-Villeneuve',city:'Монреаль',ru:'Монреаль',fl:'ca'},
+  Miami:{gp:'Гран-при Майами',circ:'Miami International Autodrome',city:'Майами, США',ru:'Майами',fl:'us'},
+  Hungaroring:{gp:'Гран-при Венгрии',circ:'Hungaroring',city:'Будапешт',ru:'Хунгароринг',fl:'hu'}};
+const STAGE_SEC=['#E8364F','#29B6F6','#FFD23F'];   // секторы — как на графике трансляции: красный, синий, жёлтый
+const STAGE_DOT=450;                               // м/с бегущей точки: круг Монцы за 13 с (владелец: вдвое медленнее макета)
+const DIFF_RU={easy:'Новичок',normal:'Норма',hard:'Профи'};
+let stageOk=false,stageAuto=false,stageDot=null,stageRaf=0;
+/* Флаг рисуется сам — одинаков на любом устройстве. Высота у всех одна, ширина — по пропорциям флага, задана прямо:
+   без неё Safari растягивал картинку на всю колонку, и флаг вставал посередине серой рамки (макет 22.10.2026). */
+function stageFlag(c){const H=5.4;
+  const s=(vb,inner)=>{const v=vb.split(' ').map(Number);
+    return `<svg class="stflag" viewBox="${vb}" preserveAspectRatio="xMinYMid meet" style="height:calc(${H}*var(--u));width:calc(${(H*v[2]/v[3]).toFixed(2)}*var(--u))">${inner}</svg>`;};
+  if(c==='it')return s('0 0 3 2','<rect width="1" height="2" fill="#009246"/><rect x="1" width="1" height="2" fill="#fff"/><rect x="2" width="1" height="2" fill="#CE2B37"/>');
+  if(c==='hu')return s('0 0 6 3','<rect width="6" height="1" fill="#CD2A3E"/><rect y="1" width="6" height="1" fill="#fff"/><rect y="2" width="6" height="1" fill="#436F4D"/>');
+  if(c==='mc')return s('0 0 5 4','<rect width="5" height="2" fill="#CE1126"/><rect y="2" width="5" height="2" fill="#fff"/>');
+  if(c==='jp')return s('0 0 3 2','<rect width="3" height="2" fill="#fff"/><circle cx="1.5" cy="1" r=".6" fill="#BC002D"/>');
+  if(c==='gb')return s('0 0 60 30','<clipPath id="stgb"><rect width="60" height="30"/></clipPath><g clip-path="url(#stgb)"><rect width="60" height="30" fill="#012169"/>'
+    +'<path d="M0,0 60,30M60,0 0,30" stroke="#fff" stroke-width="6"/><path d="M0,0 60,30M60,0 0,30" stroke="#C8102E" stroke-width="2"/>'
+    +'<path d="M30,0v30M0,15h60" stroke="#fff" stroke-width="10"/><path d="M30,0v30M0,15h60" stroke="#C8102E" stroke-width="6"/></g>');
+  if(c==='ca')return s('0 0 160 80','<rect width="160" height="80" fill="#fff"/><rect width="40" height="80" fill="#D52B1E"/><rect x="120" width="40" height="80" fill="#D52B1E"/>'
+    +'<path transform="translate(80,40) scale(1.05)" fill="#D52B1E" d="M0,-34 L5,-24 L11,-27 L8,-10 L17,-19 L20,-14 L30,-16 L26,-6 L31,-3 L15,10 L17,16 L2,13 L2,30 L-2,30 L-2,13 L-17,16 L-15,10 L-31,-3 L-26,-6 L-30,-16 L-20,-14 L-17,-19 L-8,-10 L-11,-27 L-5,-24 Z"/>');
+  if(c==='us'){let g='';for(let i=0;i<13;i++)g+=`<rect y="${i*10}" width="247" height="10" fill="${i%2?'#fff':'#B22234'}"/>`;
+    g+='<rect width="98.8" height="70" fill="#3C3B6E"/>';
+    for(let r=0;r<9;r++)for(let k=0;k<(r%2?5:6);k++)g+=`<circle cx="${((r%2?16.5:8.2)+k*16.5).toFixed(1)}" cy="${7+r*7}" r="2.4" fill="#fff"/>`;
+    return s('0 0 247 130',g);}
+  return '';}
+/* Карта: полотно — подложка и три сектора; черта на линиях секторов, клетчатая полоса старта, стрелка хода снаружи,
+   кружки 1-2-3 — там, где вокруг больше всего места (по середине сектора кружок у Сильверстоуна ложился на соседнюю ногу). */
+function stageMap(tr,dot){
+  const N=tr.P.length,ds=tr.length/N,step=Math.max(1,Math.round(N/450)),sec=tr.spec.sectors||[tr.length/3,tr.length*2/3];
+  const xy=i=>{const q=tr.P[((i%N)+N)%N];return [-q.x,-q.z];};
+  const p=[];for(let i=0;i<N;i+=step)p.push(xy(i));
+  let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9,cx=0,cy=0;
+  for(const[x,y]of p){x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y);cx+=x;cy+=y;}
+  cx/=p.length;cy/=p.length;
+  const W=x1-x0,H=y1-y0,M=Math.max(W,H),pad=M*0.07,sw=M*0.016,f=v=>v.toFixed(1);
+  const at=d=>{const i=Math.round(d/ds),a=xy(i),b=xy(i+1),L=Math.hypot(b[0]-a[0],b[1]-a[1])||1;return {x:a[0],y:a[1],ux:(b[0]-a[0])/L,uy:(b[1]-a[1])/L};};
+  const pl=a=>a.map(q=>f(q[0])+','+f(q[1])).join(' '),loop=p.concat([p[0]]);
+  const seg=[[],[],[]];
+  for(let k=0;k<=p.length;k++){const d=k*step*ds,q=p[k%p.length],j=d<sec[0]?0:d<sec[1]?1:2;
+    if(seg[j].length===0&&j>0)seg[j-1].push(q);seg[j].push(q);}
+  let g=`<polyline points="${pl(loop)}" fill="none" stroke="#000" stroke-opacity=".55" stroke-width="${f(sw*2.3)}" stroke-linejoin="round"/>`
+    +`<polyline points="${pl(loop)}" fill="none" stroke="#3a4250" stroke-width="${f(sw*1.9)}" stroke-linejoin="round"/>`;
+  seg.forEach((a,i)=>{g+=`<polyline points="${pl(a)}" fill="none" stroke="${STAGE_SEC[i]}" stroke-width="${f(sw)}" stroke-linejoin="round" stroke-linecap="round"/>`;});
+  sec.forEach(d=>{const q=at(d),h=sw*1.5;
+    g+=`<line x1="${f(q.x-q.uy*h)}" y1="${f(q.y+q.ux*h)}" x2="${f(q.x+q.uy*h)}" y2="${f(q.y-q.ux*h)}" stroke="#fff" stroke-width="${f(sw*0.35)}" stroke-linecap="round"/>`;});
+  const s0=at(0),c=sw*0.55;let chk='';
+  for(let r=0;r<2;r++)for(let k=-2;k<2;k++)chk+=`<rect x="${f((r-1)*c)}" y="${f(k*c)}" width="${f(c)}" height="${f(c)}" fill="${(r+k)%2?'#fff':'#111'}"/>`;
+  g+=`<g transform="translate(${f(s0.x)},${f(s0.y)}) rotate(${f(Math.atan2(s0.uy,s0.ux)*180/Math.PI)})"><rect x="${f(-c*1.25)}" y="${f(-c*2.25)}" width="${f(c*2.5)}" height="${f(c*4.5)}" fill="#fff"/>${chk}</g>`;
+  const a1=at(Math.min(170,tr.length*0.05));let nx=-a1.uy,ny=a1.ux;if((a1.x-cx)*nx+(a1.y-cy)*ny<0){nx=-nx;ny=-ny;}
+  const A=sw*1.3;
+  g+=`<g transform="translate(${f(a1.x+nx*sw*2.6)},${f(a1.y+ny*sw*2.6)}) rotate(${f(Math.atan2(a1.uy,a1.ux)*180/Math.PI)})"><path d="M${f(-A)},${f(-A*0.15)} h${f(A*1.1)} v${f(-A*0.45)} l${f(A*0.9)},${f(A*0.6)} l${f(-A*0.9)},${f(A*0.6)} v${f(-A*0.45)} h${f(-A*1.1)} z" fill="#fff"/></g>`;
+  const bd=[0,sec[0],sec[1],tr.length],off=sw*3.2,R=sw*1.45;
+  const room=(x,y)=>{let m=1e9;for(const q of p){const d=Math.hypot(q[0]-x,q[1]-y);if(d<m)m=d;}return m;};
+  for(let i=0;i<3;i++){let best=null;
+    for(let k=0;k<=10;k++){const fr=0.25+k*0.05,q=at(bd[i]+(bd[i+1]-bd[i])*fr);
+      for(const sg of [1,-1]){const lx=q.x-q.uy*off*sg,ly=q.y+q.ux*off*sg,sc=Math.min(room(lx,ly),sw*4)-Math.abs(fr-0.5)*sw*2;
+        if(!best||sc>best.sc)best={sc,lx,ly};}}
+    g+=`<circle cx="${f(best.lx)}" cy="${f(best.ly)}" r="${f(R)}" fill="${STAGE_SEC[i]}"/><text x="${f(best.lx)}" y="${f(best.ly)}" dy=".36em" text-anchor="middle" font-family="Arial Narrow,Roboto Condensed,sans-serif" font-weight="800" font-size="${f(R*1.25)}" fill="#0B0E13">${i+1}</text>`;}
+  if(dot){stageDot={p,seg:step*ds,t0:null};
+    g+=`<circle id="stageDot" cx="${f(p[0][0])}" cy="${f(p[0][1])}" r="${f(sw*0.95)}" fill="#fff" stroke="#0B0E13" stroke-width="${f(sw*0.3)}"/>`;}
+  return `<svg viewBox="${f(x0-pad)} ${f(y0-pad)} ${f(W+2*pad)} ${f(H+2*pad)}" preserveAspectRatio="xMidYMid meet">${g}</svg>`;}
+function stagePoleTxt(){let best=null;   // поул ≈ время сильнейшего в поле без жребия ±0.2 % (тот же qualiLapTime, что у beginQuali)
+  ROSTER.forEach((r,i)=>{if(i!==sel.roster&&(!best||r.skill>best.skill))best=r;});
+  const t=Math.round(qualiLapTime(best.skill,sel.diff)*10),m=Math.floor(t/600),r=t-m*600;
+  return `${m}:${String(Math.floor(r/10)).padStart(2,'0')}.${r%10}`;}
+function stageShow(){const t=track.spec,g=STAGE[t.key]||{gp:t.name,circ:t.name,city:t.cc,ru:t.name,fl:''};
+  const sec=t.sectors||[track.length/3,track.length*2/3],L=[sec[0],sec[1]-sec[0],track.length-sec[1]];
+  const m=v=>String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g,'\u00a0')+'\u00a0м';
+  document.getElementById('stageL').innerHTML=`<div class="stk cond">Квалификация · ${g.ru}</div>${stageFlag(g.fl)}
+    <div><div class="stgp cond">${g.gp}</div><div class="stsub">${g.circ} · ${g.city}</div></div>
+    <dl class="stfacts"><dt class="cond">Круг</dt><dd>${m(track.length)}</dd>
+      <dt class="cond">Гонка</dt><dd>${sel.laps} ${lapWord(sel.laps)} · ${(track.length*sel.laps/1000).toFixed(1).replace('.',',')} км</dd>
+      <dt class="cond">Режим</dt><dd>${DIFF_RU[sel.diff]}</dd><dt class="cond">Поул</dt><dd>≈ ${stagePoleTxt()}</dd></dl>
+    <div class="stsecs">${L.map((l,i)=>`<span class="stchip"><i style="background:${STAGE_SEC[i]}"></i><b class="cond">S${i+1}</b>${m(l)}</span>`).join('')}</div>`;
+  document.getElementById('stageMap').innerHTML=stageMap(track,false);
+  const b=document.getElementById('stageGo');b.disabled=true;b.textContent='Готовим трассу…';
+  stageOk=false;document.getElementById('stage').classList.add('show');}
+/* Точка едет покадрово из кода, а не анимацией внутри картинки (SMIL): та в Chromium у карты, вставленной после загрузки,
+   стояла на линии старта. Свой цикл кадров — игровой ещё не идёт; гаснет вместе с экраном. */
+function stageDotTick(now){const c=document.getElementById('stageDot');if(!c||!stageOk||!stageDot)return;
+  if(stageDot.t0===null)stageDot.t0=now;
+  const p=stageDot.p,n=p.length,k=(((now-stageDot.t0)/1000*STAGE_DOT)%(n*stageDot.seg))/stageDot.seg,i=Math.floor(k),u=k-i,a=p[i%n],b=p[(i+1)%n];
+  c.setAttribute('cx',(a[0]+(b[0]-a[0])*u).toFixed(1));c.setAttribute('cy',(a[1]+(b[1]-a[1])*u).toFixed(1));
+  stageRaf=requestAnimationFrame(stageDotTick);}
+function stageReady(){if(stageAuto){stageOk=true;stageGo();return;}
+  const still=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+  document.getElementById('stageMap').innerHTML=stageMap(track,!still);
+  const b=document.getElementById('stageGo');b.disabled=false;b.textContent='На прогревочный круг →';stageOk=true;
+  if(!still)stageRaf=requestAnimationFrame(stageDotTick);}
+/* Прогрев отрисовки, пока экран этапа ждёт кнопку: один кадр под экраном с линии старта — видеокарта собирает материалы
+   и принимает текстуры заранее. Замер `shot-stage.js` (Chromium, программная видеокарта): первый кадр прогревочного круга
+   717 → 300 мс у Монцы, 967 → 633 у Монако, 600 → 350 у Монреаля при обычном 130–380. Своя камера — игровая не трогается. */
+function stagePrewarm(){const c=cam.clone(),p=track.P[0],f=track.F[0];
+  c.position.set(p.x-f.x*6,2.2,p.z-f.z*6);c.lookAt(p.x+f.x*40,1,p.z+f.z*40);c.updateMatrixWorld();
+  renderer.compile(scene,c);renderer.render(scene,c);}
+function stageGo(){if(!stageOk)return;stageOk=false;if(!stageAuto)releaseTouches();   // палец, нажавший кнопку, не должен остаться педалью
+  cancelAnimationFrame(stageRaf);stageDot=null;
+  document.getElementById('stage').classList.remove('show');document.getElementById('stageMap').innerHTML='';beginQuali();}
+function startWeekend(withStage){AUDIO.init();AUDIO.resume();releaseTouches();   // кнопка, залипшая на прошлом экране, не должна рулить в новом заезде
   applyAccent(ROSTER[sel.roster].color);camMode=sel.view;initThree();clearScene();
   track=makeTrack(TRACKS[sel.track]);track.refLap=track.length/(MAXSPEED*0.85);
-  document.getElementById('loading').classList.add('show');
+  stageAuto=!withStage;stageShow();
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById('game').classList.add('active');fit();
-  requestAnimationFrame(()=>{buildWorld();const r=ROSTER[sel.roster];
+  const build=()=>{buildWorld();const r=ROSTER[sel.roster];
     player=makeState(r.name,r.num,r.color,r.skill,true);player.name=(sel.custom||r.name).toUpperCase();player.code=code3(sel.custom||r.name);scene.add(player.mesh);
-    document.getElementById('loading').classList.remove('show');beginQuali();});}
+    if(!stageAuto)stagePrewarm();stageReady();};
+  // экран этапа должен успеть нарисоваться ДО постройки мира: колбэк кадра идёт раньше отрисовки, поэтому — после неё
+  requestAnimationFrame(withStage?()=>setTimeout(build,0):build);}
 const LOD_NEAR=4;                                     // rivals close enough to be worth the full model
 /* КАСАНИЕ КОРПУС ПРОТИВ КОРПУСА (v1.16.19, решение владельца: «по-настоящему», open-tasks п.8).
    Было: соперник — ТОЧКА в своём центре, игрок — прямоугольник в своих осях, выталкивание
@@ -8692,11 +8828,12 @@ function setPause(p){if(p&&phase==='')return;paused=p;
 function togglePause(){setPause(!paused);}
 function toggleCam(){camMode=camMode==='cockpit'?'chase':'cockpit';}
 function quitToMenu(){endLoop();phase='';qualiOutro=false;raceOutro=false;clearTimeout(qualiOutroTimer);clearTimeout(raceOutroTimer);hideQualiBanner();document.getElementById('game').classList.remove('active');releaseTouches();go('s-title');}
-function rematch(){document.getElementById('s-result').classList.remove('active');startWeekend();}
+function rematch(){document.getElementById('s-result').classList.remove('active');startWeekend(true);}
 
 /* ---------- input ---------- */
 const typing=e=>e.target&&/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
 addEventListener('keydown',e=>{if(typing(e))return;const k=e.key.toLowerCase();
+  if(stageOk&&(k==='enter'||k===' ')){e.preventDefault();stageGo();return;}   // экран этапа: с клавиатуры — Enter или пробел
   if(k==='arrowleft'||k==='a'){keys.left=1;e.preventDefault();}if(k==='arrowright'||k==='d'){keys.right=1;e.preventDefault();}
   if(k==='arrowup'||k==='w'){keys.gas=1;e.preventDefault();}if(k==='arrowdown'||k==='s'){keys.brake=1;e.preventDefault();}if(k==='c')toggleCam();});
 addEventListener('keyup',e=>{if(typing(e))return;const k=e.key.toLowerCase();
@@ -8777,7 +8914,7 @@ function pointerTap(b){let pid=null;
     if(b.disabled||!b.offsetParent)return;                                                 // экран уже скрыт
     _ptrTapAt=Date.now();b.click();});}
 document.addEventListener('click',e=>{if(e.isTrusted&&Date.now()-_ptrTapAt<800){_ptrTapAt=-1e9;e.stopPropagation();e.preventDefault();}},true);
-document.querySelectorAll('#s-quali .btn,#s-result .btn').forEach(pointerTap);
+document.querySelectorAll('#s-quali .btn,#s-result .btn,#stageGo').forEach(pointerTap);
 function checkOrient(){const portrait=window.innerHeight>window.innerWidth;
   document.getElementById('rotate').classList.toggle('show',portrait&&document.getElementById('game').classList.contains('active'));}
 addEventListener('orientationchange',()=>{setTimeout(fit,200);setTimeout(fit,650);});
