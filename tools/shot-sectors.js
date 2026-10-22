@@ -6,7 +6,8 @@
    перед линией и проезжает её сам (update), лапТ подставляется таким, чтобы
    было видно все три цвета; всё остальное — штатный код игры.
 
-   Запуск:  node tools/shot-sectors.js [--track=3] [--out=папка]
+   Запуск:  node tools/shot-sectors.js [--track=3] [--out=папка] [--css='#sbox .big{font-size:24px}'] [--only=0,1]
+            --css — примерить стиль плашки, не трогая index.html; --only — какие кадры снимать
    index.html только читается.
    ========================================================================== */
 'use strict';
@@ -36,8 +37,10 @@ const TRACK = args.track === undefined ? 3 : +args.track;
       player.hint = i; player.prevIdx = i; player.arcPrev = track.S[i]; player.lapLock = 999; };
     window.__drive = (n) => { for (let k = 0; k < n; k++) { controls.gas = 1; controls.brake = 0; controls.left = controls.right = 0; update(1 / 60); } };
     return track.name; });
-  await page.addStyleTag({ content: '.kb{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;}' });
+  await page.addStyleTag({ content: '.kb{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;}' + (args.css || '') });
+  const only = args.only ? args.only.split(',') : null;
   const snap = async (tag, note, fn, arg) => {
+    if (only && !only.includes(tag.split('-')[0])) { await page.evaluate(fn, arg); return; }
     const dbg = await page.evaluate(fn, arg);
     await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))); await page.waitForTimeout(300);
     const file = path.join(OUT, `${name.toLowerCase()}-${tag}.png`); await page.screenshot({ path: file });
@@ -45,6 +48,10 @@ const TRACK = args.track === undefined ? 3 : +args.track;
   };
   const box = () => document.getElementById('sbox').innerText.replace(/\n/g, ' | ');
   const L = await page.evaluate(() => track.spec.sectors);
+  await snap('0-do-s1', 'до линии сектора 1: только секундомер и пустая полоска', (L) => {
+    player.started = true; qSec = { at: [], k: -1, flash: 0 }; player.lapCut = false;
+    __put(L[0] - 400, 50); player.lapT = 14.8; __drive(20); render();
+    return document.getElementById('sbox').innerText.replace(/\n/g, ' | '); }, L);
   // поул и десятый по сектору 1: игроку время между ними — зелёный; быстрее поула — фиолетовый
   await snap('1-sektor1', 'линия сектора 1: время сектора крупно, «СЕКТОР 1», разница с поулом и место', (L) => {
     const s1 = qualiField.map(r => r.at[0]).sort((a, b) => a - b);
