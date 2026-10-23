@@ -39,6 +39,17 @@ hd = np.array([head(i) for i in range(len(Q))])
 K = np.array([((hd[(i + 3) % len(Q)] - hd[i - 3] + math.pi) % (2 * math.pi)) - math.pi for i in range(len(Q))])
 Rr = np.array([abs(6 * STEP / k) if abs(k) > 1e-6 else 1e9 for k in K])
 flips = sum(1 for i in range(len(K)) if abs(K[i]) > 0.05 and abs(K[i - 1]) > 0.05 and K[i] * K[i - 1] < 0)
+# Две ноги навстречу бок о бок (Нефтчиляр: S 2040–2400 и 4600–4920): между кромками не меньше GAP_LEGS — там общая стена.
+# Игра ставит стену не ближе HW+0.6 к своей осевой и не дальше середины между осевыми (buildWallProfile), а полотно в складке
+# сужает до (d−1.4)/2 (buildWidth): при HW ≤ (d−GAP_LEGS)/2 стены двух ног сходятся в одну линию, не заходя друг на друга.
+GAP_LEGS = 2.4
+capped = 0
+for i in range(len(Q)):
+    d = np.hypot(*(Q - Q[i]).T); far = np.minimum(abs(np.arange(len(Q)) - i), len(Q) - abs(np.arange(len(Q)) - i)) > 8
+    j = np.argmin(np.where(far, d, 1e9)); t1 = Q[(i + 1) % len(Q)] - Q[i - 1]; t2 = Q[(j + 1) % len(Q)] - Q[j - 1]
+    if d[j] < 2 * H[i] + 2 and (t1 @ t2) / (np.hypot(*t1) * np.hypot(*t2)) < -0.77 and H[i] > (d[j] - GAP_LEGS) / 2:
+        H[i] = (d[j] - GAP_LEGS) / 2; capped += 1
+print('ноги бок о бок: полуширина урезана на %d точках (между кромками %.1f м)' % (capped, GAP_LEGS))
 co = [[round(bk.LON0 + x / bk.MPD_LON, 7), round(bk.LAT0 + y / bk.MPD_LAT, 7)] for x, y in Q]; co.append(co[0])
 g = json.load(open('az-osm.geojson')); g['features'][0]['geometry']['coordinates'] = co
 g['features'][0]['properties']['note'] = 'az-osm пересэмплирован через %g м и пересажен на середину кромок edges.tsv (tools/baku-scan/recenter.py)' % STEP

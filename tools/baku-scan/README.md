@@ -53,3 +53,14 @@
 | `checkthread.py` | доля точек телеметрии у кромки и за ней для `az-center` |
 
 `tv/` — кадры трансляции 2026 от владельца (вид сверху на старт-финиш и боксы; 2-й сектор на 1-м круге).
+
+## Игра (v1.17.0)
+
+| Файл | Что делает |
+|---|---|
+| `mkgame.py [index.html] [--visible]` | Баку в игру: `TRACKDATA` из `az-center.geojson`, spec с `widths` (через 10 м) и `sectors` (`sectors.json`), `SCEN_ORIGIN`, `STAGE`; повторный запуск заменяет строки Баку |
+| `castle-trials.js [S0 S1 EX]` | замок в физике игры: автопилот по осевой на скоростях 45–100 км/ч, 15 попыток на скорость; EX — опыт «шире на EX м» |
+| `lapmap.py` | карта круга сверху с кромками → `views/lapmap.jpg` |
+
+Порядок после правки кромок: `python3 edges.py && python3 recenter.py && python3 checkthread.py && python3 mkgame.py --visible`,
+затем `node tools/run-all.js --only=pole,print,ghost,wall,solid,stage` (эталоны Баку в пробниках — с v1.17.0).
