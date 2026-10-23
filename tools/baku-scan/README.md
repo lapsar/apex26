@@ -80,3 +80,14 @@
 |---|---|
 | `walls.py [index.html]` | блок `SCENERY_BAKU` (выезды `wallOut` и асфальт `runoff`) в игру, повторный запуск заменяет; строка `Baku` в `SCENERY_BY_KEY` |
 | `plan.py … --out=plans/c_Tn.jpg` + лист кадров | листы поворотов «снимок + 6 кадров» (см. историю в tracks/baku.md) |
+
+## Старый город и реклама (v1.17.3)
+
+| Файл | Что делает |
+|---|---|
+| `dump-wall.js [файл.json]` | осевая и ПОСТРОЕННЫЙ барьер игры → `wall.json` (порт monaco-scan) |
+| `city.py [index.html]` | крепостная стена (по границе района «İçəri Şəhər») и дома OSM участка S 1990–4620 → блок «Старый город» в `SCENERY_BAKU` (`boxesOff`, `buildings`); повторный запуск заменяет блок, `walls.py` его сохраняет |
+| `povcmp.js` | `CHROME=…` — другой Chromium (в этой среде `/opt/pw-browsers/chromium-1243/chrome-linux64/chrome`) |
+
+Реклама — ключ `railAds` в spec Баку (зоны — tracks/baku.md), полосы — общая таблица `RAIL_ADS`.
+Порядок: `node dump-wall.js && python3 city.py`, затем `node tools/run-all.js --only=print,load,clear,materials,solid,wall`.

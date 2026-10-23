@@ -32,6 +32,9 @@ block = ("/* БАКУ, этап 1 (v1.17.1): выезды-ловушки и ас
          "const SCENERY_BAKU = {\n  wallOut: [\n" + "\n".join(rows_w) + "\n  ],\n  runoff: [   // покрытие выездов: асфальт до стены\n"
          + "\n".join(rows_r) + "\n  ],\n};\n")
 s = open(HTML).read()
+keep = re.search(r"\n  /\* Старый город \(v1\.17\.3\).*?\n  \],", s, flags=re.S)   # блок city.py (v1.17.3) — сохранить
+if keep:
+    block = block[:-len("\n};\n")] + keep.group(0) + "\n};\n"
 s = re.sub(r"/\* БАКУ, этап 1 .*?\nconst SCENERY_BAKU = \{.*?\n\};\n", '', s, flags=re.S)
 i = s.index('const SCENERY_BY_KEY='); s = s[:i] + block + s[i:]
 s = s.replace(',Monaco:SCENERY_MONACO,Baku:SCENERY_BAKU};', ',Monaco:SCENERY_MONACO};')

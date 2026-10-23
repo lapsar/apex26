@@ -191,7 +191,8 @@ apex26/
 │   ├── v1.16.99.html
 │   ├── v1.17.0.html
 │   ├── v1.17.1.html
-│   └── v1.17.2.html
+│   ├── v1.17.2.html
+│   └── v1.17.3.html
 ├── docs/
 │   ├── BRIEF-model-bolida.md           задание на доводку 3D-модели болида:
 │   │                                   контракт, ограничения r128, бюджет
@@ -597,7 +598,10 @@ apex26/
     │                                   владельца; README — откуда что (22.10.2026);
     │                                   ширина (edges.py, edges_fix.tsv), середина
     │                                   (recenter.py → az-center*), игра (mkgame.py),
-    │                                   замок в физике (castle-trials.js), карта (lapmap.py)
+    │                                   замок в физике (castle-trials.js), карта (lapmap.py);
+    │                                   Старый город (v1.17.3): dump-wall.js — построенная
+    │                                   стена в wall.json, city.py — крепостная стена и дома
+    │                                   OSM в SCENERY_BAKU (повторный запуск заменяет блок)
     ├── monaco-scan/                    замер Монако, этап 0 (v1.16.22): середина
     │                                   дороги по OSM (osmoff.py — ось улицы,
     │                                   sidewalk.py — между тротуарами; снимок
