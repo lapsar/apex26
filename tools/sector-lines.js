@@ -31,7 +31,7 @@ const fs = require('fs'), path = require('path');
 const H = require('./harness');
 
 const FILES = { Monza: 'monza_lap.json', Silverstone: 'silverstone_lap.json', Suzuka: 'suzuka_lap.json',
-  Monaco: 'monte carlo_lap.json', Montreal: 'montreal_lap.json', Miami: 'miami_lap.json', Hungaroring: 'hungaroring_lap.json' };
+  Monaco: 'monte carlo_lap.json', Montreal: 'montreal_lap.json', Miami: 'miami_lap.json', Hungaroring: 'hungaroring_lap.json', Baku: 'baku_lap.json' };
 const extra = process.argv.slice(2).map(a => a.split('='));
 const jobs = extra.length ? extra : Object.entries(FILES).map(([k, f]) => [k, path.join(__dirname, f)]);
 

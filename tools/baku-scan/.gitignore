@@ -1,0 +1,12 @@
+tiles/
+osm/t_*.osm
+osm/all.json
+pt_*.txt
+hw*.tsv
+__pycache__/
+# построенное из игры (dump-wall.js) и кадры plan.py — строятся заново
+wall.json
+wall-*.json
+plans/
+relief-grid.json
+relief-monaco.js.txt
