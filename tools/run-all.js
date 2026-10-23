@@ -62,6 +62,7 @@ const PROBES = [
   { key: 'pass',      mod: './probe-ghost-pass.js',         secs: 400 },
   { key: 'sectors',   mod: './probe-sectors.js',            secs: 70 },
   { key: 'stage',     mod: './probe-stage.js',              secs: 40 },
+  { key: 'failroom',  mod: './probe-fail-room.js',          secs: 200 },
 ];
 
 /* Быстрая проверка правки окружения (цвета, реклама, трибуны, щиты):
