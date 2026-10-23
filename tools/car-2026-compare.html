@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>Болид: сейчас и 2026</title>
+<style>
+  :root{--bg:#f3f4f6;--ink:#1d2127;--dim:#6b7280;--red:#e0164f;}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.35 system-ui,-apple-system,Segoe UI,sans-serif;}
+  .wrap{width:1580px;padding:22px 26px 26px;box-sizing:border-box}
+  h1{font-size:26px;margin:0 0 4px}
+  .sub{color:var(--dim);margin:0 0 16px}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:14px}
+  .rowR{grid-template-columns:auto auto;justify-content:start}
+  .pan{background:#fff;border-radius:10px;padding:8px 10px 6px;box-shadow:0 1px 2px #0001}
+  .pan h3{margin:0 0 2px;font-size:14px;font-weight:600}
+  .pan h3 span{color:var(--dim);font-weight:400}
+  svg{display:block}
+  .grid line{stroke:#e6e8eb;stroke-width:.006}
+  .ground{stroke:#b9bec5;stroke-width:.01}
+  .ghost *{fill:none!important;stroke:var(--red)!important;stroke-width:.016!important;stroke-dasharray:.05 .03}
+  .ghost .nog{display:none}
+  .legend{display:flex;gap:22px;color:var(--dim);font-size:13px;margin:-6px 0 12px}
+  .legend i{display:inline-block;width:26px;height:0;border-top:2px dashed var(--red);vertical-align:middle;margin-right:6px}
+  table{border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 2px #0001}
+  td,th{padding:5px 12px;text-align:left;border-bottom:1px solid #eef0f2;font-size:13.5px;vertical-align:top}
+  th{background:#fafbfc;font-weight:600}
+  td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  td.src{color:var(--dim);font-size:12.5px}
+  .bot{display:grid;grid-template-columns:auto 1fr;gap:22px;align-items:start}
+  .note{color:var(--dim);font-size:13px}
+  .note b{color:var(--ink)}
+</style></head><body><div class="wrap">
+<h1>Болид APEX '26: сейчас и в размерах 2026 года</h1>
+<p class="sub">Все виды в одном масштабе, сетка 1 м. Слева — наша модель, снята прямо из игры (болид игрока). Справа — эскиз по зонам технического регламента FIA 2026 (Section C, выпуск 17 от 28.04.2026). Это рисунок, а не модель для игры.</p>
+<div class="legend"><span><i></i>красный пунктир — силуэт болида 2026 поверх нашего</span></div>
+
+<div class="row">
+  <div class="pan"><h3>Сбоку — сейчас <span>(длина 6.04 м, колесо ⌀ 1.0 м)</span></h3><div id="s1"></div></div>
+  <div class="pan"><h3>Сбоку — 2026 <span>(≈5.45 м, колесо ⌀ 0.705 / 0.71 м)</span></h3><div id="s2"></div></div>
+</div>
+<div class="row">
+  <div class="pan"><h3>Сверху — сейчас <span>(ширина 2.57 м, переднее крыло 2.05 м)</span></h3><div id="t1"></div></div>
+  <div class="pan"><h3>Сверху — 2026 <span>(ширина 1.90 м, переднее крыло 1.36 м)</span></h3><div id="t2"></div></div>
+</div>
+<div class="bot">
+  <div class="row rowR" style="margin:0">
+    <div class="pan"><h3>Сзади — сейчас</h3><div id="r1"></div></div>
+    <div class="pan"><h3>Сзади — 2026</h3><div id="r2"></div></div>
+  </div>
+  <div>
+    <table>
+      <tr><th></th><th>Сейчас</th><th>2026</th><th>Разница</th><th>Откуда</th></tr>
+      <tr><td>Ширина</td><td class="n">2.57 м</td><td class="n">1.90 м</td><td class="n">×1.35</td><td class="src">C2.3.1: не дальше 950 мм от оси</td></tr>
+      <tr><td>Колёсная база</td><td class="n">3.70 м</td><td class="n">3.40 м</td><td class="n">×1.09</td><td class="src">C2.3.3: не больше 3400 мм</td></tr>
+      <tr><td>Длина</td><td class="n">6.04 м</td><td class="n">≈5.45 м</td><td class="n">×1.11</td><td class="src">сумма зон: нос 1.30 м до передней оси (прил. C2 §12), база, хвост 0.75 м за задней (§19, §31)</td></tr>
+      <tr><td>Высота</td><td class="n">1.22 м</td><td class="n">≈1.05 м</td><td class="n">×1.16</td><td class="src">капот до 970 мм над днищем (§17) + днище над землёй ~5–10 см (из высот осей C10.1)</td></tr>
+      <tr><td>Колесо, диаметр</td><td class="n">1.00 м</td><td class="n">0.705 / 0.71 м</td><td class="n">×1.41</td><td class="src">Pirelli 2026 (в регламенте нет); диск 18″ — C10.7.2</td></tr>
+      <tr><td>Ширина колеса</td><td class="n">0.42 / 0.46 м</td><td class="n">≈0.33 / 0.42 м</td><td class="n">×1.1–1.3</td><td class="src">ширина диска 334 / 420 мм (C10.7.2); шина не уже диска</td></tr>
+      <tr><td>Переднее крыло</td><td class="n">2.05 м</td><td class="n">1.36 м</td><td class="n">×1.5</td><td class="src">боковины до 680 мм от оси (§23)</td></tr>
+      <tr><td>Заднее крыло, ширина / верх</td><td class="n">1.49 / 1.22 м</td><td class="n">1.15 / ≈0.98 м</td><td class="n">×1.3 / ×1.25</td><td class="src">до 575 мм от оси, до 880 мм над днищем (§30, §31)</td></tr>
+    </table>
+    <p class="note" style="margin-top:10px;max-width:720px">Форма деталей нарисована внутри разрешённых зон: регламент задаёт, где деталь может быть, а не её точный вид. <b>Без чисел в тексте регламента</b> (там только чертежи FIA для команд): гало, шлем, дугу безопасности и диффузор я дорисовал на глаз. Pirelli называет ширину шин 280 / 375 мм, но диск по регламенту шире (334 / 420), поэтому для рисунка взята ширина диска.</p>
+  </div>
+</div>
+</div>
+<script>
+const NS='http://www.w3.org/2000/svg';
+const C={body:'#FF8000',c2:'#2E3439',carb:'#15181d',carb2:'#24282f',tyre:'#1b1c1f',rim:'#3b4048',mark:'#c9ccd1',halo:'#2b2f36',helm:'#eef1f5',visor:'#0a0a0e',light:'#e02424'};
+// Игровые оси: z — вперёд (м), y — вверх от земли, x — вбок. Нос — слева, как на снимках из игры.
+// Оси регламента (мм): X растёт НАЗАД, отсчёт от передней оси (XF), задней (XR), конца кокпита (XC), главной передачи (XDIF ≈ XR).
+// Передняя ось — z = 1.85, задняя — z = −1.55 (база 3.40; середина базы — там же, где у нашей модели).
+const ZF=1.85, ZR=-1.55;
+const zF=X=>ZF-X/1000, zR=X=>ZR-X/1000;
+const zC=X=>zF(X+1855);                 // XC: конец кокпита в 1830–2030 мм за XA (C2.3.5), передняя ось в 0–150 за XA (C2.3.4) — середины
+const g=z=>0.0475+(ZF-z)/(ZF-ZR)*0.0525; // днище (Z=0) над землёй: оси в Z 305 / 255 (C10.1), радиус шин 352.5 / 355
+const Y=(z,Zmm)=>Zmm/1000+g(z);
+const sp=p=>p.map(([z,Zmm])=>`${(-z).toFixed(3)},${(-Y(z,Zmm)).toFixed(3)}`).join(' ');      // вид сбоку: [z, Z мм]
+const tp=p=>p.map(([z,y])=>`${(-z).toFixed(3)},${(-y).toFixed(3)}`).join(' ');               // вид сверху: [z, y м]
+const rp=(p,z)=>p.map(([y,Zmm])=>`${(-y).toFixed(3)},${(-Y(z,Zmm)).toFixed(3)}`).join(' ');  // вид сзади: [y м, Z мм]
+const mirX=p=>p.concat(p.slice().reverse().map(([a,b])=>[a,-b]));
+const mirR=p=>p.concat(p.slice().reverse().map(([a,b])=>[-a,b]));
+const poly=(pts,f)=>`<polygon points="${pts}" fill="${f}"/>`;
+const ln=(a,b,c,w)=>`<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="${c}" stroke-width="${w}" stroke-linecap="round"/>`;
+const pt=s=>s.split(',').map(Number);
+const lnS=(a,b,c,w)=>ln(pt(sp([a])),pt(sp([b])),c,w), lnT=(a,b,c,w)=>ln(pt(tp([a])),pt(tp([b])),c,w), lnR=(a,b,z,c,w)=>ln(pt(rp([a],z)),pt(rp([b],z)),c,w);
+
+function wheelSide(z,r){const cx=-z,cy=-r;let s=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="${C.tyre}"/>`+
+  `<circle cx="${cx}" cy="${cy}" r="${r-0.05}" fill="none" stroke="${C.mark}" stroke-width="0.012"/>`+
+  `<circle cx="${cx}" cy="${cy}" r="0.231" fill="${C.rim}"/>`;
+  for(let k=0;k<5;k++){const a=k*2*Math.PI/5+0.3;s+=`<line class="nog" x1="${cx+0.06*Math.cos(a)}" y1="${cy+0.06*Math.sin(a)}" x2="${cx+0.215*Math.cos(a)}" y2="${cy+0.215*Math.sin(a)}" stroke="${C.c2}" stroke-width="0.05"/>`;}
+  return s+`<circle class="nog" cx="${cx}" cy="${cy}" r="0.06" fill="${C.carb}"/><circle class="nog" cx="${cx}" cy="${cy}" r="0.025" fill="#d9a020"/>`;}
+
+function noseTop(z){                    // верх носа — дуга ⌀ 11 м с центром [XC−1000, Z−4853] (прил. C2 §12.1)
+  const XC=(-0.005-z)*1000; return Math.min(645,-4853+Math.sqrt(5500*5500-(XC+1000)**2));}
+
+function drawSide(){let s='';
+  // днище: плоское до XR−600, дальше подъём диффузора (§4.5)
+  s+=poly(sp([[zF(350),0],[zR(-600),0],[zR(300),190],[zR(300),250],[zR(-350),175],[zR(-600),75],[zF(1450),75],[zF(350),30]]),C.carb);
+  // нос и монокок: низ по §12.2, верх — дуга §12.1, у кокпита 645, у головы 770, за кокпитом 680 (§12.5)
+  const top=[]; for(let z=zF(-1300);z>=zC(-875)-1e-6;z-=0.05) top.push([z,noseTop(z)]);
+  s+=poly(sp([[zF(-1300),125],...top,[zC(-875),645],[zC(-350),645],[zC(-350),770],[zC(0),770],[zC(0),680],[zC(320),680],[zC(320),75],[zC(-875),75],[zC(-875),195],[zC(-1830),225],[zF(-1000),125]]),C.body);
+  // понтон и капот: вход понтона XF 900–1300 до Z 600 (§16), капот — плоскость от [XC, 600] к [XR−50, 350] (§17.3)
+  s+=poly(sp([[zF(900),560],[zF(1300),600],[zC(0),600],[zR(-50),350],[zR(-50),180],[zR(-600),75],[zF(1450),75],[zF(1150),140],[zF(900),260]]),C.body);
+  s+=poly(sp([[zF(900),560],[zF(900),280],[zF(960),280],[zF(960),550]]),C.carb);                        // зев понтона
+  // воздухозаборник и гребень капота (§17.4, §17.7): до 970 мм за кокпитом, гребень до 950
+  s+=poly(sp([[zC(0),680],[zC(320),970],[zC(500),970],[zR(-900),950],[zR(-150),825],[zR(-50),600],[zR(-50),350],[zC(0),600]]),C.body);
+  s+=poly(sp([[zC(320),970],[zC(320),850],[zC(380),850],[zC(380),965]]),C.carb);                       // вход воздухозаборника
+  s+=poly(sp([[zC(-200),430],[zR(-700),330],[zR(-200),260],[zR(-200),300],[zR(-700),380],[zC(-200),480]]),C.c2);  // полоса второго цвета
+  // хвост: коробка передач и задняя силовая структура (§19.1), фонарь на торце
+  s+=poly(sp([[zR(-110),0],[zR(-110),500],[zR(260),500],[zR(450),380],[zR(760),380],[zR(760),175],[zR(450),175],[zR(10),0]]),C.carb);
+  s+=poly(sp([[zR(745),230],[zR(770),230],[zR(770),330],[zR(745),330]]),C.light);
+  // заднее крыло: боковина XR 150–750, Z 250–880 со срезами (§31), профили XR 165–630, Z 725–880 (§30)
+  s+=lnS([zR(300),380],[zR(330),760],C.carb,0.035);                                                     // пилон
+  s+=poly(sp([[zR(160),880],[zR(750),880],[zR(750),625],[zR(640),300],[zR(450),250],[zR(375),250],[zR(160),700]]),C.c2);
+  s+=poly(sp([[zR(175),735],[zR(560),760],[zR(560),800],[zR(175),790]]),C.carb)+poly(sp([[zR(430),815],[zR(625),830],[zR(625),875],[zR(430),860]]),C.carb);
+  // зеркало: XC −830…−650, Z 640–720 (§14)
+  s+=poly(sp([[zC(-830),640],[zC(-650),640],[zC(-650),720],[zC(-830),720]]),C.carb)+lnS([zC(-740),640],[zC(-740),600],C.carb,0.02);
+  // шлем и гало — на глаз (в тексте регламента их размеров нет, только чертежи FIA)
+  s+=`<circle cx="${-zC(-280)}" cy="${-Y(zC(-280),790)}" r="0.125" fill="${C.helm}"/>`;
+  s+=poly(sp([[zC(-160),830],[zC(-160),770],[zC(-360),770],[zC(-360),830]]),C.visor);
+  const hp=[[zC(-930),650],[zC(-760),850],[zC(-450),880],[zC(-60),860],[zC(20),770]].map(q=>pt(sp([q])));
+  s+=`<path d="M ${hp[0]} L ${hp[1]} Q ${hp[2]} ${hp[3]} L ${hp[4]}" fill="none" stroke="${C.halo}" stroke-width="0.045" stroke-linejoin="round" stroke-linecap="round"/>`;
+  // переднее крыло: боковина XF −1250…−300, Z 75–375, вырез по колесу ⌀ 925 и срез верха (§23); профили Z 60–300 (§22)
+  const arc=[]; for(let a=0;a<=1;a+=0.125){const Zm=375-a*300; arc.push([zF(-Math.sqrt(462.5**2-(Zm-360)**2)),Zm]);}
+  s+=poly(sp([[zF(-1250),75],[zF(-1250),167],[zF(-750),375],...arc]),C.c2);
+  s+=poly(sp([[zF(-1240),70],[zF(-760),100],[zF(-760),130],[zF(-1240),100]]),C.carb)+poly(sp([[zF(-1000),160],[zF(-520),250],[zF(-520),285],[zF(-1000),195]]),C.carb);
+  s+=lnS([zF(-60),250],[zF(0),305],C.carb,0.025)+lnS([zR(80),250],[zR(0),255],C.carb,0.025);            // тяги подвески
+  s+=wheelSide(ZF,0.3525)+wheelSide(ZR,0.355);
+  return s;}
+
+function drawTop(){let s='';
+  const wheel=(z,y0,y1,rad)=>[1,-1].map(k=>`<rect x="${-z-rad}" y="${k>0?-y1:y0}" width="${2*rad}" height="${y1-y0}" rx="0.05" fill="${C.tyre}"/>`).join('');
+  // днище по зонам: корпус (§4.1), «стопа» за передними колёсами до 890 мм (§6), боковые стенки у задних (§5)
+  s+=poly(tp(mirX([[zF(350),0.025],[zF(650),0.30],[zF(650),0.89],[zF(825),0.89],[zF(1350),0.76],[zF(1400),0.39],[zR(-1050),0.39],[zR(-335),0.40],[zR(350),0.40],[zR(350),0.075]])),C.carb);
+  for(const k of[1,-1]){                                                                                   // рычаги подвески
+    s+=lnT([zF(-150),0.16*k],[ZF,0.62*k],C.carb,0.025)+lnT([zF(150),0.17*k],[ZF,0.62*k],C.carb,0.025);
+    s+=lnT([zR(-150),0.14*k],[ZR,0.53*k],C.carb,0.025)+lnT([zR(150),0.12*k],[ZR,0.53*k],C.carb,0.025);}
+  s+=wheel(ZF,0.616,0.95,0.3525)+wheel(ZR,0.53,0.95,0.355);
+  // понтоны и капот: до 715 мм от оси (§16, §17.1)
+  s+=poly(tp(mirX([[zF(900),0.275],[zF(1200),0.715],[zR(-1500),0.715],[zR(-500),0.575],[zR(-500),0.35],[zR(-50),0.30],[zR(-50),0.10]])),C.body);
+  s+=poly(tp(mirX([[zF(900),0.30],[zF(1200),0.70],[zF(1260),0.70],[zF(960),0.30]])),C.carb);              // зевы понтонов
+  s+=poly(tp(mirX([[zC(-100),0.52],[zR(-700),0.42],[zR(-300),0.22],[zR(-300),0.18],[zR(-700),0.37],[zC(-100),0.47]])),C.c2);
+  // нос и монокок в плане (§12.9): у кончика носа 150 мм от оси, у кокпита 400
+  s+=poly(tp(mirX([[zF(-1300),0.15],[zC(-1830),0.20],[zC(-1015),0.265],[zC(-400),0.40],[zC(75),0.40],[zC(75),0.17],[zC(320),0.17],[zR(-50),0.10]])),C.body);
+  // хвост (§19.3) и заднее крыло (§30, §31): до 575 мм от оси, XR 150–750
+  s+=poly(tp(mirX([[zR(-110),0.145],[zR(10),0.145],[zR(760),0.06]])),C.carb);
+  s+=poly(tp(mirX([[zR(150),0.575],[zR(750),0.575]])),C.c2)+poly(tp(mirX([[zR(165),0.535],[zR(630),0.535]])),C.carb);
+  // переднее крыло: профили XF −1250…−475 до 675 мм (§22), задняя кромка — срез [XF−750, 0]–[XF−500, 400]; боковины 575–680 (§23)
+  s+=poly(tp(mirX([[zF(-1250),0.0],[zF(-1235),0.40],[zF(-1180),0.675],[zF(-475),0.675],[zF(-475),0.44],[zF(-750),0.0]])),C.c2);
+  for(const k of[1,-1]) s+=`<rect x="${-zF(-1250)}" y="${k>0?-0.68:0.575}" width="${1.25-0.30}" height="0.105" fill="${C.carb}"/>`;
+  s+=poly(tp(mirX([[zF(-1300),0.0],[zF(-1300),0.15],[zF(-750),0.20],[zF(-750),0.0]])),C.body);           // кончик носа поверх крыла
+  // зеркала (§14): вынесены до 680 мм от оси
+  s+=poly(tp([[zC(-830),0.47],[zC(-730),0.47],[zC(-650),0.68],[zC(-750),0.68]]),C.carb)+poly(tp([[zC(-830),-0.47],[zC(-730),-0.47],[zC(-650),-0.68],[zC(-750),-0.68]]),C.carb);
+  // кокпит, шлем, гало — на глаз
+  s+=`<ellipse cx="${-zC(-430)}" cy="0" rx="0.43" ry="0.24" fill="${C.carb}"/><circle cx="${-zC(-280)}" cy="0" r="0.125" fill="${C.helm}"/>`;
+  const a=-zC(-930),b=-zC(-760),c=-zC(-450),d=-zC(20);
+  s+=`<path d="M ${a} 0 L ${b} 0 Q ${c} -0.29 ${-zC(-200)} -0.28 L ${d} -0.25 M ${b} 0 Q ${c} 0.29 ${-zC(-200)} 0.28 L ${d} 0.25" fill="none" stroke="${C.halo}" stroke-width="0.045" stroke-linecap="round" stroke-linejoin="round"/>`;
+  s+=poly(tp(mirX([[zC(320),0.12],[zC(380),0.12]])),C.carb);                                              // вход воздухозаборника
+  return s;}
+
+function drawRear(){let s=''; const zt=zR(700), zm=zC(-740);
+  s+=poly(rp(mirR([[0.40,35],[0.40,275]]),zR(300)),C.carb);                                               // днище и боковые стенки у задних колёс
+  // силуэт кузова сзади: понтоны до 715 мм и Z 600, к воздухозаборнику уже (§16, §17)
+  s+=poly(rp(mirR([[0.715,130],[0.715,560],[0.55,610],[0.30,700],[0.17,880],[0.13,970]]),zC(0)),C.body);
+  s+=poly(rp(mirR([[0.70,380],[0.70,430],[0.30,500],[0.30,450]]),zC(0)),C.c2);
+  // зеркала (§14): торчат над понтонами
+  for(const k of[1,-1]) s+=poly(rp([[0.47*k,640],[0.68*k,640],[0.68*k,720],[0.47*k,720]],zm),C.carb)+lnR([0.55*k,640],[0.45*k,590],zm,C.carb,0.02);
+  s+=poly(rp(mirR([[0.38,0],[0.38,250],[0.12,280]]),zR(300)),C.carb);                                     // диффузор (на глаз: в тексте только чертёж)
+  for(const x of[-0.28,-0.14,0.14,0.28]) s+=lnR([x,0],[x,240],zR(300),C.carb2,0.012);
+  for(const k of[1,-1]) s+=lnR([0.12*k,200],[0.55*k,230],ZR,C.carb,0.025)+lnR([0.12*k,330],[0.55*k,360],ZR,C.carb,0.025);  // рычаги
+  for(const k of[1,-1]) s+=`<rect x="${k>0?-0.95:0.53}" y="-0.71" width="0.42" height="0.71" rx="0.07" fill="${C.tyre}"/>`;   // задние шины
+  s+=poly(rp(mirR([[0.06,175],[0.06,380]]),zt),C.carb)+poly(rp(mirR([[0.04,230],[0.04,330]]),zt),C.light);   // торец силовой структуры, фонарь
+  s+=lnR([0,380],[0,760],zt,C.carb,0.035);                                                                   // пилон
+  // боковины заднего крыла — точный контур §31.1, профили до 535 мм (§30)
+  for(const k of[1,-1]) s+=poly(rp([[0.345,250],[0.345,425],[0.535,700],[0.535,880],[0.575,880],[0.575,675],[0.375,375],[0.375,250]].map(([y,Z])=>[y*k,Z]),zR(450)),C.c2);
+  s+=poly(rp(mirR([[0.535,735],[0.535,795]]),zR(400)),C.carb)+poly(rp(mirR([[0.535,820],[0.535,875]]),zR(520)),C.body);
+  return s;}
+
+function grid(x0,y0,w,h){let s='<g class="grid">';for(let x=Math.ceil(x0);x<=x0+w;x++)s+=`<line x1="${x}" y1="${y0}" x2="${x}" y2="${y0+h}"/>`;
+  for(let y=Math.ceil(y0);y<=y0+h;y++)s+=`<line x1="${x0}" y1="${y}" x2="${x0+w}" y2="${y}"/>`;return s+'</g>';}
+function panel(id,vb,img,draw,ghost,ground){const [x0,y0,w,h]=vb,K=100;
+  let s=`<svg xmlns="${NS}" width="${w*K}" height="${h*K}" viewBox="${vb.join(' ')}">`+grid(x0,y0,w,h);
+  if(ground) s+=`<line class="ground" x1="${x0}" y1="0" x2="${x0+w}" y2="0"/>`;
+  if(img) s+=`<image href="${img}" x="${x0}" y="${y0}" width="${w}" height="${h}"/>`;
+  s+= ghost?`<g class="ghost">${draw}</g>`:draw;
+  document.getElementById(id).innerHTML=s+'</svg>';}
+const SV=[-3.6,-1.65,7.2,1.8], TV=[-3.6,-1.5,7.2,3.0], RV=[-1.5,-1.65,3.0,1.8];
+const ds=drawSide(), dt=drawTop(), dr=drawRear();
+panel('s1',SV,'shots/car-2026/pl_side.png',ds,true,true);  panel('s2',SV,null,ds,false,true);
+panel('t1',TV,'shots/car-2026/pl_top.png',dt,true,false);  panel('t2',TV,null,dt,false,false);
+panel('r1',RV,'shots/car-2026/pl_rear.png',dr,true,true);  panel('r2',RV,null,dr,false,true);
+</script></body></html>
