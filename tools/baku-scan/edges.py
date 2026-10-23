@@ -52,5 +52,18 @@ SMOOTH = 5                       # ступеньки между участка�
 def avg(v, n=SMOOTH):
     h = n // 2; return np.array([np.mean(np.take(v, range(i - h, i + h + 1), mode='wrap')) for i in range(len(v))])
 L = avg(L); Rr = avg(Rr)
+# Нитка телеметрии (8 лучших кругов квалы 2026, thread.tsv — отступ от контура, сглажен σ=10 м) обязана лежать внутри
+# полотна с запасом THREAD_PAD (полкорпуса и немного): где она выходит за кромку, коридор СДВИГАЕТСЯ целиком (ширина
+# известна надёжнее, чем то, по какой оси OSM нарисован контур; поперёк телеметрия врёт на ±1 м — поэтому сдвиг, не расширение).
+THREAD_PAD = 1.5
+TH = np.array([[float(x) for x in l.split('\t')] for l in open('thread.tsv').read().splitlines()[1:] if l.split('\t')[1] != 'nan'])
+th = np.interp(S, TH[:, 0], TH[:, 1], period=bk.TOT)
+tot = np.zeros_like(L)
+for _ in range(6):                               # сглаженный сдвиг недобирает на пиках — несколько проходов
+    sh = np.where(th > L - THREAD_PAD, th - (L - THREAD_PAD), np.where(th < Rr + THREAD_PAD, th - (Rr + THREAD_PAD), 0.0))
+    sh = avg(avg(sh, 9), 9) * 1.5                # сдвиг плавно, по ~45 м
+    L = L + sh; Rr = Rr + sh; tot += sh
+sh = tot
+print('сдвиг коридора под нитку: на %d станциях из %d, наибольший %+.1f м' % ((abs(sh) > 0.1).sum(), len(S), sh[np.argmax(abs(sh))]))
 open('edges.tsv', 'w').write('S\tL\tR\tsrc\n' + ''.join('%.1f\t%.2f\t%.2f\t%s\n' % (s, l, r, c) for s, l, r, c in zip(S, L, Rr, src)))
 w = L - Rr; print('edges.tsv: ширина медиана %.1f (мин %.1f, макс %.1f); поправок %d станций' % (np.median(w), w.min(), w.max(), src.count('fix')))
