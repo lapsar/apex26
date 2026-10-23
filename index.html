@@ -235,7 +235,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.17.0</div>
+    <div class="verstamp">v1.17.1</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -4637,7 +4637,27 @@ const SCENERY_MONACO = {
   ],
 };
 
-const SCENERY_BY_KEY={Silverstone:SCENERY_SILVERSTONE,Monza:SCENERY_MONZA,Montreal:SCENERY_MONTREAL,Miami:SCENERY_MIAMI,Hungaroring:SCENERY_HUNGARORING,Monaco:SCENERY_MONACO};
+/* БАКУ, этап 1 (v1.17.1): выезды-ловушки и асфальт под ними. Строки считает tools/baku-scan/walls.py
+   (повторный запуск заменяет блок). Глубина выездов — по онбоарду поула 2026 глазом: снимков дня гонки нет. */
+const SCENERY_BAKU = {
+  wallOut: [
+    {corner:'T1', side:'R', by:14, ramp:24, fromS:160, toS:262, fromLatLon:[40.373111,49.854672], toLatLon:[40.373797,49.854928]},   // кадры 29–34: прямо по ходу открытая площадь Азадлыг, стена Qatar Airways вдали
+    {corner:'T2', side:'R', by:10, ramp:24, fromS:505, toS:590, fromLatLon:[40.375811,49.853788], toLatLon:[40.376018,49.853056]},   // кадры 55–59: улица прямо, стена Formula 1 / Pirelli в конце
+    {corner:'T3', side:'R', by:8, ramp:21, fromS:1385, toS:1455, fromLatLon:[40.373196,49.844439], toLatLon:[40.372684,49.844286]},   // кадры 108–112: короткий выезд прямо, жёлтая стена Pirelli
+    {corner:'T4', side:'L', by:10, ramp:24, fromS:1600, toS:1680, fromLatLon:[40.371478,49.844954], toLatLon:[40.370958,49.844619]},   // кадры 130–134: улица прямо, стена crypto.com вдали
+    {corner:'T15', side:'R', by:10, ramp:24, fromS:3585, toS:3665, fromLatLon:[40.364297,49.831050], toLatLon:[40.363778,49.831514]},   // кадры 293–297: полоса прямо, стена Formula 1 справа в конце
+    {corner:'T16', side:'R', by:16, ramp:24, fromS:3935, toS:4032, fromLatLon:[40.362654,49.834340], toLatLon:[40.363016,49.835133]},   // кадры 328–332: площадь прямо, трибуна American Express за стеной
+  ],
+  runoff: [   // покрытие выездов: асфальт до стены
+    {corner:'T1', fromS:160, toS:262, side:'R', type:'tint', width:60, color:'#80838a', fromLatLon:[40.373111,49.854672], toLatLon:[40.373797,49.854928]},
+    {corner:'T2', fromS:505, toS:590, side:'R', type:'tint', width:60, color:'#80838a', fromLatLon:[40.375811,49.853788], toLatLon:[40.376018,49.853056]},
+    {corner:'T3', fromS:1385, toS:1455, side:'R', type:'tint', width:60, color:'#80838a', fromLatLon:[40.373196,49.844439], toLatLon:[40.372684,49.844286]},
+    {corner:'T4', fromS:1600, toS:1680, side:'L', type:'tint', width:60, color:'#80838a', fromLatLon:[40.371478,49.844954], toLatLon:[40.370958,49.844619]},
+    {corner:'T15', fromS:3585, toS:3665, side:'R', type:'tint', width:60, color:'#80838a', fromLatLon:[40.364297,49.831050], toLatLon:[40.363778,49.831514]},
+    {corner:'T16', fromS:3935, toS:4032, side:'R', type:'tint', width:60, color:'#80838a', fromLatLon:[40.362654,49.834340], toLatLon:[40.363016,49.835133]},
+  ],
+};
+const SCENERY_BY_KEY={Silverstone:SCENERY_SILVERSTONE,Monza:SCENERY_MONZA,Montreal:SCENERY_MONTREAL,Miami:SCENERY_MIAMI,Hungaroring:SCENERY_HUNGARORING,Monaco:SCENERY_MONACO,Baku:SCENERY_BAKU};
 const STRAIGHTEN_STANDS={Monza:true,Silverstone:['Becketts'],Miami:true,Monaco:['A1']};   // Monaco A1 (v1.16.35): inside Sainte-Devote the arc folded into an arm   // true = every folding stand; a list = only those (Silverstone's others were fine as arcs). Montreal has none: the one stand that folded (Podium Club) turned out to be a hospitality box, not a grandstand, and was dropped
 const SCEN_ORIGIN={                                            // contour means, exactly as mktracks.py computes them
   Silverstone:{lat0:52.071772149,lon0:-1.016357694,mlon:68425.496628},
