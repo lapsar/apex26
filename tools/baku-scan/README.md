@@ -89,5 +89,8 @@
 | `city.py [index.html]` | крепостная стена (по границе района «İçəri Şəhər») и дома OSM участка S 1990–4620 → блок «Старый город» в `SCENERY_BAKU` (`boxesOff`, `buildings`); повторный запуск заменяет блок, `walls.py` его сохраняет |
 | `povcmp.js` | `CHROME=…` — другой Chromium (в этой среде `/opt/pw-browsers/chromium-1243/chrome-linux64/chrome`) |
 
+**v1.17.4:** `city.py` — дома OSM вдоль всего круга (`CITY`, блок «Город»), серых коробок нет нигде (`boxesOff` на весь круг);
+стеклянные башни и Дом правительства — свои цвета (`OVER`).
+
 Реклама — ключ `railAds` в spec Баку (зоны — tracks/baku.md), полосы — общая таблица `RAIL_ADS`.
 Порядок: `node dump-wall.js && python3 city.py`, затем `node tools/run-all.js --only=print,load,clear,materials,solid,wall`.
