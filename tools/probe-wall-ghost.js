@@ -30,23 +30,31 @@ const STEP = 0.01, NEAR_TOL = 0.10, UNDER_TOL = 0.25;
 const SRC = `(function(){var M=track.M,o={segs:0,flip:0,flipS:[],pts:0,ghost:0,gw:0,gS:'',under:0,uw:0,uS:'',dir:0,dS:''};
  if(typeof wallPoint!=='function')return {nofn:1};
  /* нарисованная стена: отрезки [ax,az,bx,bz,j,sg] (j — точка осевой, к которой относится кусок) */
- var SEG=[];for(var sg of [-1,1]){var V=sg>0?track.VR:track.VL,W=sg>0?track.WR:track.WL;if(!W)continue;
+ /* PK — куски кармана по форме улицы (path, v1.17.9) */
+ var SEG=[],PK=new Set();for(var sg of [-1,1]){var V=sg>0?track.VR:track.VL,W=sg>0?track.WR:track.WL;if(!W)continue;
   var pt=function(j){return [track.P[j].x+track.R[j].x*sg*W[j],track.P[j].z+track.R[j].z*sg*W[j]];};
   for(var j=0;j<M;j++){var j2=(j+1)%M;if(V&&!V[j])continue;if(!V||V[j2]){var A=pt(j),B=pt(j2);SEG.push([A[0],A[1],B[0],B[1],j,sg]);continue;}
    var len=0;while(len<M&&!V[(j2+len)%M])len++;var path=spanPath(sg,W,j2,len);
-   for(var q=0;q+1<path.length;q++){var jj=(j+Math.round(q/(path.length-1)*(len+1)))%M;SEG.push([path[q][0],path[q][1],path[q+1][0],path[q+1][1],jj,sg]);}}}
+   var pk=track.gapPathAt&&track.gapPathAt[sg>0?'R':'L'][j2]>=0;
+   for(var q=0;q+1<path.length;q++){var jj=(j+Math.round(q/(path.length-1)*(len+1)))%M;if(pk)PK.add(SEG.length);SEG.push([path[q][0],path[q][1],path[q+1][0],path[q+1][1],jj,sg]);}}}
  /* ближайшая точка осевой — по всей трассе */
  var PG={};for(var i=0;i<M;i++){var k=Math.floor(track.P[i].x/16)+','+Math.floor(track.P[i].z/16);(PG[k]=PG[k]||[]).push(i);}
  function nearestP(x,z){var bi=-1,bd=1e18,cx=Math.floor(x/16),cz=Math.floor(z/16);
   for(var rr=1;rr<12&&(bi<0||Math.sqrt(bd)>(rr-1)*16);rr++)for(var a=-rr;a<=rr;a++)for(var b=-rr;b<=rr;b++){var c=PG[(cx+a)+','+(cz+b)];if(!c)continue;
    for(var q=0;q<c.length;q++){var P=track.P[c[q]],d=(P.x-x)*(P.x-x)+(P.z-z)*(P.z-z);if(d<bd){bd=d;bi=c[q];}}}return bi;}
  /* А. нормали отрезков проверки силуэтом */
+ var key=function(a,b,c,d){return a.toFixed(2)+','+b.toFixed(2)+','+c.toFixed(2)+','+d.toFixed(2);},PKK=new Map();
+ PK.forEach(function(n){var s=SEG[n],dx=s[2]-s[0],dz=s[3]-s[1],l=Math.hypot(dx,dz);if(l>1e-6)PKK.set(key(s[0],s[1],s[2],s[3]),s[5]>0?[dz/l,-dx/l]:[-dz/l,dx/l]);});
  var seen=new Set();track.segGrid.forEach(function(c){c.forEach(function(s){if(seen.has(s))return;seen.add(s);o.segs++;
   var mx=(s[0]+s[2])/2,mz=(s[1]+s[3])/2,bi=nearestP(mx,mz);if(bi<0)return;var P=track.P[bi];
-  if((P.x-mx)*s[4]+(P.z-mz)*s[5]<0){o.flip++;if(o.flipS.length<6)o.flipS.push(Math.round(track.S[bi]));}});});
+  var pn=PKK.get(key(s[0],s[1],s[2],s[3]));   // кусок кармана: нормаль — по обходу, а не к ближайшей точке осевой (v1.17.9)
+  if(pn?(pn[0]*s[4]+pn[1]*s[5]<0.99):((P.x-mx)*s[4]+(P.z-mz)*s[5]<0)){o.flip++;if(o.flipS.length<6)o.flipS.push(Math.round(track.S[bi]));}});});
  /* Б. проход вдоль нарисованной стены */
  var SG={};SEG.forEach(function(s,n){var dx=s[2]-s[0],dz=s[3]-s[1],l=Math.hypot(dx,dz);s.push(l);if(l<1e-6){s.push(0,0);return;}
-  var mx=(s[0]+s[2])/2,mz=(s[1]+s[3])/2,P=track.P[nearestP(mx,mz)],nx=-dz/l,nz=dx/l;if((P.x-mx)*nx+(P.z-mz)*nz<0){nx=-nx;nz=-nz;}s.push(nx,nz);
+  var mx=(s[0]+s[2])/2,mz=(s[1]+s[3])/2,P=track.P[nearestP(mx,mz)],nx=-dz/l,nz=dx/l;if((P.x-mx)*nx+(P.z-mz)*nz<0){nx=-nx;nz=-nz;}
+  /* стены кармана смотрят внутрь кармана, осевая — за углом: сторона дороги по обходу (справа — слева от хода), как в игре (v1.17.9) */
+  if(PK.has(n)){nx=s[5]>0?dz/l:-dz/l;nz=s[5]>0?-dx/l:dx/l;}
+  s.push(nx,nz);
   for(var q=0,st=Math.ceil(l/2);q<=st;q++){var k=Math.floor((s[0]+dx*q/st)/4)+','+Math.floor((s[1]+dz*q/st)/4);var c=SG[k]||(SG[k]=[]);if(c[c.length-1]!==n)c.push(n);}});
  var NR=[0,0,0];   // расстояние до нарисованной стены со знаком (+ — со стороны дороги), отрезок, ближайшая точка
  function near(x,z){var gx=Math.floor(x/4),gz=Math.floor(z/4),bd=1e9,bs=-1,bx=0,bz=0;

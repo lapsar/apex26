@@ -1,0 +1,162 @@
+"""Выезды Баку по форме улиц (v1.17.9, вариант (б) владельца 24.10.2026). Карман — устье улицы прямо по ходу: стена подхода идёт
+дальше прямо (линия улицы), барьер стоит поперёк улицы, назад — по другой стороне улицы (фасад дома с отступом FAC или стена выходной
+ноги). Вместо серпа v1.17.1, который отодвигал стену по нормали к осевой и заходил в дома (T2 — 42 % кармана в домах OSM).
+
+Глубина — прежняя, по онбоарду (by v1.17.1): барьер в by+1 м за КРОМКОЙ выходной ноги, мерить по ходу подхода (где кромку выходной
+ноги продолжить назад до линии подхода). Барьер — поперёк хода подхода; там, где поворот ~90° и барьер выходит параллелен выходной
+ноге (T1, T2, T16), карман закрывает сторона улицы: фасад (T2), край проспекта (T1), прямой отрезок к стене выходной ноги (T16).
+
+Точки — координаты игры (x на запад, z на север, метры от SCEN_ORIGIN.Baku); дома — вершины OSM (id в комментарии), стены — HW+1 по
+wall.json (HW и осевая от выездов не зависят). Участок fromS..toS — где лента стены прячется: стена идёт A → path → B, где A и B —
+обычная стена (кромка + 1 м) в точках fromS и toS. Проверка — pocket-plan.py (план сверху) и pockets.py --check (не на полотне,
+не в домах OSM). Пишет в игру walls.py.
+    python3 pockets.py --check"""
+import json, math, os, sys
+LAT0, LON0, MLON = 40.369617792, 49.842235950, 84812.690739
+HERE = os.path.dirname(os.path.abspath(__file__))
+FAC = 1.0                                   # отступ стены кармана от фасада: city.py режет дома по стене + 1 м — дом остаётся целым
+def xz(lat, lon): return (-(lon - LON0) * MLON, (lat - LAT0) * 110540)
+def ll(x, z): return (LAT0 + z / 110540, LON0 - x / MLON)
+
+_W = None
+def _wall():
+    global _W
+    if _W is None: _W = json.load(open(os.path.join(HERE, 'wall.json')))
+    return _W
+def st(S):
+    W = _wall(); return min(range(len(W['S'])), key=lambda q: abs(W['S'][q] - S))
+def pt(S, side, off):
+    """точка на off м за осевой (side 'R'/'L'), off может быть 'w' — обычная стена HW+1, 'e' — кромка HW"""
+    W = _wall(); q = st(S); sg = 1 if side == 'R' else -1
+    o = W['HW'][q] + (1.0 if off == 'w' else 0.0 if off == 'e' else off)
+    return (W['P'][q][0] + W['R'][q][0] * sg * o, W['P'][q][1] + W['R'][q][1] * sg * o)
+def unit(a, b):
+    d = (b[0] - a[0], b[1] - a[1]); l = math.hypot(*d); return (d[0] / l, d[1] / l)
+def line(a, b): return (a, unit(a, b))                      # прямая через две точки: (точка, единичное направление)
+def shift(L, off, toward):
+    """прямая, сдвинутая на off м в сторону точки toward"""
+    (p, d) = L; n = (-d[1], d[0])
+    if (toward[0] - p[0]) * n[0] + (toward[1] - p[1]) * n[1] < 0: n = (-n[0], -n[1])
+    return ((p[0] + n[0] * off, p[1] + n[1] * off), d)
+def cross(L1, L2):
+    (p, d), (q, e) = L1, L2; den = d[0] * e[1] - d[1] * e[0]
+    t = ((q[0] - p[0]) * e[1] - (q[1] - p[1]) * e[0]) / den
+    return (p[0] + d[0] * t, p[1] + d[1] * t)
+def go(p, d, t): return (p[0] + d[0] * t, p[1] + d[1] * t)
+def perp(d): return (-d[1], d[0])
+
+
+def barrier(app, exit_edge, depth):
+    """барьер поперёк хода подхода в depth м за кромкой выходной ноги (по ходу подхода): прямая"""
+    X = cross(app, exit_edge); d = app[1]
+    return (go(X, d, depth), perp(d))
+
+
+def design():
+    P = {}
+    # T1 (S 208, правый выход): подход по проспекту Нефтяников на восток-северо-восток, поворот налево на север. Прямо — сам проспект
+    # (асфальт 30+ м), площадь Азадлыг. Барьер поперёк проспекта в 15 м за кромкой выхода; север кармана — край проезжей части
+    # проспекта (снимок, асфальт OSM), оттуда — к стене выхода.
+    app = line(pt(140, 'R', 'w'), pt(168, 'R', 'w')); ex = line(pt(240, 'R', 'e'), pt(260, 'R', 'e'))
+    bar = barrier(app, ex, 14 + 1)
+    E1 = cross(app, bar); E2 = go(E1, bar[1], -38.5 if bar[1][1] < 0 else 38.5)
+    P['T1'] = dict(fromS=168, toS=252, path=[E1, E2])
+    # T2 (S 544): подход на северо-северо-запад, налево на запад-юго-запад. Прямо — улица на север между домами 286018684
+    # (его угол — на продолжении стены подхода) и 286018693; барьер поперёк неё в 11 м за кромкой выхода; запад кармана — восточный
+    # фасад 286018693 (отступ FAC), его угол — к стене выхода.
+    app = line(pt(508, 'R', 'w'), pt(528, 'R', 'w')); ex = line(pt(564, 'R', 'e'), pt(580, 'R', 'e'))
+    fe = ((-942.9, 729.6), unit((-942.9, 729.6), (-937.5, 742.7)))           # 286018693, восточный фасад
+    fs = ((-942.9, 729.6), unit((-942.9, 729.6), (-901.1, 712.4)))           # 286018693, южный фасад
+    inside = (-955.0, 735.0)                                                 # точка на улице — в какую сторону отступ
+    fe, fs = shift(fe, FAC, inside), shift(fs, FAC, pt(560, 'R', 'e'))
+    bar = barrier(app, ex, 10 + 1)
+    P['T2'] = dict(fromS=528, toS=568, path=[cross(app, bar), cross(bar, fe), cross(fe, fs)])
+    # T3 (S 1417): подход на запад-юго-запад, налево на юг. Прямо — улица на запад между домом 191041230 (OSM) и белым домом
+    # к югу (на снимке, в OSM нет; северный фасад z 366.9, угол x −146.6). Стена подхода прямо до барьера; барьер — вдоль хода
+    # выхода, у угла 191041230 (не ближе FAC+1.4), в 8 м за кромкой выхода — короткий выезд, как на онбоарде; юг — фасад белого дома.
+    app = line(pt(1385, 'R', 'w'), pt(1397, 'R', 'w'))
+    E1 = (-146.8, app[0][1] + app[1][1] * ((-146.8 - app[0][0]) / app[1][0]))
+    P['T3'] = dict(fromS=1393, toS=1425, path=[E1, (-147.8, 366.9 + FAC)])
+    # T4 (S 1637, левый выход): подход на юго-юго-восток, направо на запад-юго-запад. Прямо — проспект Бюльбюля между домом 152192129
+    # (его восточный фасад, отступ FAC) и домом Cool Bears (465973262, в 6 м за стеной подхода). Барьер поперёк в 11 м за кромкой выхода.
+    app = line(pt(1601, 'L', 'w'), pt(1617, 'L', 'w')); ex = line(pt(1649, 'L', 'e'), pt(1665, 'L', 'e'))
+    c = (-241.8, 151.3)                                                      # 152192129, северо-восточный угол
+    fe = shift((c, unit(c, (-275.9, 72.9))), FAC, (-255.0, 150.0))
+    fn = shift((c, unit(c, (-207.9, 136.8))), FAC, (-230.0, 160.0))
+    bar = barrier(app, ex, 10 + 1)
+    P['T4'] = dict(fromS=1617, toS=1649, path=[cross(app, bar), cross(bar, fe), cross(fe, fn)])
+    # T15 (S 3621): подход на юг, налево на восток-юго-восток. Прямо — стена подхода (Formula 1) дальше прямо, барьер поперёк
+    # (Lenovo) в 11 м за кромкой выхода переходит в стену выхода (кадры 295–297). Venesiya Plaza — за стеной подхода, цела.
+    app = line(pt(3589, 'R', 'w'), pt(3613, 'R', 'w')); ex = line(pt(3641, 'R', 'e'), pt(3661, 'R', 'e'))
+    bar = barrier(app, ex, 10 + 1)
+    exw = line(pt(3641, 'R', 'w'), pt(3661, 'R', 'w'))
+    P['T15'] = dict(fromS=3613, toS=3645, path=[cross(app, bar), cross(bar, exw)])
+    # T16 (S 3977): подход на восток-юго-восток вдоль SOCAR, налево на северо-северо-восток. Прямо — площадь к кольцу Азнефть.
+    # Барьер поперёк в 17 м за кромкой выхода, 28 м длиной (не до кольца), оттуда прямой к стене выхода.
+    app = line(pt(3941, 'R', 'w'), pt(3953, 'R', 'w')); ex = line(pt(4001, 'R', 'e'), pt(4021, 'R', 'e'))
+    bar = barrier(app, ex, 16 + 1)
+    E1 = cross(app, bar); d = bar[1] if bar[1][1] > 0 else (-bar[1][0], -bar[1][1])
+    P['T16'] = dict(fromS=3945, toS=4033, path=[E1, go(E1, d, 28)])
+    return P
+
+
+# corner, at (S для плана), side, by (v1.17.1: глубина по онбоарду), why
+POCKETS = [
+    dict(corner='T1', at=220, side='R', by=14, why='кадры 29–34: прямо по ходу открытая площадь Азадлыг, стена Qatar Airways вдали'),
+    dict(corner='T2', at=550, side='R', by=10, why='кадры 55–59: улица прямо, стена Formula 1 / Pirelli в конце'),
+    dict(corner='T3', at=1420, side='R', by=8, why='кадры 108–112: короткий выезд прямо, жёлтая стена Pirelli'),
+    dict(corner='T4', at=1640, side='L', by=10, why='кадры 130–134: улица прямо, стена crypto.com вдали'),
+    dict(corner='T15', at=3625, side='R', by=10, why='кадры 293–297: стена Formula 1 справа дальше прямо, барьер Lenovo поперёк'),
+    dict(corner='T16', at=3985, side='R', by=16, why='кадры 328–332: площадь прямо, трибуна American Express за стеной'),
+]
+CHAMFER = 2.0                               # м: вогнутый угол кармана (барьер встречает стену улицы) срезан фаской
+
+
+def chamfer(p):
+    """Вогнутый угол (стена поворачивает к дороге) — фаской CHAMFER по обе стороны. Точка корпуса у прямого вогнутого угла
+    в 0.35 м от обеих стен: толчок от ближайшей вдавливает в соседнюю (пробник ghost, T4: «толчок не вывел из стены»)."""
+    A, B = pt(p['fromS'], p['side'], 'w'), pt(p['toS'], p['side'], 'w')
+    q = [A] + list(p['path']) + [B]; out = []
+    for k in range(1, len(q) - 1):
+        d1, d2 = unit(q[k - 1], q[k]), unit(q[k], q[k + 1]); c = d1[0] * d2[1] - d1[1] * d2[0]
+        cave = c < -0.5 if p['side'] == 'R' else c > 0.5          # x на запад: у правой стены поворот к дороге — c < 0
+        l1, l2 = math.dist(q[k - 1], q[k]), math.dist(q[k], q[k + 1])
+        if cave and min(l1, l2) > 2.5 * CHAMFER: out += [go(q[k], d1, -CHAMFER), go(q[k], d2, CHAMFER)]
+        else: out.append(q[k])
+    return out
+
+
+if os.path.exists(os.path.join(HERE, 'wall.json')):
+    for _p, (_k, _d) in zip(POCKETS, sorted(design().items(), key=lambda kv: [p['corner'] for p in POCKETS].index(kv[0]))):
+        _p.update(_d); _p['path'] = [(round(x, 2), round(z, 2)) for x, z in chamfer(_p)]
+
+
+def check():
+    """ломаная кармана: не ближе HW+0.6 к осевой ни в одной точке круга, не в домах OSM (с запасом FAC)"""
+    sys.path.insert(0, HERE); import osm
+    from shapely.geometry import Polygon, LineString, Point
+    W = _wall(); P, R, HW, S = W['P'], W['R'], W['HW'], W['S']; M = len(P)
+    D = osm.load(); N = D['nodes']
+    OB = []
+    for w in D['ways'].values():
+        if 'building' in w['tags'] and w['nodes'][0] == w['nodes'][-1]:
+            pts = [xz(*N[n]) for n in w['nodes'] if n in N]
+            if len(pts) >= 4:
+                g = Polygon(pts).buffer(0)
+                if not g.is_empty: OB.append((w['tags'].get('name', '') or 'w?', g))
+    for p in POCKETS:
+        sg = p['side']; A, B = pt(p['fromS'], sg, 'w'), pt(p['toS'], sg, 'w')
+        ln = LineString([A] + list(p['path']) + [B])
+        near = min((Point(P[q]).distance(ln) - HW[q], S[q]) for q in range(M) if ln.distance(Point(P[q])) < 40)
+        edge = [Point(P[q][0] + R[q][0] * (1 if sg == 'R' else -1) * HW[q], P[q][1] + R[q][1] * (1 if sg == 'R' else -1) * HW[q]) for q in range(st(p['fromS']), st(p['toS']) + 1)]
+        poly = Polygon([(e.x, e.y) for e in edge] + [B] + list(p['path'])[::-1] + [A]).buffer(0)
+        hit = [(nm, round(poly.intersection(g).area, 1)) for nm, g in OB if poly.intersects(g) and poly.intersection(g).area > 0.1]
+        clr = min((ln.distance(g), nm) for nm, g in OB if ln.distance(g) < 30) if any(ln.distance(g) < 30 for nm, g in OB) else (99, '')
+        print('%-4s S%d–%d: ломаная %d точек, %.0f м; до полотна мин. %.2f м (S %.0f); карман %.0f м², в домах OSM %s; до дома %.1f м (%s)'
+              % (p['corner'], p['fromS'], p['toS'], len(p['path']), ln.length, near[0], near[1], poly.area, hit or 0, clr[0], clr[1]))
+
+
+if __name__ == '__main__':
+    if '--check' in sys.argv: check()
+    else:
+        for p in POCKETS: print(p['corner'], p['fromS'], p['toS'], p['path'])
