@@ -6861,6 +6861,17 @@ function groundGeom(bp,bc,C){const G=track.ground;if(!G)return;let tris=0;
     for(const t of f){const a=all[t[0]],b=all[t[1]],c=all[t[2]],up=(b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0])<0;   // грань вверх
       for(const p of up?[a,b,c]:[a,c,b]){bp.push(p[0],GROUND_LIFT,p[1]);bc.push(...cl);}tris++;}});
   track.groundTris=tris;}
+/* Карманы выездов по форме улиц (path, v1.17.9): многоугольник «осевая участка — ломаная стены». Отсев деревьев меряет стену лучом
+   станции (W), а карман уходит за луч — у T4 Баку ствол стоял в кармане в 17 м от осевой, перед стеной (пробник clear). */
+function pocketIn(x,z){if(!track.gapPathAt)return false;
+  if(!track.pocketPolys){const M=track.M,out=[];
+    for(const [sg,W,V,sd] of [[-1,track.WL,track.VL,'L'],[1,track.WR,track.VR,'R']]){if(!V)continue;
+      for(let i=0;i<M;i++){if(V[i]||!V[(i-1+M)%M]||track.gapPathAt[sd][i]<0)continue;let len=0;while(len<M&&!V[(i+len)%M])len++;
+        const F=spanPath(sg,W,i,len).map(p=>[p[0],p[1]]);for(let k=len;k>=-1;k--){const q=track.P[(i+k+M)%M];F.push([q.x,q.z]);}
+        let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;for(const p of F){x0=Math.min(x0,p[0]);x1=Math.max(x1,p[0]);z0=Math.min(z0,p[1]);z1=Math.max(z1,p[1]);}
+        out.push({F,bb:[x0,x1,z0,z1]});}}
+    track.pocketPolys=out;}
+  return track.pocketPolys.some(o=>x>=o.bb[0]&&x<=o.bb[1]&&z>=o.bb[2]&&z<=o.bb[3]&&tunnelInPoly(x,z,o.F));}
 function treesSetup(){track.trees=null;const sc=SCENERY_BY_KEY[track.spec.key];if(!sc||!sc.trees||!SCEN_ORIGIN[track.spec.key])return;
   track.trees=sc.trees.map(t=>{const q=scenXZ(t[0],t[1]);return {x:q[0],z:q[1],k:t[2],r:t[3],h:t[4]};});}
 const TREE_SHIFT=4;          // м: ствол ближе стены + 0.6 м сдвигается за неё, если нужно не больше (v1.16.42: 44 дерева, медиана 1.9 м, наибольший 3.9 — пинии пит-прямой)
@@ -6885,6 +6896,7 @@ function treeGeom(bp,bc,C){const T=track.trees;if(!T||!T.length)return;
     if(harbourIn(x0,z0)&&!harbourHit(track.harbour.deck,x0,z0))return;                       // гавань: только на плите набережной
     if(paddockLaneIn(x0,z0))return;                                                          // не на пит-лейне (v1.16.55)
     if(groundIn(x0,z0,1))return;                                                            // не посреди улицы и не в воде (v1.17.8)
+    if(pocketIn(x0,z0))return;                                                              // не в кармане выезда (v1.17.9)
     if(!harbourIn(x0,z0)&&track.relief&&reliefY(x0,z0)<1)return;                             // море (Mareterra карты не знают)
     let g,gv;
     const road=(x,z)=>{let edge=1e9,ry=0,mv=null;                  // до кромки асфальта по всем ногам; высота полотна там;
