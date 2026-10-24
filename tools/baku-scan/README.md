@@ -87,6 +87,7 @@
 |---|---|
 | `dump-wall.js [файл.json]` | осевая и ПОСТРОЕННЫЙ барьер игры → `wall.json` (порт monaco-scan) |
 | `city.py [index.html]` | крепостная стена (по границе района «İçəri Şəhər») и дома OSM участка S 1990–4620 → блок «Старый город» в `SCENERY_BAKU` (`boxesOff`, `buildings`); повторный запуск заменяет блок, `walls.py` его сохраняет |
+| `streets.py` | виды с улицы вдоль круга: панорамы Яндекса и фото KartaView → `streets.tsv` (S, источник, отступ от осевой, дата, ссылка); 24.10.2026 |
 | `povcmp.js` | `CHROME=…` — другой Chromium (в этой среде `/opt/pw-browsers/chromium-1243/chrome-linux64/chrome`) |
 
 **v1.17.4:** `city.py` — дома OSM вдоль всего круга (`CITY`, блок «Город»), серых коробок нет нигде (`boxesOff` на весь круг);
