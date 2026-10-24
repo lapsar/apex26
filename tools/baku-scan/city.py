@@ -19,9 +19,25 @@ Landmark) — серо-голубое стекло (онбоард, кадры 8
 (w152190481, material=stone) идёт по ней с полукруглыми башнями. Стена — полоса WALL_T м внутрь от границы, высота WALL_H,
 без окон (plain) и с зубцами (crenel), куски по сетке PIECE м (контур дома в игре — без дыр). Ставится только ближе FAR м к осевой.
 Девичья башня (w299418016) — своя высота 29.5 м (OSM, building:part w418164347).
+
+Стиль по району (v1.17.6; OSM вида дома не знает — sources.md): каждый дом получает стиль по месту и этажам, разброс деталей — от
+номера дома OSM (crc32), без случайности. Ключи дома — index.html, «Детали фасада»; кадры KartaView 2019 (streets.tsv) — образец.
+  OLD   — внутри крепостной стены: камень, этаж 3.6 м, окна мелкие и редкие, часть с арками;
+  HIST  — «нефтяной бум» 1880–1914 (по умолчанию вне стены до 8 этажей): известняк, этаж 4.3 м, высокие окна, карниз, пояс,
+          руст первого этажа, витрины у дороги, балконы с решётками рядами, часть окон с арками, на угловых домах у трассы — башенка с куполом;
+  PUBLIC — крупные общественные (government, university, school, hospital, площадь > 2500 м² от 4 этажей): этаж 4.6 м, глубокий карниз, руст;
+  TALL  — от 9 этажей или от 30 м: советские лоджии (балконы почти у всех рядов, светлее) или новый «под старину» (карниз, пояс, руст);
+  стеклянные башни (OVER) — стойки стекла через 1.6 м.
+Высота «нефтяного бума» и общественных — этажи OSM × свой этаж + 1.6 (по 3.2 м исторический дом выходил ниже настоящего на треть);
+без этажей — 14.5 м (три этажа по 4.3). Крыша — цвет летнего снимка ESRI z19 (медиана точек внутри контура).
+
+Узнаваемые здания (v1.17.7, LANDMARK): у трассы — по фото Commons и KartaView 2019 (S 2830–4025), высота, цвет и детали — вручную;
+башня (tower) ставится на самое длинное ребро, смотрящее на трассу; купола (dome:'all') — на все выпуклые углы у трассы.
 """
-import gzip, json, math, os, re, sys
+import gzip, json, math, os, re, sys, zlib
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import tiles
 from shapely.geometry import Polygon, box
 from shapely.ops import unary_union
 
@@ -50,6 +66,7 @@ OVER = {                          # id: (имя, высота м, цвет, plai
 # у замка (S 2640–2717, слева в 5–13 м от осевой — онбоард, кадр 232: стена у самой дороги) и на северной стороне. Как дом она
 # получила бы окна (v1.17.3, первая проба) — ставится стеной: без окон, с зубцами, высота по этажам OSM, вычитается только коридор у стены.
 WALL_BLD = {'w1502989778', 'w1502989779'}
+GLASS = {'w153128834', 'w152192792', 'w200195772'}       # Marriott, Hilton, Landmark-III — стекло (v1.17.6: стойки, без окон проёмами)
 SKIP = set()
 PALETTE = ['#dccaa4', '#d2bd94', '#e2d4b4', '#cdb68c', '#d8c49c', '#c9b28a']   # известняк Баку: песочный, кремовый
 OLD_PALETTE = ['#cbb187', '#c2a77c', '#d3bb92', '#bfa47a']                     # Старый город — темнее, камень
@@ -80,6 +97,132 @@ ZK = [k for k in range(M) if ZONE[0] <= S[k] <= ZONE[1]]
 
 import numpy as np
 _PX, _PZ = np.array([p[0] for p in P]), np.array([p[1] for p in P])
+
+
+LANDMARK = {   # id: (высота м или None — как вышло, ключи); источник — KartaView S…, Commons
+    'w153876698': (24.0, dict(color='#e3d6bb', trim='#efe6d2', panels='#8c5446', rust='#cdbf9f', floor=5.0, winW=0.75, winH=0.6, arch=1,
+                              cornice=0.8, belt=0.3, pil=1, mansard='#4e5358', tower='auto', tw=(9, 17, 1), domeCol='#5f7f86')),   # Мэрия: часовая башня, красные филёнки (KartaView S 3334–3382; Commons «Mayoralty of Baku main façade, 2015»)
+    'w153876715': (23.0, dict(color='#e6dcc6', trim='#f2ebdc', rust='#d3c6aa', floor=6.0, winW=0.8, winH=0.62, arch=2, pinn=3.5,
+                              cornice=0.4, pil=1)),                                                       # дворец Исмаилия (Президиум НАНА): венецианская готика (KartaView S 2999–3047)
+    'w153876684': (19.0, dict(color='#cdb68e', trim='#dbc8a5', rust='#b9a37c', floor=4.6, winW=0.65, winH=0.58, arch=1, crenel=1,
+                              cornice=0.4, belt=0.25)),                                                   # Институт рукописей: камень, зубцы по верху (Commons «Institute of Manuscripts Baku»)
+    'w152190848': (15.0, dict(color='#e2c46a', trim='#f3e6c2', floor=6.0, winW=1.0, winH=0.62, arch=3, cornice=0.7, pil=1)),   # Филармония: жёлтая, арочные окна (KartaView S 3645–3717)
+    'w196291860': (18.0, dict(color='#d8a596', trim='#ecd6cb', floor=4.3, winW=0.6, winH=0.58, arch=2, cornice=0.5, balc=0.3)),   # Venesiya Plaza: розовая, стрельчатые окна (KartaView S 3598–3622)
+    'w152302601': (None, dict(color='#e9e7e1', trim='#f4f3ef', floor=3.6, winW=0.55, winH=0.6, pil=1, cornice=0.6)),   # Администрация Президента: белая, вертикали (KartaView S 3622–3789)
+    'w152190583': (36.0, dict(color='#d9c39a', trim='#ece0c6', rust='#c2ab81', floor=3.8, winW=0.6, winH=0.58, arch=1, cornice=0.8,
+                              belt=0.3, pil=1, balc=0.3, mansard='#55595e', dome='all', domeCol='#5d6468')),   # Four Seasons: купола на углах, мансарда (KartaView S 3957–4025)
+    'w133641457': (None, dict(color='#dccdae', trim='#ebe1cc', floor=4.6, winW=0.7, winH=0.6, arch=1, cornice=0.8, pil=1)),   # Конституционный суд (у замка)
+}
+HIST_PAL = ['#dcc9a2', '#d4bf96', '#e2d3b1', '#cfb68b', '#d9c49b', '#e6d8ba', '#c9b087']   # известняк «нефтяного бума» (KartaView 2019)
+ACCENT = ['#d8b4a0', '#e2cc8e', '#d9d4c6']           # редкие крашеные фасады: розовый, жёлтый, серо-белый (S 3598, 3622 — KartaView)
+SOV_PAL = ['#d9d6cf', '#cfcac0', '#e0dbd0']           # советские высотки — светлее, серее
+DOMES = ['#6f7d78', '#5d6468', '#7c8580']             # купола: патина, сланец
+FL_OLD, FL_HIST, FL_PUB = 3.6, 4.3, 4.6
+
+
+def hsh(cid, k=0):
+    """0..1 от номера дома OSM — разброс деталей без случайности"""
+    return (zlib.crc32(('%s/%d' % (cid, k)).encode()) & 0xffffff) / 0xffffff
+
+
+def mix(c, f, t='#ffffff'):
+    a = [int(c[i:i + 2], 16) for i in (1, 3, 5)]; b = [int(t[i:i + 2], 16) for i in (1, 3, 5)]
+    return '#%02x%02x%02x' % tuple(round(a[i] + (b[i] - a[i]) * f) for i in range(3))
+
+
+def roof_col(pts):
+    """медиана цвета крыши по летнему снимку ESRI z19 (точки внутри контура, отступ 1 м, шаг 1.5 м)"""
+    g = Polygon(pts).buffer(-1.0)
+    if g.is_empty:
+        g = Polygon(pts)
+    x0, z0, x1, z1 = g.bounds; st = max(1.5, math.sqrt(g.area / 60)); C = []
+    from shapely.geometry import Point
+    z = z0
+    while z <= z1:
+        x = x0
+        while x <= x1:
+            if g.contains(Point(x, z)):
+                C.append(tiles.px(*ll_of(x, z), 'esri', 19))
+            x += st
+        z += st
+    if not C:
+        return None
+    C = sorted(C, key=lambda c: sum(c)); m = C[len(C) // 2]
+    if sum(m) < 3 * 60:                                  # тень соседнего дома — светлее тени
+        m = C[min(len(C) - 1, len(C) * 3 // 4)]
+    return '#%02x%02x%02x' % tuple(min(255, int(v * 1.05)) for v in m)
+
+
+def dome_vertex(pts):
+    """угол дома у трассы для башенки: выпуклый, 60–120°, рёбра от 8 м, ближе 30 м к осевой — ближайший"""
+    n = len(pts); ar = sum(pts[i][0] * pts[(i + 1) % n][1] - pts[(i + 1) % n][0] * pts[i][1] for i in range(n)); best = None
+    for i in range(n):
+        p, a, b = pts[i], pts[i - 1], pts[(i + 1) % n]
+        u = (a[0] - p[0], a[1] - p[1]); v = (b[0] - p[0], b[1] - p[1]); lu, lv = math.hypot(*u), math.hypot(*v)
+        if lu < 8 or lv < 8:
+            continue
+        cr = (p[0] - a[0]) * (b[1] - p[1]) - (p[1] - a[1]) * (b[0] - p[0])
+        if cr * ar <= 0:                                  # вогнутый угол
+            continue
+        ang = math.degrees(math.acos(max(-1, min(1, (u[0] * v[0] + u[1] * v[1]) / lu / lv))))
+        if not 60 <= ang <= 120:
+            continue
+        d = float(np.min(np.hypot(_PX - p[0], _PZ - p[1])))
+        if d <= 30 and (best is None or d < best[0]):
+            best = (d, i)
+    return None if best is None else best[1]
+
+
+def tower_edge(pts):
+    n = len(pts); ar = sum(pts[i][0] * pts[(i + 1) % n][1] - pts[(i + 1) % n][0] * pts[i][1] for i in range(n)); sg = 1 if ar > 0 else -1; best = (0, 0)
+    for i in range(n):
+        a, b = pts[i], pts[(i + 1) % n]; L = math.dist(a, b)
+        if L < 1:
+            continue
+        mx, mz = (a[0] + b[0]) / 2, (a[1] + b[1]) / 2; nx, nz = (b[1] - a[1]) / L * sg, -(b[0] - a[0]) / L * sg
+        k = int(np.argmin(np.hypot(_PX - mx, _PZ - mz))); dx, dz = _PX[k] - mx, _PZ[k] - mz; dl = math.hypot(dx, dz) or 1
+        if (nx * dx + nz * dz) / dl > 0.5 and L > best[0]:
+            best = (L, i)
+    return best[1]
+
+
+def dome_all(pts):
+    """все выпуклые углы 60–120° ближе 40 м к осевой"""
+    n = len(pts); ar = sum(pts[i][0] * pts[(i + 1) % n][1] - pts[(i + 1) % n][0] * pts[i][1] for i in range(n)); out = []
+    for i in range(n):
+        p, a, b = pts[i], pts[i - 1], pts[(i + 1) % n]
+        u = (a[0] - p[0], a[1] - p[1]); v = (b[0] - p[0], b[1] - p[1]); lu, lv = math.hypot(*u), math.hypot(*v)
+        if lu < 6 or lv < 6 or ((p[0] - a[0]) * (b[1] - p[1]) - (p[1] - a[1]) * (b[0] - p[0])) * ar <= 0:
+            continue
+        ang = math.degrees(math.acos(max(-1, min(1, (u[0] * v[0] + u[1] * v[1]) / lu / lv))))
+        if 60 <= ang <= 120 and float(np.min(np.hypot(_PX - p[0], _PZ - p[1]))) <= 40:
+            out.append(i)
+    return out
+
+
+def style(cid, tags, inside, lv, hh, area_):
+    """стиль дома по месту и этажам → (высота, цвет, ключи деталей)"""
+    bt = tags.get('building', '')
+    if inside:
+        return (lv * FL_OLD + 1 if lv else hh), OLD_PALETTE[int(hsh(cid) * len(OLD_PALETTE))], dict(
+            floor=FL_OLD, winW=0.45, winH=0.42, winGap=4.2, arch=1 if hsh(cid, 1) < 0.35 else 0, cornice=0.25 if hsh(cid, 2) < 0.5 else 0)
+    if (lv and lv >= 9) or hh >= 30:
+        if hsh(cid, 3) < 0.5:                             # советская высотка с лоджиями
+            return hh, SOV_PAL[int(hsh(cid) * len(SOV_PAL))], dict(winW=0.7, winH=0.5, balc=0.85)
+        c = HIST_PAL[int(hsh(cid) * len(HIST_PAL))]       # новый «под старину» (Нефтчиляр)
+        return hh, c, dict(cornice=0.6, belt=0.25, rust=mix(c, 0.15, '#000000'), balc=0.3, winW=0.65, winH=0.55, trim=mix(c, 0.25))
+    if bt in ('government', 'university', 'school', 'hospital', 'college') or (area_ > 2500 and (lv or 0) >= 4):
+        c = HIST_PAL[int(hsh(cid) * len(HIST_PAL))]
+        return (lv * FL_PUB + 1.6 if lv else max(hh, 16.0)), c, dict(
+            floor=FL_PUB, winW=0.7, winH=0.6, cornice=0.85, belt=0.3, rust=mix(c, 0.18, '#000000'), trim=mix(c, 0.25),
+            arch=1 if hsh(cid, 1) < 0.3 else 0)
+    c = ACCENT[int(hsh(cid, 4) * len(ACCENT))] if hsh(cid, 5) < 0.08 else HIST_PAL[int(hsh(cid) * len(HIST_PAL))]
+    h = lv * FL_HIST + 1.6 if lv else (6 if area_ < 300 else 14.5)
+    k = dict(floor=FL_HIST, winW=0.6, winH=0.58, cornice=0.6, trim=mix(c, 0.25), shop=1, balc=round(0.25 + 0.35 * hsh(cid, 6), 2),
+             arch=1 if hsh(cid, 1) < 0.4 else 0, belt=0.25 if hsh(cid, 7) < 0.8 else 0, rust=mix(c, 0.15, '#000000') if hsh(cid, 8) < 0.6 else 0)
+    if h < 8:
+        k = dict(floor=FL_HIST, winW=0.6, winH=0.58, cornice=0.4, trim=mix(c, 0.25))
+    return h, c, k
 
 
 def near_zone(pts):
@@ -145,6 +288,7 @@ for k, r in RL.items():
 
 rows = []
 for cid, tags, ll in cands:
+    lv = None
     if len(ll) < 4 or tags.get('building') in ('roof', 'carport') or int(tags.get('layer', '0') or 0) < 0 or cid in SKIP:
         continue
     if ll[0] == ll[-1]:
@@ -173,17 +317,42 @@ for cid, tags, ll in cands:
             hh = float(tags.get('height', '').replace('m', '').strip())
         except ValueError:
             hh = None
+        try:
+            lv = float(tags.get('building:levels', '').replace(',', '.'))
+        except ValueError:
+            lv = None
+        ht = hh
         if not hh:
-            try:
-                lv = float(tags.get('building:levels', '').replace(',', '.'))
-            except ValueError:
-                lv = None
             hh = lv * 3.2 + 1 if lv else OLD_H if inside else (6 if area(pts) < 300 else 12)
-        pal = OLD_PALETTE if inside else PALETTE
-        col = pal[sum(1 for r in rows if r['inside'] == inside) % len(pal)]
+        hs, col, sk = style(cid, tags, inside, lv, hh, area(pts))
+        if not ht:                                         # высота OSM (height) — как есть; по этажам — своим этажом стиля (v1.17.6)
+            hh = hs
+    if cid in LANDMARK:                                    # узнаваемое здание — вручную по фото (v1.17.7)
+        lh, lk = LANDMARK[cid]; sk = dict(lk); col = sk.pop('color')
+        if lh:
+            hh = lh
+    elif wb or plain:
+        sk = {}
+    elif cid in OVER:                                      # стеклянные башни — стойки стекла; Дом правительства — общественный
+        sk = dict(glass=1.6, trim='#c9d3d8') if cid in GLASS else dict(
+            floor=FL_PUB, winW=0.7, winH=0.6, cornice=0.85, belt=0.3, rust=mix(col, 0.18, '#000000'), trim=mix(col, 0.25), arch=1)
     for j, cp in enumerate(parts):
+        k = dict(sk)
+        if k.get('shop') and lv and lv >= 3 and hsh(cid, 9 + j) < 0.45:   # башенка с куполом на углу у трассы (KartaView S 3957–4025)
+            dv = dome_vertex(cp)
+            if dv is not None:
+                k['dome'] = [dv]; k['domeCol'] = DOMES[int(hsh(cid, 10) * len(DOMES))]
+        if k.get('tower') == 'auto':                       # башня — на самое длинное ребро, смотрящее на трассу
+            k['tower'] = [tower_edge(cp)] + list(k.pop('tw'))
+        if k.get('dome') == 'all':
+            k['dome'] = dome_all(cp)
+            if not k['dome']:
+                k.pop('dome')
+        rc = roof_col(cp) if not wb else None
+        if rc:
+            k['roof'] = rc
         rows.append(dict(id=cid + ('' if len(parts) == 1 else '-%d' % (j + 1)), S=s, d=d, name=name, h=hh, col=col, plain=plain,
-                         inside=inside, wb=wb, pts=cp, tags=tags))
+                         inside=inside, wb=wb, pts=cp, tags=tags, sk=k))
 
 rows.sort(key=lambda r: r['S'])
 wall_rows.sort(key=lambda r: r['S'])
@@ -197,7 +366,11 @@ L.append("  buildings: [")
 for r in wall_rows:
     L.append("    {name:'Fortress wall', h:%.1f, color:'%s', band:'%s', plain:1, crenel:1, poly:%s}," % (WALL_H, WALL_COL, WALL_COL, poly(r['pts'])))
 for r in rows:
-    extra = ', plain:1, crenel:1' if r['wb'] else ', plain:1' if r['plain'] else (', win:1' if r['d'] <= NEAR else '')
+    extra = ', plain:1, crenel:1' if r['wb'] else ', plain:1' if r['plain'] else (', win:1' if r['d'] <= NEAR and 'glass' not in r['sk'] else '')
+    for kk, vv in r['sk'].items():                        # детали фасада (v1.17.6): окна и балконы — только у домов с окнами
+        if not vv and vv != 0 or vv == 0 and kk != 'tower' or (kk in ('winW', 'winH', 'winGap', 'balc', 'arch', 'shop', 'rust', 'belt', 'floor') and r['d'] > NEAR and kk != 'floor'):
+            continue
+        extra += ', %s:%s' % (kk, ("'%s'" % vv) if isinstance(vv, str) else json.dumps(vv) if isinstance(vv, list) else ('%g' % vv))
     L.append("    {name:'%s', h:%.1f, color:'%s', band:'%s'%s, poly:%s}," % ((r['name'] or r['id']).replace("'", ''), r['h'], r['col'],
              r['col'] if r['plain'] else '#5f6368', extra, poly(r['pts'])))
 L.append("  ],")

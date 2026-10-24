@@ -87,10 +87,16 @@
 |---|---|
 | `dump-wall.js [файл.json]` | осевая и ПОСТРОЕННЫЙ барьер игры → `wall.json` (порт monaco-scan) |
 | `city.py [index.html]` | крепостная стена (по границе района «İçəri Şəhər») и дома OSM участка S 1990–4620 → блок «Старый город» в `SCENERY_BAKU` (`boxesOff`, `buildings`); повторный запуск заменяет блок, `walls.py` его сохраняет |
-| `povcmp.js` | `CHROME=…` — другой Chromium (в этой среде `/opt/pw-browsers/chromium-1243/chrome-linux64/chrome`) |
+| `osm-trees.py` | деревья OSM (`natural=tree`, теги узлов) → `osm/trees.json` (v1.17.5) |
+| `trees.py [--map] [index.html]` | деревья: кроны летнего снимка ESRI z19 и стволы OSM, без дворов → блок `trees` в `SCENERY_BAKU` (v1.17.5; `--map` — `plans/trees_<S>.jpg`) |
+| `streets.py` | виды с улицы вдоль круга: панорамы Яндекса и фото KartaView → `streets.tsv` (S, источник, отступ от осевой, дата, ссылка); 24.10.2026 |
+| `povcmp.js` | `APEX_INDEX=…` — опытная сборка вместо `index.html`; `CHROME=…` — другой Chromium (в этой среде `/opt/pw-browsers/chromium-1243/chrome-linux64/chrome`) |
 
 **v1.17.4:** `city.py` — дома OSM вдоль всего круга (`CITY`, блок «Город»), серых коробок нет нигде (`boxesOff` на весь круг);
 стеклянные башни и Дом правительства — свои цвета (`OVER`).
+**v1.17.6:** `city.py` — стиль дома по району (`style()`: Старый город, «нефтяной бум», общественные, высотки, стекло), детали фасада ключами
+дома, крыша — цвет летнего снимка ESRI z19 (`roof_col`, тайлы — `tiles/`), угловые башенки (`dome_vertex`).
+**v1.17.7:** `city.py` — узнаваемые здания вручную по фото (`LANDMARK`: высота, цвет, ключи; башня — `tower_edge`, купола на все углы — `dome_all`).
 
 Реклама — ключ `railAds` в spec Баку (зоны — tracks/baku.md), полосы — общая таблица `RAIL_ADS`.
 Порядок: `node dump-wall.js && python3 city.py`, затем `node tools/run-all.js --only=print,load,clear,materials,solid,wall`.

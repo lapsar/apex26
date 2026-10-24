@@ -2,7 +2,7 @@
 // node tools/baku-scan/povcmp.js  -> tools/baku-scan/plans/pov_K.png (сверху онбоард, снизу игра)
 const path = require('path'), fs = require('fs');
 const { chromium } = require('/home/user/apex26/tools/node_modules/playwright');
-const HTML = path.resolve(__dirname, '../../index.html'), CHROME = process.env.CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';   // CHROME=… — другой Chromium
+const HTML = process.env.APEX_INDEX ? path.resolve(process.env.APEX_INDEX) : path.resolve(__dirname, '../../index.html'), CHROME = process.env.CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';   // CHROME=… — другой Chromium; APEX_INDEX=… — опытная сборка
 const DY = +(process.argv[2] || 0), TAGN = process.argv[3] || '', HFOV = +(process.argv[4] || 0);   // HFOV — опыт: горизонтальный угол кадра, градусы   // DY — сдвиг камеры кокпита по высоте, м (опыт)
 const POVS = JSON.parse(fs.readFileSync(path.join(__dirname, 'povs.json')));
 (async () => {
