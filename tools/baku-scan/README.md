@@ -96,6 +96,7 @@
 стеклянные башни и Дом правительства — свои цвета (`OVER`).
 **v1.17.6:** `city.py` — стиль дома по району (`style()`: Старый город, «нефтяной бум», общественные, высотки, стекло), детали фасада ключами
 дома, крыша — цвет летнего снимка ESRI z19 (`roof_col`, тайлы — `tiles/`), угловые башенки (`dome_vertex`).
+**v1.17.7:** `city.py` — узнаваемые здания вручную по фото (`LANDMARK`: высота, цвет, ключи; башня — `tower_edge`, купола на все углы — `dome_all`).
 
 Реклама — ключ `railAds` в spec Баку (зоны — tracks/baku.md), полосы — общая таблица `RAIL_ADS`.
 Порядок: `node dump-wall.js && python3 city.py`, затем `node tools/run-all.js --only=print,load,clear,materials,solid,wall`.

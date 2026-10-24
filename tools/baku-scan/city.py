@@ -30,6 +30,9 @@ Landmark) — серо-голубое стекло (онбоард, кадры 8
   стеклянные башни (OVER) — стойки стекла через 1.6 м.
 Высота «нефтяного бума» и общественных — этажи OSM × свой этаж + 1.6 (по 3.2 м исторический дом выходил ниже настоящего на треть);
 без этажей — 14.5 м (три этажа по 4.3). Крыша — цвет летнего снимка ESRI z19 (медиана точек внутри контура).
+
+Узнаваемые здания (v1.17.7, LANDMARK): у трассы — по фото Commons и KartaView 2019 (S 2830–4025), высота, цвет и детали — вручную;
+башня (tower) ставится на самое длинное ребро, смотрящее на трассу; купола (dome:'all') — на все выпуклые углы у трассы.
 """
 import gzip, json, math, os, re, sys, zlib
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -96,6 +99,20 @@ import numpy as np
 _PX, _PZ = np.array([p[0] for p in P]), np.array([p[1] for p in P])
 
 
+LANDMARK = {   # id: (высота м или None — как вышло, ключи); источник — KartaView S…, Commons
+    'w153876698': (24.0, dict(color='#e3d6bb', trim='#efe6d2', panels='#8c5446', rust='#cdbf9f', floor=5.0, winW=0.75, winH=0.6, arch=1,
+                              cornice=0.8, belt=0.3, pil=1, mansard='#4e5358', tower='auto', tw=(9, 17, 1), domeCol='#5f7f86')),   # Мэрия: часовая башня, красные филёнки (KartaView S 3334–3382; Commons «Mayoralty of Baku main façade, 2015»)
+    'w153876715': (23.0, dict(color='#e6dcc6', trim='#f2ebdc', rust='#d3c6aa', floor=6.0, winW=0.8, winH=0.62, arch=2, pinn=3.5,
+                              cornice=0.4, pil=1)),                                                       # дворец Исмаилия (Президиум НАНА): венецианская готика (KartaView S 2999–3047)
+    'w153876684': (19.0, dict(color='#cdb68e', trim='#dbc8a5', rust='#b9a37c', floor=4.6, winW=0.65, winH=0.58, arch=1, crenel=1,
+                              cornice=0.4, belt=0.25)),                                                   # Институт рукописей: камень, зубцы по верху (Commons «Institute of Manuscripts Baku»)
+    'w152190848': (15.0, dict(color='#e2c46a', trim='#f3e6c2', floor=6.0, winW=1.0, winH=0.62, arch=3, cornice=0.7, pil=1)),   # Филармония: жёлтая, арочные окна (KartaView S 3645–3717)
+    'w196291860': (18.0, dict(color='#d8a596', trim='#ecd6cb', floor=4.3, winW=0.6, winH=0.58, arch=2, cornice=0.5, balc=0.3)),   # Venesiya Plaza: розовая, стрельчатые окна (KartaView S 3598–3622)
+    'w152302601': (None, dict(color='#e9e7e1', trim='#f4f3ef', floor=3.6, winW=0.55, winH=0.6, pil=1, cornice=0.6)),   # Администрация Президента: белая, вертикали (KartaView S 3622–3789)
+    'w152190583': (36.0, dict(color='#d9c39a', trim='#ece0c6', rust='#c2ab81', floor=3.8, winW=0.6, winH=0.58, arch=1, cornice=0.8,
+                              belt=0.3, pil=1, balc=0.3, mansard='#55595e', dome='all', domeCol='#5d6468')),   # Four Seasons: купола на углах, мансарда (KartaView S 3957–4025)
+    'w133641457': (None, dict(color='#dccdae', trim='#ebe1cc', floor=4.6, winW=0.7, winH=0.6, arch=1, cornice=0.8, pil=1)),   # Конституционный суд (у замка)
+}
 HIST_PAL = ['#dcc9a2', '#d4bf96', '#e2d3b1', '#cfb68b', '#d9c49b', '#e6d8ba', '#c9b087']   # известняк «нефтяного бума» (KartaView 2019)
 ACCENT = ['#d8b4a0', '#e2cc8e', '#d9d4c6']           # редкие крашеные фасады: розовый, жёлтый, серо-белый (S 3598, 3622 — KartaView)
 SOV_PAL = ['#d9d6cf', '#cfcac0', '#e0dbd0']           # советские высотки — светлее, серее
@@ -154,6 +171,33 @@ def dome_vertex(pts):
         if d <= 30 and (best is None or d < best[0]):
             best = (d, i)
     return None if best is None else best[1]
+
+
+def tower_edge(pts):
+    n = len(pts); ar = sum(pts[i][0] * pts[(i + 1) % n][1] - pts[(i + 1) % n][0] * pts[i][1] for i in range(n)); sg = 1 if ar > 0 else -1; best = (0, 0)
+    for i in range(n):
+        a, b = pts[i], pts[(i + 1) % n]; L = math.dist(a, b)
+        if L < 1:
+            continue
+        mx, mz = (a[0] + b[0]) / 2, (a[1] + b[1]) / 2; nx, nz = (b[1] - a[1]) / L * sg, -(b[0] - a[0]) / L * sg
+        k = int(np.argmin(np.hypot(_PX - mx, _PZ - mz))); dx, dz = _PX[k] - mx, _PZ[k] - mz; dl = math.hypot(dx, dz) or 1
+        if (nx * dx + nz * dz) / dl > 0.5 and L > best[0]:
+            best = (L, i)
+    return best[1]
+
+
+def dome_all(pts):
+    """все выпуклые углы 60–120° ближе 40 м к осевой"""
+    n = len(pts); ar = sum(pts[i][0] * pts[(i + 1) % n][1] - pts[(i + 1) % n][0] * pts[i][1] for i in range(n)); out = []
+    for i in range(n):
+        p, a, b = pts[i], pts[i - 1], pts[(i + 1) % n]
+        u = (a[0] - p[0], a[1] - p[1]); v = (b[0] - p[0], b[1] - p[1]); lu, lv = math.hypot(*u), math.hypot(*v)
+        if lu < 6 or lv < 6 or ((p[0] - a[0]) * (b[1] - p[1]) - (p[1] - a[1]) * (b[0] - p[0])) * ar <= 0:
+            continue
+        ang = math.degrees(math.acos(max(-1, min(1, (u[0] * v[0] + u[1] * v[1]) / lu / lv))))
+        if 60 <= ang <= 120 and float(np.min(np.hypot(_PX - p[0], _PZ - p[1]))) <= 40:
+            out.append(i)
+    return out
 
 
 def style(cid, tags, inside, lv, hh, area_):
@@ -283,7 +327,11 @@ for cid, tags, ll in cands:
         hs, col, sk = style(cid, tags, inside, lv, hh, area(pts))
         if not ht:                                         # высота OSM (height) — как есть; по этажам — своим этажом стиля (v1.17.6)
             hh = hs
-    if wb or plain:
+    if cid in LANDMARK:                                    # узнаваемое здание — вручную по фото (v1.17.7)
+        lh, lk = LANDMARK[cid]; sk = dict(lk); col = sk.pop('color')
+        if lh:
+            hh = lh
+    elif wb or plain:
         sk = {}
     elif cid in OVER:                                      # стеклянные башни — стойки стекла; Дом правительства — общественный
         sk = dict(glass=1.6, trim='#c9d3d8') if cid in GLASS else dict(
@@ -294,6 +342,12 @@ for cid, tags, ll in cands:
             dv = dome_vertex(cp)
             if dv is not None:
                 k['dome'] = [dv]; k['domeCol'] = DOMES[int(hsh(cid, 10) * len(DOMES))]
+        if k.get('tower') == 'auto':                       # башня — на самое длинное ребро, смотрящее на трассу
+            k['tower'] = [tower_edge(cp)] + list(k.pop('tw'))
+        if k.get('dome') == 'all':
+            k['dome'] = dome_all(cp)
+            if not k['dome']:
+                k.pop('dome')
         rc = roof_col(cp) if not wb else None
         if rc:
             k['roof'] = rc
@@ -314,7 +368,7 @@ for r in wall_rows:
 for r in rows:
     extra = ', plain:1, crenel:1' if r['wb'] else ', plain:1' if r['plain'] else (', win:1' if r['d'] <= NEAR and 'glass' not in r['sk'] else '')
     for kk, vv in r['sk'].items():                        # детали фасада (v1.17.6): окна и балконы — только у домов с окнами
-        if not vv or (kk in ('winW', 'winH', 'winGap', 'balc', 'arch', 'shop', 'rust', 'belt', 'floor') and r['d'] > NEAR and kk != 'floor'):
+        if not vv and vv != 0 or vv == 0 and kk != 'tower' or (kk in ('winW', 'winH', 'winGap', 'balc', 'arch', 'shop', 'rust', 'belt', 'floor') and r['d'] > NEAR and kk != 'floor'):
             continue
         extra += ', %s:%s' % (kk, ("'%s'" % vv) if isinstance(vv, str) else json.dumps(vv) if isinstance(vv, list) else ('%g' % vv))
     L.append("    {name:'%s', h:%.1f, color:'%s', band:'%s'%s, poly:%s}," % ((r['name'] or r['id']).replace("'", ''), r['h'], r['col'],
