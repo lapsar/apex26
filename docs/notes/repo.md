@@ -196,7 +196,8 @@ apex26/
 │   ├── v1.17.4.html
 │   ├── v1.17.5.html
 │   ├── v1.17.6.html
-│   └── v1.17.7.html
+│   ├── v1.17.7.html
+│   └── v1.17.8.html
 ├── docs/
 │   ├── BRIEF-model-bolida.md           задание на доводку 3D-модели болида:
 │   │                                   контракт, ограничения r128, бюджет
@@ -610,7 +611,10 @@ apex26/
 │                                   v1.17.5 — деревья (osm-trees.py, trees.py);
 │                                   v1.17.6 — стиль домов по району (city.py);
 │                                   v1.17.7 — узнаваемые здания (LANDMARK в city.py);
-│                                   виды с улицы (streets.py → streets.tsv)
+│                                   виды с улицы (streets.py → streets.tsv);
+    │                                   выезды и трибуны против города (runoffs.py,
+    │                                   runoff-plan.py, stands-trees.py; 24.10.2026)
+    │                                   v1.17.8 — земля города (ground.py)
     ├── monaco-scan/                    замер Монако, этап 0 (v1.16.22): середина
     │                                   дороги по OSM (osmoff.py — ось улицы,
     │                                   sidewalk.py — между тротуарами; снимок
