@@ -90,6 +90,10 @@ for k in range(M):
     a, b = (P[k], RR[k], WL[k], WR[k]), (P[k2], RR[k2], WL[k2], WR[k2])
     _q.append((a, b))
 CORRIDOR = unary_union([Polygon([side(a, -1, CLEAR), side(b, -1, CLEAR), side(b, 1, CLEAR), side(a, 1, CLEAR)]).buffer(0.05) for a, b in _q])
+# карманы выездов по форме улиц (v1.17.9, GAPS из dump-wall.js): ломаная стены и осевая участка — лучи станций кармана целиком не покрывают
+_PK = [Polygon([tuple(t) for t in g['path']] + [tuple(P[k % M]) for k in range(g['to'], g['from'] - (M if g['to'] < g['from'] else 0) - 1, -1)]).buffer(0)
+       for g in W.get('GAPS', []) if g.get('pocket')]
+CORRIDOR = unary_union([CORRIDOR] + [g.buffer(CLEAR) for g in _PK])
 CORRIDOR_W = unary_union([Polygon([side(a, -1, WALL_CLEAR), side(b, -1, WALL_CLEAR), side(b, 1, WALL_CLEAR), side(a, 1, WALL_CLEAR)]).buffer(0.05) for a, b in _q])
 STANDS = unary_union([Polygon(f).buffer(0) for f in W.get('ST', [])])
 ZK = [k for k in range(M) if ZONE[0] <= S[k] <= ZONE[1]]

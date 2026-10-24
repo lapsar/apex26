@@ -118,3 +118,16 @@
 | `ground.py [--map] [index.html]` | вода (Каспий по береговой линии OSM, фонтаны, пруды), асфальт улиц и парковок OSM, газоны OSM минус коридор трассы → блок `groundTex`/`ground` в `SCENERY_BAKU` (повторный запуск заменяет); `--map` — слои поверх снимка ESRI, `plans/ground_<S>.jpg` |
 
 Порядок: `node dump-wall.js && python3 ground.py`. После правки стен (выезды) — перезапустить: коридор берётся из построенного барьера.
+
+## Выезды по форме улиц (v1.17.9)
+
+| Файл | Что делает |
+|---|---|
+| `pockets.py` / `--check` | разметка карманов: стена подхода прямо, барьер поперёк улицы в by+1 м за кромкой выхода, другая сторона улицы — фасад OSM (отступ 1 м) или стена выхода; вогнутые углы — фаской 2 м; `--check` — не на полотне, не в домах OSM |
+| `pocket-plan.py [T2,T4 \| все] [радиус]` | план сверху: снимок ESRI, сетка координат игры через 10 м, ход и S, стена, дома OSM (исходные), асфальт улиц, карман → `plans/pk_<имя>.jpg`; `px2xz()` — пиксель плана → x, z игры |
+| `pocket-shot.js` | из игры: вид сверху строго вниз и кокпит на подъезде, `archive/v1.17.8.html` против `index.html` → `plans/ps_*.png` |
+
+`walls.py` берёт карманы из `pockets.py` (строки `wallOut` с `path`) и ставит `vergeAsphalt` (обочина асфальтом). `dump-wall.js` пишет и ломаные стен
+в разрывах (`GAPS`, у карманов `pocket:true`) — `city.py` и `ground.py` добавляют карман в коридор целиком.
+Порядок: `node dump-wall.js && python3 pockets.py --check && python3 walls.py && node dump-wall.js && python3 city.py && node dump-wall.js && python3 ground.py`,
+затем `node tools/run-all.js --only=ghost,wallvis,solid,wall,squeeze,failroom,retire,print,load,clear`.

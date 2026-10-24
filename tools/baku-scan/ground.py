@@ -47,6 +47,10 @@ def corridor():
         g = Polygon([a[0], a[1], b[1], b[0]]).buffer(0)
         if not g.is_empty and g.area < 2000:                         # шов круга (последняя станция → первая) — тоже квадрат
             q.append(g)
+    for g in W.get('GAPS', []):                                      # карманы выездов по форме улиц (v1.17.9): ломаная стены + осевая участка
+        if not g.get('pocket'): continue
+        ks = [k % M for k in range(g['to'], g['from'] - (M if g['to'] < g['from'] else 0) - 1, -1)]
+        q.append(Polygon([tuple(t) for t in g['path']] + [tuple(P[k]) for k in ks]).buffer(0).buffer(CLEAR))
     return unary_union(q).buffer(0.05)
 
 
