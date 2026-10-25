@@ -141,6 +141,26 @@ def fmt(ring):
     return '[' + ','.join('%.6f,%.6f' % ll(x, z) for x, z in pts) + ']'
 
 
+PIT_S = (5835, 205)   # S: боксы вдоль старт-финиша (въезд — где левая стена сходит с 23 м на 14, выезд — до T1)
+PIT_W = 12.0      # м: пит-лейн (v1.17.12) — ось OSM (роль pit_lane отношения трассы) полосой; кадры трансляции 2026 (tv/): быстрая и рабочая полосы
+
+
+def pitlane(D):
+    """асфальт пит-лейна: от въезда (S ~5840, слева) вдоль боксов до выезда за T1 (S ~290); въезд и выезд у трассы закрыты её стеной"""
+    segs = [LineString(ring_pts(D, D['ways'][ref])).buffer(PIT_W / 2, cap_style=2, join_style=2, mitre_limit=2.0)
+            for t, ref, role in D['rels']['11266687']['members'] if role == 'pit_lane' and ref in D['ways']]
+    # ось OSM вдоль боксов — одна прямая от въезда к выезду, наискось через нашу стену; сам пит-лейн — полоса за левой стеной
+    # старт-финиша до фасада боксов (16–18 м; Wayback 2021): от стены + 0.3 м на PIT_W + 1 м, фасад вычитает city.py (дом целый)
+    S = W['S']; ks = [k for k in range(M) if S[k] >= PIT_S[0] or S[k] <= PIT_S[1]]
+    for i in ks:
+        j = (i + 1) % M
+        if j not in ks: continue
+        a = [(P[k][0] - R[k][0] * (WL[k] + 0.3), P[k][1] - R[k][1] * (WL[k] + 0.3)) for k in (i, j)]
+        b = [(P[k][0] - R[k][0] * (WL[k] + PIT_W + 1), P[k][1] - R[k][1] * (WL[k] + PIT_W + 1)) for k in (i, j)]
+        segs.append(Polygon([a[0], a[1], b[1], b[0]]).buffer(0.05))
+    return unary_union(segs) if segs else Polygon()
+
+
 def main():
     D = osm.load()
     cor = corridor()
@@ -148,7 +168,7 @@ def main():
     near = axis.buffer(NEAR, 16)
     water = unary_union([sea(D), areas(D, lambda t: t.get('natural') == 'water' and t.get('place') != 'sea' or t.get('amenity') == 'fountain'
                                        or t.get('leisure') == 'swimming_pool')])
-    asph = unary_union([roads(D), areas(D, lambda t: t.get('amenity') == 'parking' and t.get('parking') not in ('underground', 'multi-storey'))])
+    asph = unary_union([roads(D), pitlane(D), areas(D, lambda t: t.get('amenity') == 'parking' and t.get('parking') not in ('underground', 'multi-storey'))])
     grass = areas(D, lambda t: t.get('landuse') in ('grass', 'forest', 'meadow', 'village_green') or t.get('leisure') == 'garden')
     water_n = water.difference(cor)
     asph_n = asph.intersection(near).difference(water).difference(cor)

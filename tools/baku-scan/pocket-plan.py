@@ -24,6 +24,8 @@ D = osm.load(); N = D['nodes']
 OB = [[xz(*N[n]) for n in w['nodes'] if n in N] for w in D['ways'].values() if 'building' in w['tags']]
 ROADS = [(w['tags']['highway'], w['tags'].get('name:ru') or w['tags'].get('name', ''), [xz(*N[n]) for n in w['nodes'] if n in N]) for w in D['ways'].values()
          if w['tags'].get('highway') and w['tags']['highway'] not in ('raceway', 'steps', 'cycleway', 'path', 'footway')]
+SRC = os.environ.get('PLAN_SRC', 'esri')   # v1.17.12: PLAN_SRC=wb15423 — Wayback, снимок 16.05.2021 (боксы стоят)
+PIT = [[xz(*N[n]) for n in D['ways'][ref]['nodes'] if n in N] for t, ref, role in D['rels']['11266687']['members'] if role == 'pit_lane' and ref in D['ways']]
 Z = 19; RAD = float(sys.argv[2]) if len(sys.argv) > 2 else 70; OUTPX = 1000
 F = lambda n: ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', n)
 
@@ -36,7 +38,7 @@ def plan(name, Sc, pk, out):
     im = Image.new('RGB', ((x1 - x0 + 1) * 256, (y1 - y0 + 1) * 256))
     for tx in range(x0, x1 + 1):
         for ty in range(y0, y1 + 1):
-            tiles.tile(tx, ty, 'esri', Z); im.paste(Image.open(os.path.join(tiles.TD, 'esri_%d_%d_%d.jpg' % (Z, tx, ty))), ((tx - x0) * 256, (ty - y0) * 256))
+            tiles.tile(tx, ty, SRC, Z); im.paste(Image.open(os.path.join(tiles.TD, '%s_%d_%d_%d.jpg' % (SRC, Z, tx, ty))), ((tx - x0) * 256, (ty - y0) * 256))
     im = Image.blend(im, Image.new('RGB', im.size, 'black'), 0.2)
     c0 = (X * 256 - x0 * 256 - rp, Y * 256 - y0 * 256 - rp); sc = OUTPX / (2 * rp)
     im = im.crop((int(c0[0]), int(c0[1]), int(c0[0] + 2 * rp), int(c0[1] + 2 * rp))).resize((OUTPX, OUTPX))
@@ -52,6 +54,8 @@ def plan(name, Sc, pk, out):
         if len(a) > 2: d.polygon([px(t) for t in a], fill=(60, 120, 255, 45))
     for b in OB:
         if len(b) > 2: d.polygon([px(p) for p in b], fill=(255, 190, 110, 60), outline=(255, 160, 50, 255))
+    for p in PIT:                                                            # пит-лейн OSM (роль pit_lane, v1.17.12) — пурпур
+        d.line([px(t) for t in p], fill=(255, 0, 255, 230), width=3)
     for h, nm, p in ROADS:
         if len(p) > 1: d.line([px(t) for t in p], fill=(90, 170, 255, 200), width=1)
     for sg, Wa in ((1, WR), (-1, WL)):

@@ -21,7 +21,7 @@ for p in pockets.POCKETS:
         rows_w.append("    {corner:'%s', side:'%s', fromS:%d, toS:%d, fromLatLon:[%.6f,%.6f], toLatLon:[%.6f,%.6f], path:[%s]},   // %s"
                       % (n, side, a, b, A[0], A[1], B[0], B[1], pts, why))
     else:
-        rows_w.append("    {corner:'%s', side:'%s', by:%d, ramp:%d, fromS:%d, toS:%d, fromLatLon:[%.6f,%.6f], toLatLon:[%.6f,%.6f]},   // %s"
+        rows_w.append("    {corner:'%s', side:'%s', by:%g, ramp:%d, fromS:%d, toS:%d, fromLatLon:[%.6f,%.6f], toLatLon:[%.6f,%.6f]},   // %s"
                       % (n, side, by, ramp, a, b, A[0], A[1], B[0], B[1], why))
     rows_r.append("    {corner:'%s', fromS:%d, toS:%d, side:'%s', type:'tint', width:60, color:'#80838a', fromLatLon:[%.6f,%.6f], toLatLon:[%.6f,%.6f]},"
                   % (n, a, b, side, A[0], A[1], B[0], B[1]))
