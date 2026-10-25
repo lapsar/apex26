@@ -180,7 +180,8 @@ const STANDS = `(function(){
     var o=sc.objects[n]; if(o.kind!=='grandstand')continue;
     var ob={}; for(var kk in o)ob[kk]=o[kk];
     var g=null, mm=new THREE.MeshBasicMaterial(), mats={crowd:mm,struct:mm,glass:mm};
-    if(o.shape==='arc'&&o.fromLatLon&&o.toLatLon){
+    if(o.front){ g=frontStand(ob,h,mats); }               // трибуна по переднему краю (v1.17.10, Баку) — как строит игра
+    else if(o.shape==='arc'&&o.fromLatLon&&o.toLatLon){
       var a=scenIndexAt(h,o.fromLatLon,o.fromS), b=scenIndexAt(h,o.toLatLon,o.toS);
       var span=(b-a+M)%M; if(span>M/2)continue;
       ob.fromS=track.S[a]; ob.toS=track.S[b];
@@ -272,7 +273,7 @@ const BEHIND_WALL = `(function(){
     /* сборная трибуна (v1.16.38, standStyle.modular у Монако): игра строит её modularStand, а не дугой — меряем то, что
        стоит в игре (до этой правки пробник строил свою дугу и трибуны Монако мерил не те) */
     var SS=sc.standStyle||{};
-    try{ var st=(o.shape==='arc'&&o.fromLatLon&&o.toLatLon)?(SS.modular?modularStand(Object.assign({},ob,{off:o.off,base:ob.base!=null?ob.base:SS.base}),h,mats,SS.gap||0):arcStandFallback(ob,h,mats)):null;
+    try{ var st=o.front?frontStand(ob,h,mats):(o.shape==='arc'&&o.fromLatLon&&o.toLatLon)?(SS.modular?modularStand(Object.assign({},ob,{off:o.off,base:ob.base!=null?ob.base:SS.base}),h,mats,SS.gap||0):arcStandFallback(ob,h,mats)):null;
          g=st||buildSceneryObject(THREE,ob,mats,h);
          if(g&&!st&&o.latLon&&(o.kind==='building'||o.kind==='pit'))clearBehindWall(g,o,ob,h);
     }catch(e){}

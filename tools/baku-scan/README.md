@@ -131,3 +131,10 @@
 в разрывах (`GAPS`, у карманов `pocket:true`) — `city.py` и `ground.py` добавляют карман в коридор целиком.
 Порядок: `node dump-wall.js && python3 pockets.py --check && python3 walls.py && node dump-wall.js && python3 city.py && node dump-wall.js && python3 ground.py`,
 затем `node tools/run-all.js --only=ghost,wallvis,solid,wall,squeeze,failroom,retire,print,load,clear`.
+
+## Площадь T16 (v1.17.10)
+
+`pockets.py`: карман `T16i` — изнутри T16 (сторона L): стена по бордюру автобусного кармана и площади (точки по `pocket-plan.py`,
+`px2xz`); `T16` — барьер у кольца Азнефть. Трибуны AzNeft и Filarmoniya — строки `objects` в `SCENERY_BAKU` руками (ключ `front`,
+точки — по снимку и полигонам `gpg_baku.json`), после них — `node dump-wall.js && python3 city.py && python3 ground.py` (следы трибун и
+новый коридор). Сверка с онбоардом — `povcmp.py 321 327 330 && povcmp.js 0 _n 64` (лист — `docs/notes/img/baku-t16.jpg`).
