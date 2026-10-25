@@ -138,3 +138,30 @@
 `px2xz`); `T16` — барьер у кольца Азнефть. Трибуны AzNeft и Filarmoniya — строки `objects` в `SCENERY_BAKU` руками (ключ `front`,
 точки — по снимку и полигонам `gpg_baku.json`), после них — `node dump-wall.js && python3 city.py && python3 ground.py` (следы трибун и
 новый коридор). Сверка с онбоардом — `povcmp.py 321 327 330 && povcmp.js 0 _n 64` (лист — `docs/notes/img/baku-t16.jpg`).
+
+## Углы по онбоарду (v1.17.11)
+
+| Файл | Что делает |
+|---|---|
+| `kerbs.py [index.html]` | поребрики (ключ `kerbs`) и краска у кромки (`stripes`, `verge:true` — и на обочину до стены) по кадрам онбоарда → блоки в `SCENERY_BAKU` (повторный запуск заменяет) |
+| `overlay.py K[:dh[:dx[:vy]]] …` | план игры на кадре онбоарда: сетка x, z через 10 м, кромки, стена, ломаные карманов (камера 1.28 м, 64°; курс и сдвиг — руками) → `plans/ov_K.jpg` |
+| `look.js top:S:высота[:dx:dz] cock:S[:вбок] pov:K …` | кадры игры: сверху строго вниз, кокпит по осевой, поза онбоарда (`povs.json`) — в сборках `archive/v$OLD.html` и `index.html` → `plans/lk_<сборка>_<вид>.png` |
+| `sheet3.py выход.jpg K …` | лист «онбоард / было / стало» из `plans/game_K_o.png`, `game_K_n.png` (`povcmp.js` с `APEX_INDEX` прошлой сборки) |
+
+`pockets.py`: T1 — барьер в 45 м за кромкой выхода, стена подхода в 2.6 м с S 95; серпы изнутри T6 (`T6i`) и T12 (`T12i`) — строки без `path`
+в конце `POCKETS` (в `design()` их нет). `walls.py` пишет `by` дробным.
+Порядок: `python3 pockets.py --check && python3 walls.py && node dump-wall.js && python3 city.py && node dump-wall.js && python3 ground.py && python3 kerbs.py`.
+
+## Боксы (v1.17.12)
+
+`tiles.py`: источник `wbNNNNN` — выпуск ESRI Wayback (15423 — снимок 16.05.2021, боксы стоят). `pocket-plan.py`: `PLAN_SRC=wb15423`, пит-лейн OSM пурпуром.
+`city.py`: навесы `carport` «Baku City Circuit» — боксы (`PIT_BLD`, строка с `garage:{fromS,toS}`), моторхоумы (`TEAM_UNITS`).
+`ground.py`: асфальт пит-лейна (`pitlane()`: путь OSM роли `pit_lane` и полоса за левой стеной S `PIT_S`).
+
+## Трибуны по кругу (v1.17.13)
+
+| Файл | Что делает |
+|---|---|
+| `stands.py [--check] [index.html]` | 13 трибун по полигонам grandprixguides передним краем к трассе (ключ `front`), отодвинутые от построенной стены не ближе 3 м → строки в `objects` `SCENERY_BAKU` (повторный запуск заменяет); `--check` — только сводка |
+
+Порядок: `node dump-wall.js && python3 stands.py && node dump-wall.js && python3 city.py && node dump-wall.js && python3 ground.py`.
