@@ -140,8 +140,8 @@ def chamfer(p):
         d1, d2 = unit(q[k - 1], q[k]), unit(q[k], q[k + 1]); c = d1[0] * d2[1] - d1[1] * d2[0]
         cave = c < -0.5 if p['side'] == 'R' else c > 0.5          # x на запад: у правой стены поворот к дороге — c < 0
         l1, l2 = math.dist(q[k - 1], q[k]), math.dist(q[k], q[k + 1])
-        ch = min(CHAMFER, min(l1, l2) / 2.5)       # v1.17.14: у короткого куска (T4 после сглаживания — 1.8 м до стены выхода) фаска меньше, но есть
-        if cave and ch >= 0.6: out += [go(q[k], d1, -ch), go(q[k], d2, ch)]
+        ch = min(CHAMFER, min(l1, l2) / 2.5)       # v1.17.14: у короткого куска (T4 после сглаживания — 1.2 м до стены выхода) фаска меньше, но есть
+        if cave and ch >= 0.4: out += [go(q[k], d1, -ch), go(q[k], d2, ch)]
         else: out.append(q[k])
     return out
 
