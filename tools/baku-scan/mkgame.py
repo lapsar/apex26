@@ -5,6 +5,10 @@
 x=(lon-lon0)*111320*cos(lat0), y=(lat-lat0)*110540, округление 0.1 м.
 
     python3 mkgame.py [путь к index.html] [--visible]
+    python3 mkgame.py [путь к index.html] --geom     (v1.17.14) только полотно: pts и len в TRACKDATA.Baku, widths в spec —
+        остальной spec (railAds, комментарии сборок, failRoom…) и SCEN_ORIGIN не трогаются (перевод — по ПРЕЖНЕМУ началу координат,
+        дома и стены OSM стоят где стояли). Ключи по S (railAds, sectors, garage fromS/toS) пересчитываются по месту: старая
+        S → точка прежней осевой → ближайшая точка новой → новая S (сглаживание поворотов укорачивает круг на ~13 м).
 """
 import json, math, re, sys, numpy as np
 ARGS = [a for a in sys.argv[1:] if not a.startswith('--')]
@@ -26,6 +30,38 @@ spec = ('  /* Баку (10.2026, v1.17.0 — открыта в меню: про�
         '   widths:' + json.dumps(ws, separators=(',', ':')) + ',\n'
         '   desc:"Улицы Баку: узкий замок у стен Старого города и самая длинная прямая календаря вдоль набережной."},\n')
 s = open(HTML).read()
+if '--geom' in sys.argv:
+    o = re.search(r'Baku:\{lat0:([\d.]+),lon0:([\d.]+),mlon:([\d.]+)\}', s); lat0, lon0, mlon = map(float, o.groups())
+    pts = [[round((p[0] - lon0) * mlon, 1), round((p[1] - lat0) * 110540, 1)] for p in g]
+    L = sum(math.dist(pts[i], pts[(i + 1) % len(pts)]) for i in range(len(pts)))
+    ws = [[int(x), round(float(np.interp(x, W[:, 0], W[:, 1], period=L)), 1)] for x in range(0, int(L), 10)]
+    m = re.search(r'"Baku":\{"pts":(\[.*?\]\]),"len":(\d+)\}', s); old = json.loads(m.group(1))
+    def cum(P): c = [0.0]; [c.append(c[-1] + math.dist(P[i], P[(i + 1) % len(P)])) for i in range(len(P))]; return c
+    co, cn = cum(old), cum(pts)
+    def remap(S0):                                  # старая S -> точка прежней осевой -> ближайшая точка новой -> новая S
+        S0 %= co[-1]; i = max(k for k in range(len(old)) if co[k] <= S0); a, b = old[i], old[(i + 1) % len(old)]
+        t = (S0 - co[i]) / max(1e-9, co[i + 1] - co[i]); q = (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t); best = None
+        for k in range(len(pts)):
+            a, b = pts[k], pts[(k + 1) % len(pts)]; dx, dy = b[0] - a[0], b[1] - a[1]; L2 = dx * dx + dy * dy
+            u = max(0, min(1, ((q[0] - a[0]) * dx + (q[1] - a[1]) * dy) / L2)); d = math.hypot(a[0] + dx * u - q[0], a[1] + dy * u - q[1])
+            if best is None or d < best[0]: best = (d, cn[k] + u * math.sqrt(L2))
+        return round(best[1]) % round(L)
+    s = s[:m.start(1)] + json.dumps(pts, separators=(',', ':')) + s[m.end(1):]
+    s = re.sub(r'("Baku":\{"pts":\[.*?\]\],"len":)\d+', lambda q: q.group(1) + str(round(L)), s, flags=re.S)
+    i = s.index('{name:"Baku",key:"Baku"'); j = s.index('\n', s.index('widths:', i))
+    spec = s[i:j]
+    spec = re.sub(r'widths:\[\[.*?\]\]', 'widths:' + json.dumps(ws, separators=(',', ':')), spec)
+    spec = re.sub(r'sectors:\[([\d, ]+)\]', lambda q: 'sectors:[' + ', '.join(str(remap(float(v))) for v in q.group(1).split(',')) + ']', spec)
+    ra = re.search(r'railAds:(\[\[.*?\]\]),', spec); z = json.loads(ra.group(1))
+    z2 = [[0] + r[1:] if r[0] == 0 else [remap(r[0])] + r[1:] for r in z]
+    spec = spec[:ra.start(1)] + json.dumps(z2, separators=(',', ':')) + spec[ra.end(1):]
+    s = s[:i] + spec + s[j:]
+    def gar(q): return 'garage:{fromS:%d, toS:%d}' % (remap(float(q.group(1))), remap(float(q.group(2))))
+    s = re.sub(r'garage:\{fromS:(\d+), toS:(\d+)\}', lambda q: gar(q) if 'Pit garages' in s[max(0, q.start() - 200):q.start()] else q.group(0), s)
+    open(HTML, 'w').write(s)
+    print('полотно: точек %d, круг %.1f м (был %.1f), widths %d; sectors, railAds, garage — по месту:' % (len(pts), L, co[-1], len(ws)))
+    print('  railAds', [(a[0], b[0]) for a, b in zip(z, z2) if a[0] != b[0]])
+    sys.exit()
 # TRACKDATA
 s = re.sub(r',"Baku":\{"pts":\[.*?\],"len":\d+\}', '', s, flags=re.S)
 i = s.index('const TRACKDATA='); j = s.index('}};\n', i); s = s[:j + 1] + ',' + td + s[j + 1:]

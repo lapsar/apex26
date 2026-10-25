@@ -165,3 +165,18 @@
 | `stands.py [--check] [index.html]` | 13 трибун по полигонам grandprixguides передним краем к трассе (ключ `front`), отодвинутые от построенной стены не ближе 3 м → строки в `objects` `SCENERY_BAKU` (повторный запуск заменяет); `--check` — только сводка |
 
 Порядок: `node dump-wall.js && python3 stands.py && node dump-wall.js && python3 city.py && node dump-wall.js && python3 ground.py`.
+
+## Повороты без изломов и подъём шире (v1.17.14)
+
+| Файл | Что делает |
+|---|---|
+| `recenter.py` | шаг 4 — сглаживание: осевая по Гауссу `--gsig=8` м только поперёк (`KEEP` — участки со слабым сдвигом: апекс T12), полуширина `--wsig=8` м и подъём не круче `--wslope=0.06` м/м (только вниз); `--out=префикс` — опыт в другой файл |
+| `mkgame.py --geom` | в игру только полотно (`pts`, `len`, `widths`) по ПРЕЖНЕМУ началу координат; `railAds`, `sectors`, `garage` — по месту |
+| `s-v1.17.13.tsv` | старая S (v1.17.13) → новая через 10 м: круг стал короче на 21 м; S-константы `pockets.py`, `kerbs.py`, `city.py`, `ground.py` уже переведены |
+| `../edge-kinks.js` | справка: изломы и дрожание кромки (осевая ± полуширина), все трассы или `Baku --list` |
+
+Порядок после правки кромок или сглаживания: `python3 edges.py && python3 recenter.py && python3 mkgame.py --geom && node dump-wall.js &&
+(cd .. && node sector-lines.js)` (секторы Баку — в spec и `sectors.json`), затем `python3 pockets.py --check && python3 walls.py && python3 kerbs.py &&
+node dump-wall.js && python3 stands.py && node dump-wall.js && python3 city.py && python3 ground.py && node dump-wall.js`, затем
+`node tools/run-all.js --only=pole,print,ghost,wall,solid,wallvis,failroom,clear,load` (якорь и отпечаток Баку — переписать по правилу §4).
+Если круг снова изменит длину — S-константы инструментов перевести заново (по образцу `s-v1.17.13.tsv`).
