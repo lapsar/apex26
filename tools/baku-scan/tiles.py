@@ -14,7 +14,9 @@ def tile(X, Y, src='google', z=20):
     fn = os.path.join(TD, '%s_%d_%d_%d.jpg' % (src, z, X, Y))
     if not os.path.exists(fn):
         url = (f'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{Y}/{X}'
-               if src == 'esri' else f'https://mt1.google.com/vt/lyrs=s&x={X}&y={Y}&z={z}')
+               if src == 'esri' else
+               f'https://wayback.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/WMTS/1.0.0/default028mm/MapServer/tile/{src[2:]}/{z}/{Y}/{X}'
+               if src.startswith('wb') else f'https://mt1.google.com/vt/lyrs=s&x={X}&y={Y}&z={z}')   # wbNNNNN — выпуск ESRI Wayback (v1.17.12)
         req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
         for a in range(4):
             try:                                  # во временный файл и переименование: потоки не читают недокачанное

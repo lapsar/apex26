@@ -117,6 +117,12 @@ LANDMARK = {   # id: (высота м или None — как вышло, клю�
                               belt=0.3, pil=1, balc=0.3, mansard='#55595e', dome='all', domeCol='#5d6468')),   # Four Seasons: купола на углах, мансарда (KartaView S 3957–4025)
     'w133641457': (None, dict(color='#dccdae', trim='#ebe1cc', floor=4.6, winW=0.7, winH=0.6, arch=1, cornice=0.8, pil=1)),   # Конституционный суд (у замка)
 }
+PIT_BLD = {   # боксы (v1.17.12): в OSM — навесы «Baku City Circuit» (carport), игра их не ставила. Снимок Wayback 16.05.2021 (выпуск 15423) и
+    # кадры трансляции 2026 (tv/): длинное белое здание с надписью AZERBAIJAN на крыше, гаражи к пит-лейну, над ними стекло лож; у западного
+    # торца — отдельный белый блок. Стиль — боксы Монако (garage): ворота в цветах команд, по 3 на команду, к трассе (S fromS–toS).
+    'w822375068': (9.0, 'Pit garages'), 'w822375069': (9.0, 'Pit garages')}
+PIT_GAR = (5830, 260)
+TEAM_UNITS = {'w1413599163', 'w1413599164', 'w1413599165', 'w1413599166', 'w1413599167', 'w1413599168', 'w1413599169', 'w1413599170'}   # моторхоумы команд за боксами (tv_03: серые, 2 этажа)
 HIST_PAL = ['#dcc9a2', '#d4bf96', '#e2d3b1', '#cfb68b', '#d9c49b', '#e6d8ba', '#c9b087']   # известняк «нефтяного бума» (KartaView 2019)
 ACCENT = ['#d8b4a0', '#e2cc8e', '#d9d4c6']           # редкие крашеные фасады: розовый, жёлтый, серо-белый (S 3598, 3622 — KartaView)
 SOV_PAL = ['#d9d6cf', '#cfcac0', '#e0dbd0']           # советские высотки — светлее, серее
@@ -293,7 +299,7 @@ for k, r in RL.items():
 rows = []
 for cid, tags, ll in cands:
     lv = None
-    if len(ll) < 4 or tags.get('building') in ('roof', 'carport') or int(tags.get('layer', '0') or 0) < 0 or cid in SKIP:
+    if len(ll) < 4 or tags.get('building') in ('roof', 'carport') and cid not in PIT_BLD or int(tags.get('layer', '0') or 0) < 0 or cid in SKIP:
         continue
     if ll[0] == ll[-1]:
         ll = ll[:-1]
@@ -331,7 +337,14 @@ for cid, tags, ll in cands:
         hs, col, sk = style(cid, tags, inside, lv, hh, area(pts))
         if not ht:                                         # высота OSM (height) — как есть; по этажам — своим этажом стиля (v1.17.6)
             hh = hs
-    if cid in LANDMARK:                                    # узнаваемое здание — вручную по фото (v1.17.7)
+    if cid in PIT_BLD:                                     # боксы (v1.17.12)
+        hh, name = PIT_BLD[cid]; col, plain = '#eeeeea', False
+        sk = dict(pit=1)
+    elif cid in TEAM_UNITS:                                # моторхоумы (v1.17.12): серые, 2 этажа
+        hh, col = 7.5, '#c8ccd0'; sk = dict(floor=3.6, winW=0.9, winH=0.45)
+    if cid in PIT_BLD or cid in TEAM_UNITS:
+        pass
+    elif cid in LANDMARK:                                    # узнаваемое здание — вручную по фото (v1.17.7)
         lh, lk = LANDMARK[cid]; sk = dict(lk); col = sk.pop('color')
         if lh:
             hh = lh
@@ -352,7 +365,7 @@ for cid, tags, ll in cands:
             k['dome'] = dome_all(cp)
             if not k['dome']:
                 k.pop('dome')
-        rc = roof_col(cp) if not wb else None
+        rc = roof_col(cp) if not wb and not k.get('pit') else '#e8e8e4' if k.get('pit') else None   # боксы: белый тент крыши (Wayback 2021)
         if rc:
             k['roof'] = rc
         rows.append(dict(id=cid + ('' if len(parts) == 1 else '-%d' % (j + 1)), S=s, d=d, name=name, h=hh, col=col, plain=plain,
@@ -370,6 +383,10 @@ L.append("  buildings: [")
 for r in wall_rows:
     L.append("    {name:'Fortress wall', h:%.1f, color:'%s', band:'%s', plain:1, crenel:1, poly:%s}," % (WALL_H, WALL_COL, WALL_COL, poly(r['pts'])))
 for r in rows:
+    if r['sk'].get('pit'):                                # боксы (v1.17.12): гаражи к пит-лейну, стекло лож, козырёк — строитель garage
+        L.append("    {name:'Pit garages', h:%.1f, color:'%s', band:'#3f454c', floor:4.2, roof:'%s', garage:{fromS:%d, toS:%d}, poly:%s},"
+                 % (r['h'], r['col'], r['sk']['roof'], PIT_GAR[0], PIT_GAR[1], poly(r['pts'])))
+        continue
     extra = ', plain:1, crenel:1' if r['wb'] else ', plain:1' if r['plain'] else (', win:1' if r['d'] <= NEAR and 'glass' not in r['sk'] else '')
     for kk, vv in r['sk'].items():                        # детали фасада (v1.17.6): окна и балконы — только у домов с окнами
         if not vv and vv != 0 or vv == 0 and kk != 'tower' or (kk in ('winW', 'winH', 'winGap', 'balc', 'arch', 'shop', 'rust', 'belt', 'floor') and r['d'] > NEAR and kk != 'floor'):
