@@ -27,7 +27,8 @@ for p in pockets.POCKETS:
                   % (n, a, b, side, A[0], A[1], B[0], B[1]))
 block = ("/* БАКУ, этап 1 (v1.17.1): выезды-ловушки и асфальт под ними. Строки считает tools/baku-scan/walls.py\n"
          "   (повторный запуск заменяет блок). Глубина выездов — по онбоарду поула 2026 глазом: снимков дня гонки нет.\n"
-         "   v1.17.9: выезды по форме улиц — ключ path (точки — tools/baku-scan/pockets.py); обочина асфальтом — ключ vergeAsphalt. */\n"
+         "   v1.17.9: выезды по форме улиц — ключ path (точки — tools/baku-scan/pockets.py); обочина асфальтом — ключ vergeAsphalt.\n"
+         "   v1.17.10: площадь T16 — карман изнутри (T16i) и барьер у кольца Азнефть. */\n"
          "const SCENERY_BAKU = {\n  vergeAsphalt: true,   // полоса от кромки до стены — асфальт улицы (v1.17.9)\n  wallOut: [\n" + "\n".join(rows_w) + "\n  ],\n  runoff: [   // покрытие выездов: асфальт до стены\n"
          + "\n".join(rows_r) + "\n  ],\n};\n")
 s = open(HTML).read()
