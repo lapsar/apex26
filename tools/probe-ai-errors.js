@@ -55,11 +55,15 @@ function run() {
         return bs;}
       var __pn=0,__pa=smokeAt,axWorst=0,sideBad=0;smokeAt=function(){__pn++;return __pa.apply(null,arguments);};   // дым блокировки (v1.16.69)
       function axleCheck(){var S=track._smoke;if(!S)return;   // частицы этого кадра — против кузова ближайшего ошибающегося (дальше 8 м — чужие: разворот, сход — v1.16.82)
-        for(var n=0;n<S.p.length;n++){var q=S.p[n];if(q.born!==raceTime)continue;var best=null,bd=1e9;
-          for(var k=0;k<field.length;k++){var c=field[k];if(c===player||!c.err)continue;var d=Math.hypot(q.x-c.mesh.position.x,q.z-c.mesh.position.z);if(d<bd){bd=d;best=c;}}
-          if(!best||bd>8)continue;var hh=best.mesh.rotation.y,dx=q.x-best.mesh.position.x,dz=q.z-best.mesh.position.z;
-          var al=dx*Math.sin(hh)+dz*Math.cos(hh),sd=Math.abs(dx*Math.cos(hh)-dz*Math.sin(hh));
-          if(Math.abs(al-2.0)>axWorst)axWorst=Math.abs(al-2.0);if(sd<0.9||sd>1.6)sideBad++;}}
+        /* Частица — тому ошибающемуся ближе 8 м, у чьей передней шины она лучше ложится (v1.17.15): двое ошибаются в одном повороте
+           в 2.4 м друг от друга (Баку T2) — дым заднего ближе к центру переднего, и «ближайший по центру» приписывал его переднему. */
+        for(var n=0;n<S.p.length;n++){var q=S.p[n];if(q.born!==raceTime)continue;var bm=null;
+          for(var k=0;k<field.length;k++){var c=field[k];if(c===player||!c.err)continue;if(Math.hypot(q.x-c.mesh.position.x,q.z-c.mesh.position.z)>8)continue;
+            var hh=c.mesh.rotation.y,dx=q.x-c.mesh.position.x,dz=q.z-c.mesh.position.z;
+            var al=dx*Math.sin(hh)+dz*Math.cos(hh),sd=Math.abs(dx*Math.cos(hh)-dz*Math.sin(hh)),miss=Math.abs(al-2.0)+Math.max(0,0.9-sd,sd-1.6);
+            if(!bm||miss<bm.miss)bm={miss:miss,al:al,sd:sd};}
+          if(!bm)continue;
+          if(Math.abs(bm.al-2.0)>axWorst)axWorst=Math.abs(bm.al-2.0);if(bm.sd<0.9||bm.sd>1.6)sideBad++;}}
       var ec=errCorners(),badSide=0,LAT_JUMP_=${LAT_JUMP};
       ec.list.forEach(function(C){if(C.side!==Math.sign(track.K[C.ap]))badSide++;});
       var dt=1/60,ev=[],hist={},wall=0,wallWorst=-9,latJ=0,latWorst=0,latAt='';
