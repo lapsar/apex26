@@ -3,11 +3,12 @@
       (reliefAt ищет ближайший отрезок; ошибка — чужая нога ближе, высота другая);
    2) земля нигде не выше полотна и обочины (сетка земли — нижняя огибающая);
    3) время сборки рельефа.
-   node tools/monaco-scan/relief-audit.js */
+   node tools/monaco-scan/relief-audit.js [Baku] */
 'use strict';
 const H = require('../harness');
 const env = H.loadGame({ seed: 3 });
-const ti = H.tracks().find(t => t.key === 'Monaco' || t.name === 'Monaco').idx;
+const KEY = process.argv[2] || 'Monaco';   // v1.17.16: и Баку — node tools/monaco-scan/relief-audit.js Baku
+const ti = H.tracks().find(t => t.key === KEY).idx;
 const t0 = Date.now(); H.setupWorld(env, { trackIdx: ti }); const tb = Date.now() - t0;
 const out = env.evalIn(`(function(){
   const M=track.M,R=track.relief,bad=[];let n=0,worst=0;
@@ -33,7 +34,7 @@ const out = env.evalIn(`(function(){
     for(let off=-track.WL[k];off<=track.WR[k];off+=1){const x=p.x+r.x*off,z=p.z+r.z*off,g=gy(x,z);if(g===null)continue;m++;
       const d=g-reliefY(x,z);if(d>-0.02){up++;if(d>upw)upw=d;if(ups.length<12)ups.push([Math.round(track.S[k]),off.toFixed(0),d.toFixed(2)]);}}}
   return {n,bad:bad.length,badList:bad.slice(0,25),worst:worst.toFixed(2),m,up,upw:upw.toFixed(2),ups};})()`);
-console.log('сборка мира Монако с рельефом: ' + tb + ' мс');
+console.log('сборка мира ' + KEY + ' с рельефом: ' + tb + ' мс');
 console.log('точек полотна/обочины/стены: ' + out.n + ', чужая нога (ошибка > 0.15 м): ' + out.bad + ', худшая ' + out.worst + ' м');
 out.badList.forEach(b => console.log('   S ' + b[0] + ' отступ ' + b[1] + ' м: ' + b[2] + ' вместо ' + b[3]));
 console.log('земля выше полотна/обочины (ближе 2 см): ' + out.up + ' из ' + out.m + ', худшая +' + out.upw + ' м');

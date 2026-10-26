@@ -2,11 +2,12 @@
    низ стены дома (самая низкая вершина меша домов в точке контура) против видимой земли под ней
    (луч вниз в сетку земли); у обобщённых коробок — низ коробки против земли под её углами.
    Земля — нижняя огибающая рельефа: на склоне она на метры ниже reliefY.
-   node tools/monaco-scan/ground-gap.js        APEX_INDEX=файл — другая сборка */
+   node tools/monaco-scan/ground-gap.js [Baku]        APEX_INDEX=файл — другая сборка */
 'use strict';
 const H = require('../harness');
 const env = H.loadGame({ seed: 3 });
-const ti = H.tracks().find(t => t.key === 'Monaco').idx;
+const KEY = process.argv[2] || 'Monaco';   // v1.17.16: и Баку — node tools/monaco-scan/ground-gap.js Baku
+const ti = H.tracks().find(t => t.key === KEY).idx;
 H.setupWorld(env, { trackIdx: ti });
 const out = env.evalIn(`(function(){
   let gr=null;scene.traverse(o=>{if(o.isMesh&&o.userData.reliefDone&&o.geometry.index&&!gr)gr=o;});

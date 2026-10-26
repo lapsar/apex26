@@ -204,7 +204,8 @@ apex26/
 │   ├── v1.17.12.html
 │   ├── v1.17.13.html
 │   ├── v1.17.14.html
-│   └── v1.17.15.html
+│   ├── v1.17.15.html
+│   └── v1.17.16.html
 ├── docs/
 │   ├── BRIEF-model-bolida.md           задание на доводку 3D-модели болида:
 │   │                                   контракт, ограничения r128, бюджет
@@ -645,6 +646,15 @@ apex26/
     │                                   (recenter.py: --gsig, --wsig, --wslope, KEEP),
     │                                   mkgame.py --geom (только pts/widths, ключи по S —
     │                                   по месту), s-v1.17.13.tsv — старая S → новая
+    │                                   v1.17.16 — подъём к Старому городу: relief.py
+    │                                   (prof — высота полотна по телеметрии на дуге игры
+    │                                   → relief_prof.tsv; grid — склон уравнением Лапласа
+    │                                   → views/relief.png; js — строка RELIEF_BY_KEY.Baku
+    │                                   в index.html), hill-shot.js (кадры камерой самой
+    │                                   игры с рельефом: кокпит, сзади-сверху, сверху);
+    │                                   справки рельефа Монако берут ключ трассы:
+    │                                   monaco-scan/relief-audit.js|ground-gap.js|
+    │                                   relief-sway.js Baku
     ├── monaco-scan/                    замер Монако, этап 0 (v1.16.22): середина
     │                                   дороги по OSM (osmoff.py — ось улицы,
     │                                   sidewalk.py — между тротуарами; снимок

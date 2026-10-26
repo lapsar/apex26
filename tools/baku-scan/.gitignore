@@ -10,3 +10,5 @@ wall-*.json
 plans/
 relief-grid.json
 relief-monaco.js.txt
+relief_grid.npz
+relief-baku.js.txt
