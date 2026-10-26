@@ -3,11 +3,12 @@
    наклона от его среднего по 30 м пути (длинная волна — сам холм, она задумана). Варианты лечения пробуются
    на месте, игра не меняется: сглаживание профиля HY по S (гаусс σ) и «камера-голова» — наклон камеры
    догоняет наклон болида с постоянной времени, с.
-   node tools/monaco-scan/relief-sway.js */
+   node tools/monaco-scan/relief-sway.js [Baku] */
 'use strict';
 const H = require('../harness');
 const env = H.loadGame({ seed: 3 });
-H.setupWorld(env, { trackIdx: 3 });
+const KEY = process.argv[2] || 'Monaco';   // v1.17.16: и Баку — node tools/monaco-scan/relief-sway.js Baku
+H.setupWorld(env, { trackIdx: H.tracks().find(t => t.key === KEY).idx });
 const out = env.evalIn(`(function(){
   const M=track.M,R=track.relief,HY0=Float32Array.from(R.HY);
   function smoothHY(sig){ // гаусс по S, шаг точек 4 м
