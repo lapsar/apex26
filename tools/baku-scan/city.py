@@ -57,8 +57,12 @@ OLD_CITY = '152190481'
 OLD_H = 7.4                       # м: дом Старого города без этажей в OSM — два этажа
 OVER = {                          # id: (имя, высота м, цвет, plain)
     'w299418016': ('Maiden Tower', 29.5, '#c8ad84', True),   # Девичья башня: 29.5 м (OSM w418164347)
-    'w153128834': ('Marriott Abşeron Otel', 84.0, '#8ea3b0', False),   # стеклянная башня у T1 (OSM height 84)
+    'w153128834': ('Marriott Abşeron Otel', 84.0, '#cdb18b', False),   # башня у T1 (OSM height 84); v1.17.18 — песочный камень и шатёр (LANDMARK)
     'w152192792': ('Hilton', 25 * 3.2 + 1, '#7f96a5', False),           # 25 этажей, стекло — за старт-финишем
+    'w997697649': ('Port Baku Towers 2', 24 * 3.2 + 1, '#7e98a6', False),   # дальний город (v1.17.18): стекло, слева от оси старт-финиша
+    'w152193991': ('Port Baku Towers 1', 49.0, '#7e98a6', False),
+    'w153131528': ('Port Baku Towers', 49.0, '#8aa2ae', False),
+    'w901738189': ('Crescent Hotel', 166.0, '#86a0ae', False),            # серп у моря справа от оси (OSM height 166)
     'w200195772': ('Landmark-III', 12 * 3.2 + 1, '#8ea3b0', False),      # офисные башни Landmark — стекло (S ~750–850)
     'w152809510': ('Hökumət Evi', 10 * 3.2 + 1, '#d6be92', False),       # Дом правительства — песчаник, площадь Азадлыг
 }
@@ -66,8 +70,8 @@ OVER = {                          # id: (имя, высота м, цвет, plai
 # у замка (S 2640–2717, слева в 5–13 м от осевой — онбоард, кадр 232: стена у самой дороги) и на северной стороне. Как дом она
 # получила бы окна (v1.17.3, первая проба) — ставится стеной: без окон, с зубцами, высота по этажам OSM, вычитается только коридор у стены.
 WALL_BLD = {'w1502989778', 'w1502989779'}
-GLASS = {'w153128834', 'w152192792', 'w200195772'}       # Marriott, Hilton, Landmark-III — стекло (v1.17.6: стойки, без окон проёмами)
-SKIP = set()
+GLASS = {'w152192792', 'w200195772', 'w997697649', 'w152193991', 'w153131528', 'w901738189'}       # Hilton, Landmark-III — стекло (v1.17.6: стойки, без окон проёмами); Marriott — не стекло (v1.17.18, онбоард)
+SKIP = {'w1067699501'}   # Crescent City Tower 1 (OSM 210 м): тонкой иглы над Порт-Баку на онбоарде k13–k19, k412–k424 нет (v1.17.18)
 PALETTE = ['#dccaa4', '#d2bd94', '#e2d4b4', '#cdb68c', '#d8c49c', '#c9b28a']   # известняк Баку: песочный, кремовый
 OLD_PALETTE = ['#cbb187', '#c2a77c', '#d3bb92', '#bfa47a']                     # Старый город — темнее, камень
 
@@ -104,6 +108,8 @@ _PX, _PZ = np.array([p[0] for p in P]), np.array([p[1] for p in P])
 
 
 LANDMARK = {   # id: (высота м или None — как вышло, ключи); источник — KartaView S…, Commons
+    'w153128834': (84.0, dict(color='#cdb18b', trim='#dfcaa6', floor=4.0, winW=0.5, winH=0.62, cornice=0.6, belt=0.3, pil=1,
+                              spire=22, spireCol='#b39572')),   # JW Marriott Absheron: песочный камень, шатёр — по оси старт-финиша (онбоард k412–k424, v1.17.18)
     'w153876698': (24.0, dict(color='#e3d6bb', trim='#efe6d2', panels='#8c5446', rust='#cdbf9f', floor=5.0, winW=0.75, winH=0.6, arch=1,
                               cornice=0.8, belt=0.3, pil=1, mansard='#4e5358', tower='auto', tw=(9, 17, 1), domeCol='#5f7f86')),   # Мэрия: часовая башня, красные филёнки (KartaView S 3334–3382; Commons «Mayoralty of Baku main façade, 2015»)
     'w153876715': (23.0, dict(color='#e6dcc6', trim='#f2ebdc', rust='#d3c6aa', floor=6.0, winW=0.8, winH=0.62, arch=2, pinn=3.5,
@@ -296,6 +302,86 @@ for k, r in RL.items():
         if len(outs) == 1:
             cands.append(('r' + k, r['tags'], [N[n] for n in WY[outs[0]]['nodes'] if n in N]))
 
+def pit_face():
+    """фасад основного здания боксов к трассе (v1.17.18): длинное ребро w822375068, ближнее к осевой, — его угол у блока, направление,
+    нормаль к трассе и сам контур"""
+    q = [xz(*p) for p in next(l for c, t, l in cands if c == 'w822375068')]
+    q = q[:-1] if q[0] == q[-1] else q
+    def dist(m):
+        return min(math.hypot(m[0] - x, m[1] - z) for x, z in P)
+    long_ = [i for i in range(len(q)) if math.hypot(q[(i + 1) % len(q)][0] - q[i][0], q[(i + 1) % len(q)][1] - q[i][1]) > 50]   # длинные стороны, не торец
+    best = min(long_, key=lambda i: dist(((q[i][0] + q[(i + 1) % len(q)][0]) / 2, (q[i][1] + q[(i + 1) % len(q)][1]) / 2)))
+    a, b = q[best], q[(best + 1) % len(q)]
+    L = math.hypot(b[0] - a[0], b[1] - a[1]); ux, uz = (b[0] - a[0]) / L, (b[1] - a[1]) / L
+    cx, cz = sum(x for x, z in q) / len(q), sum(z for x, z in q) / len(q)
+    nx, nz = -uz, ux
+    if (cx - a[0]) * nx + (cz - a[1]) * nz > 0:          # нормаль — наружу, к трассе
+        nx, nz = -nx, -nz
+    end = min((q[best], q[(best + 1) % len(q)]), key=lambda p: math.hypot(p[0] - BLK[0], p[1] - BLK[1]))   # угол фасада у блока
+    return end, (ux, uz), (nx, nz), Polygon(q)
+
+
+PIT_FLUSH = 'w822375069'
+BLK = (lambda q: (sum(x for x, z in q) / len(q), sum(z for x, z in q) / len(q)))([xz(*p) for p in next(l for c, t, l in cands if c == PIT_FLUSH)])   # белый блок у западного торца боксов выступал к трассе на ~3 м — уступ (скриншот владельца 29.10.2026);
+# на кадрах трансляции 2026 (tv_01, tv_03) здание боксов со стороны трассы — одна прямая. Блок — по линии фасада основного здания, выемка
+# у стыка (3.6 × 12 м: контур OSM блока обходит угол основного здания) закрыта до его угла.
+# --- дальний город (v1.17.18, скриншот владельца 29.10.2026: «город в продолжении стартовой прямой обрывается отбойником») ---
+# Онбоард k412–k424 и k13–k19: по оси старт-финиша за T1 — песочный шатёр Marriott и кластер высоток Порт-Баку / Crescent, вдоль
+# продолжения Нефтчиляр — дома. Дома OSM (и тайлы osm/far.json.gz к востоку от T1) в конусах взгляда вдоль прямой: вершина — точка S,
+# полуугол, дальность (туман игры сплошной с 1300 м от камеры); ближе FAR_LOW м от вершины — все дома от 150 м², дальше — от FAR_HMIN м.
+FAR_CONES = [(4900, 12, 2000), (5500, 20, 1700), (60, 40, 1400)]
+FAR_LOW, FAR_HMIN, FAR_AREA = 800, 20.0, 150.0
+_FD = json.load(gzip.open(os.path.join(HERE, 'osm', 'far.json.gz'), 'rt'))
+for k, w in _FD['ways'].items():
+    t = w['tags']
+    if k in WY or not ('building' in t or 'building:part' in t):
+        continue
+    if 'building:part' in t and not ('height' in t or 'building:levels' in t):
+        continue
+    cands.append(('w' + k, dict(t, building=t.get('building', 'part')), [tuple(_FD['nodes'][n]) for n in w['nodes'] if n in _FD['nodes']]))
+for k, r in _FD['rels'].items():
+    outs = [ref for t, ref, role in r['members'] if t == 'way' and role == 'outer' and ref in _FD['ways']]
+    if len(outs) == 1 and 'r' + k not in {c for c, _, _ in cands}:
+        cands.append(('r' + k, r['tags'], [tuple(_FD['nodes'][n]) for n in _FD['ways'][outs[0]]['nodes'] if n in _FD['nodes']]))
+_PART = [Polygon([xz(*p) for p in ll]).buffer(0) for cid, t, ll in cands if t.get('building') == 'part' and len(ll) >= 4]
+_PARTU = unary_union(_PART) if _PART else Polygon()
+
+
+def far_h(tags, a_):
+    try:
+        return float(tags.get('height', '').replace('m', '').split(';')[0])
+    except ValueError:
+        pass
+    try:
+        return float(tags.get('building:levels', '').replace(',', '.')) * 3.2 + 1
+    except ValueError:
+        return None
+
+
+def _cone(s0):
+    i = min(range(M), key=lambda t: abs(S[t] - s0)); j = min(range(M), key=lambda t: abs(S[t] - (s0 + 60) % W['len']))
+    ux, uz = P[j][0] - P[i][0], P[j][1] - P[i][1]; L = math.hypot(ux, uz)
+    return P[i][0], P[i][1], ux / L, uz / L
+
+
+_CONES = [_cone(c[0]) for c in FAR_CONES]
+
+
+def far_view(pts, tags):
+    """дом в конусе взгляда вдоль старт-финиша и достаточно высок, чтобы быть видным"""
+    cx, cz = sum(x for x, z in pts) / len(pts), sum(z for x, z in pts) / len(pts)
+    a_ = area(pts); h = far_h(tags, a_)
+    if a_ < FAR_AREA and not h:
+        return False
+    for (ox, oz, ux, uz), (s0, half, rng) in zip(_CONES, FAR_CONES):
+        vx, vz = cx - ox, cz - oz; d = math.hypot(vx, vz); t = vx * ux + vz * uz
+        if t <= 0 or d > rng or t / d < math.cos(math.radians(half)):
+            continue
+        if d <= FAR_LOW or (h or 0) >= FAR_HMIN:
+            return True
+    return False
+
+
 rows = []
 for cid, tags, ll in cands:
     lv = None
@@ -305,8 +391,13 @@ for cid, tags, ll in cands:
         ll = ll[:-1]
     pts = [xz(*p) for p in ll]
     d, s, inz = near_zone(pts)
+    far = False
     if not inz or d > FAR:
-        continue
+        if not far_view(pts, tags):
+            continue
+        far = True                                         # дальний город (v1.17.18): без окон проёмами, крыша — без снимка
+        if tags.get('building') != 'part' and _PARTU.intersection(Polygon(pts).buffer(0)).area > 0.5 * area(pts):
+            continue                                       # контур, собранный из частей (building:part), — ставятся части
     if cid not in OVER and 'name' not in tags and area(pts) < 60:
         continue
     poly = Polygon(pts).buffer(0)
@@ -314,6 +405,10 @@ for cid, tags, ll in cands:
         continue
     inside = OLDP.contains(poly.representative_point())
     wb = cid in WALL_BLD
+    if cid == PIT_FLUSH:                                   # фасад вровень с основным зданием (v1.17.18): выемка у стыка закрыта
+        (ax, az), (ux, uz), (nx, nz), main = pit_face()
+        poly = poly.intersection(Polygon([(ax + ux * t - nx * dn, az + uz * t - nz * dn) for t, dn in ((-500, 0), (500, 0), (500, 500), (-500, 500))]))
+        poly = Polygon(list(poly.exterior.coords) + [(ax, az)]).convex_hull.difference(main).buffer(0)
     parts = pieces(poly.difference(CORRIDOR_W), 2.0) if wb else pieces(poly.difference(CORRIDOR).difference(WALLU), 30)
     if not parts:
         continue
@@ -350,6 +445,8 @@ for cid, tags, ll in cands:
             hh = lh
     elif wb or plain:
         sk = {}
+    elif far and cid not in OVER:                         # дальний город (v1.17.18): дом без поэтажных полос — в дымке их не видно, а треугольников
+        plain = True; sk = {}                             # у круглого Port Baku Mall и десятков 20-этажек — десятки тысяч
     elif cid in OVER:                                      # стеклянные башни — стойки стекла; Дом правительства — общественный
         sk = dict(glass=1.6, trim='#c9d3d8') if cid in GLASS else dict(
             floor=FL_PUB, winW=0.7, winH=0.6, cornice=0.85, belt=0.3, rust=mix(col, 0.18, '#000000'), trim=mix(col, 0.25), arch=1)
@@ -365,7 +462,7 @@ for cid, tags, ll in cands:
             k['dome'] = dome_all(cp)
             if not k['dome']:
                 k.pop('dome')
-        rc = roof_col(cp) if not wb and not k.get('pit') else '#e8e8e4' if k.get('pit') else None   # боксы: белый тент крыши (Wayback 2021)
+        rc = roof_col(cp) if not wb and not k.get('pit') and not far else '#e8e8e4' if k.get('pit') else None   # боксы: белый тент крыши (Wayback 2021)
         if rc:
             k['roof'] = rc
         rows.append(dict(id=cid + ('' if len(parts) == 1 else '-%d' % (j + 1)), S=s, d=d, name=name, h=hh, col=col, plain=plain,
