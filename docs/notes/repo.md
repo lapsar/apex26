@@ -209,7 +209,8 @@ apex26/
 │   ├── v1.17.17.html
 │   ├── v1.17.18.html
 │   ├── v1.17.19.html
-│   └── v1.17.20.html
+│   ├── v1.17.20.html
+│   └── v1.17.21.html
 ├── docs/
 │   ├── BRIEF-model-bolida.md           задание на доводку 3D-модели болида:
 │   │                                   контракт, ограничения r128, бюджет
@@ -669,6 +670,10 @@ apex26/
     │                                   (FAR_CONES, spire, SKIP; блок боксов вровень —
     │                                   PIT_FLUSH); look.js — eye:, topr:, TRACK=, камера
     │                                   кокпита над рельефом
+    │                                   v1.17.21 — city.py: LANDMARK с banner/sign
+    │                                   (Marriott), podium (Crescent Hotel), colon
+    │                                   (морвокзал), PIT_GAR до 200; look.js —
+    │                                   eye:…:высота цели:угол обзора
     ├── monaco-scan/                    замер Монако, этап 0 (v1.16.22): середина
     │                                   дороги по OSM (osmoff.py — ось улицы,
     │                                   sidewalk.py — между тротуарами; снимок
