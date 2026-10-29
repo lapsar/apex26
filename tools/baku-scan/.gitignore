@@ -1,5 +1,6 @@
 tiles/
 osm/t_*.osm
+osm/far/
 osm/all.json
 pt_*.txt
 hw*.tsv

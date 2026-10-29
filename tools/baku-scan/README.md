@@ -180,3 +180,14 @@
 node dump-wall.js && python3 stands.py && node dump-wall.js && python3 city.py && python3 ground.py && node dump-wall.js`, затем
 `node tools/run-all.js --only=pole,print,ghost,wall,solid,wallvis,failroom,clear,load` (якорь и отпечаток Баку — переписать по правилу §4).
 Если круг снова изменит длину — S-константы инструментов перевести заново (по образцу `s-v1.17.13.tsv`).
+
+## Краска, боксы, дальний город (v1.17.18)
+
+| Файл | Что делает |
+|---|---|
+| `far-osm.py` | тайлы API 0.6 `/map` к востоку от T1 (bbox 49.855–49.895, 40.368–40.392, шаг 0.004°, 29.10.2026; `osm/far/t_*.osm` не хранятся — bash-цикл `curl` по сетке) → `osm/far.json.gz`: только здания и их узлы |
+| `city.py` | дальний город: дома OSM в конусах взгляда вдоль старт-финиша (`FAR_CONES`, `FAR_LOW`, `FAR_HMIN`) — без поэтажных полос; Marriott — песочный с шатром (`LANDMARK`, ключ `spire`), Port Baku Towers и Crescent Hotel — стекло; `SKIP` — Crescent City Tower 1 (онбоард не подтверждает); блок боксов у западного торца — вровень с фасадом основного здания (`PIT_FLUSH`, `pit_face`) |
+| `look.js` | `eye:x:z:h:tx:tz` — камера над землёй с взглядом в точку, `topr:S:h:вбок` — сверху над точкой сбоку от осевой, `cock:S:вбок:1` — без болида; камера над рельефом; `TRACK=Monaco` |
+| `../paint-cover.js` | справка: краска и покрытие на рельефе — закрыто асфальтом, ступеньки, поребрик под краской, зазор (`Baku`, `Monaco`) |
+
+Порядок после правки домов: `node dump-wall.js && python3 city.py`, затем `node tools/run-all.js --only=print,load,clear,materials`.
