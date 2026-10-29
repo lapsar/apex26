@@ -1,6 +1,6 @@
 /* Взгляд на Баку из игры (v1.17.11): сверху строго вниз (север вверх, как планы pocket-plan.py), из кокпита по осевой и в позе
    болида онбоарда (povs.json от povcmp.py) — в двух сборках: archive/v<OLD>.html и index.html. Кадры — plans/lk_<сборка>_<вид>.png.
-     node tools/baku-scan/look.js top:S:высота[:dx:dz] cock:S[:вбок[:1 — без болида]] eye:x:z:h:tx:tz topr:S:h:вбок pov:K …   [OLD=1.17.10] [ONLY=new] [CHROME=…] [APEX_INDEX=…] [TRACK=Monaco]   */
+     node tools/baku-scan/look.js top:S:высота[:dx:dz] cock:S[:вбок[:1 — без болида]] eye:x:z:h:tx:tz[:th[:fov]] topr:S:h:вбок pov:K …   [OLD=1.17.10] [ONLY=new] [CHROME=…] [APEX_INDEX=…] [TRACK=Monaco]   */
 const path = require('path'), fs = require('fs');
 const { chromium } = require(path.join(__dirname, '..', 'node_modules', 'playwright'));
 const CHROME = process.env.CHROME || '/opt/pw-browsers/chromium-1243/chrome-linux64/chrome';
@@ -30,9 +30,10 @@ const VIEWS = process.argv.slice(2);
         const H0 = (x, z) => track.relief ? reliefY(x, z) : 0;   // рельеф «для глаза» (v1.17.16): камера над дорогой, а не над нулём
         const at = s => { let i = 0; while (i < track.M - 1 && track.S[i] < s) i++; return i; };
         cam.fov = 64; cam.updateProjectionMatrix();
-        if (kind === 'eye') { const x = +a[1], z = +a[2], h = +a[3], tx = +a[4], tz = +a[5];   // eye:x:z:высота:tx:tz — камера над землёй, взгляд в точку на земле
+        if (kind === 'eye') { const x = +a[1], z = +a[2], h = +a[3], tx = +a[4], tz = +a[5], th = +(a[6] || 0);   // eye:x:z:высота:tx:tz[:высота цели] — камера над землёй, взгляд в точку
           player.x = x + 400; player.z = z; placePlayer(player); cam.up.set(0, 1, 0);
-          cam.position.set(x, H0(x, z) + h, z); cam.lookAt(tx, H0(tx, tz), tz); }
+          if (a[7]) { cam.fov = +a[7]; cam.updateProjectionMatrix(); }   // eye:…:th:fov — узкий угол (v1.17.21: плакат на Marriott)
+          cam.position.set(x, H0(x, z) + h, z); cam.lookAt(tx, H0(tx, tz) + th, tz); }
         else if (kind === 'topr') { const i = at(+a[1]), p = track.P[i], r = track.R[i], o = +(a[3] || 0), x = p.x + r.x * o, z = p.z + r.z * o, y0 = H0(x, z);   // topr:S:высота:вбок
           player.x = p.x + 400; player.z = p.z; placePlayer(player);
           cam.up.set(0, 0, 1); cam.position.set(x, y0 + +a[2], z); cam.lookAt(x, y0, z); }
