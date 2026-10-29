@@ -57,12 +57,13 @@ OLD_CITY = '152190481'
 OLD_H = 7.4                       # м: дом Старого города без этажей в OSM — два этажа
 OVER = {                          # id: (имя, высота м, цвет, plain)
     'w299418016': ('Maiden Tower', 29.5, '#c8ad84', True),   # Девичья башня: 29.5 м (OSM w418164347)
-    'w153128834': ('Marriott Abşeron Otel', 84.0, '#cdb18b', False),   # башня у T1 (OSM height 84); v1.17.18 — песочный камень и шатёр (LANDMARK)
+    'w153128834': ('Marriott Abşeron Otel', 84.0, '#ddd6c6', False),   # башня у T1 (OSM height 84); v1.17.20 — светлый камень, плоский верх (фото владельца 29.10.2026; v1.17.18 — песочный с шатром)
     'w152192792': ('Hilton', 25 * 3.2 + 1, '#7f96a5', False),           # 25 этажей, стекло — за старт-финишем
-    'w997697649': ('Port Baku Towers 2', 24 * 3.2 + 1, '#7e98a6', False),   # дальний город (v1.17.18): стекло, слева от оси старт-финиша
-    'w152193991': ('Port Baku Towers 1', 49.0, '#7e98a6', False),
-    'w153131528': ('Port Baku Towers', 49.0, '#8aa2ae', False),
-    'w901738189': ('Crescent Hotel', 166.0, '#86a0ae', False),            # серп у моря справа от оси (OSM height 166)
+    'w997697649': ('Port Baku Tower North', 167.0, '#6f8ca1', False),   # дальний город: стекло; 167 м, 36 этажей (Chapman Taylor «Port Baku Tower 2», 2023; OSM — 24 этажа)
+    'w152193991': ('Port Baku Tower South', 120.0, '#6f8ca1', False),   # 120 м, 32 этажа, трёхгранная призма (Wikipedia «Port Baku Towers»; OSM — 15 этажей)
+    'w901738189': ('Crescent Hotel', 166.0, '#7d9cb2', False),            # серп у моря справа от оси (OSM height 166): арка (ключ crescent, v1.17.20)
+    'w1067699501': ('Crescent City', 188.0, '#86a3b5', False),            # «факел» 210 м (OSM, skyscrapercenter): стекло, верх срезан наклонно (slant), v1.17.20
+    'w388388715': ('Crescent Place', 170.0, '#5d7688', False),            # 170 м (OSM building:part, skyscrapercenter): тёмное стекло, v1.17.20
     'w200195772': ('Landmark-III', 12 * 3.2 + 1, '#8ea3b0', False),      # офисные башни Landmark — стекло (S ~750–850)
     'w152809510': ('Hökumət Evi', 10 * 3.2 + 1, '#d6be92', False),       # Дом правительства — песчаник, площадь Азадлыг
 }
@@ -70,8 +71,14 @@ OVER = {                          # id: (имя, высота м, цвет, plai
 # у замка (S 2640–2717, слева в 5–13 м от осевой — онбоард, кадр 232: стена у самой дороги) и на северной стороне. Как дом она
 # получила бы окна (v1.17.3, первая проба) — ставится стеной: без окон, с зубцами, высота по этажам OSM, вычитается только коридор у стены.
 WALL_BLD = {'w1502989778', 'w1502989779'}
-GLASS = {'w152192792', 'w200195772', 'w997697649', 'w152193991', 'w153131528', 'w901738189'}       # Hilton, Landmark-III — стекло (v1.17.6: стойки, без окон проёмами); Marriott — не стекло (v1.17.18, онбоард)
-SKIP = {'w1067699501'}   # Crescent City Tower 1 (OSM 210 м): тонкой иглы над Порт-Баку на онбоарде k13–k19, k412–k424 нет (v1.17.18)
+GLASS = {'w152192792', 'w200195772', 'w997697649', 'w152193991'}       # Hilton, Landmark-III, Port Baku Towers — стекло (v1.17.6: стойки, без окон проёмами); Marriott — не стекло (v1.17.18, онбоард)
+# Port Baku Residence (w153131528, 15 этажей) до v1.17.20 стоял стеклом с именем «Port Baku Towers» — это жилые дома, на снимке крыши камнем.
+SKIP = set()   # v1.17.18 пропускал Crescent City Tower 1 (210 м: «на онбоарде нет») — на онбоарде верх кадра обрезан выше ~4°; фото владельца
+               # 29.10.2026 (2022, 2025, аэро) — «факел» над Порт-Баку виден со всей стартовой прямой (v1.17.20)
+PART_ADD = {'w388388715'}   # building:part ближнего архива, который ставится домом: Crescent Place (у части нет контура building=*, v1.17.20)
+CRES_ROT = ('w901738189', 20.0)   # Crescent Hotel: контур OSM (азимут 110°, по снимку стройки) повернуть на +20° у центра — свод на снимке Google 2025 идёт
+                                   # под ~130°, и только так ширина арки и проёма сходится со всеми тремя фото владельца (с T1 — почти ребром, v1.17.20)
+ROUND = {'w1067699501'}     # контур OSM — 6 точек; башня круглая (снимок) — эллипс по моментам контура, 28 вершин (v1.17.20)
 PALETTE = ['#dccaa4', '#d2bd94', '#e2d4b4', '#cdb68c', '#d8c49c', '#c9b28a']   # известняк Баку: песочный, кремовый
 OLD_PALETTE = ['#cbb187', '#c2a77c', '#d3bb92', '#bfa47a']                     # Старый город — темнее, камень
 
@@ -108,8 +115,14 @@ _PX, _PZ = np.array([p[0] for p in P]), np.array([p[1] for p in P])
 
 
 LANDMARK = {   # id: (высота м или None — как вышло, ключи); источник — KartaView S…, Commons
-    'w153128834': (84.0, dict(color='#cdb18b', trim='#dfcaa6', floor=4.0, winW=0.5, winH=0.62, cornice=0.6, belt=0.3, pil=1,
-                              spire=22, spireCol='#b39572')),   # JW Marriott Absheron: песочный камень, шатёр — по оси старт-финиша (онбоард k412–k424, v1.17.18)
+    'w153128834': (84.0, dict(color='#ddd6c6', trim='#ece6da', floor=4.0, winW=0.5, winH=0.62, cornice=0.6, belt=0.3, pil=1)),   # JW Marriott Absheron: светлый камень, плоский
+                              # верх (фото владельца 29.10.2026: с баннером Гран-при, надпись ABSHERON на крыше); шатёр v1.17.18 — у соседней башни w152617908
+    'w152617908': (None, dict(color='#cfb68b', trim='#dcc6a0', cornice=0.6, spire=12, spireCol='#b39572')),   # песочная башня с шатром по оси старт-финиша
+                              # за Marriott (онбоард k412–k424: в 2.4° от оси, Marriott — в 6.7° слева; аэрофото 2025 — правее Marriott, ниже его)
+    'w1067699501': (188.0, dict(color='#86a3b5', trim='#c9d3d8', glass=1.6, slant=[22, 0])),   # Crescent City: верх 188 → 210 м, выше к северу (фото 2022, 2025)
+    'w388388715': (170.0, dict(color='#5d7688', trim='#aebdc7', glass=1.6)),                  # Crescent Place
+    'w901738189': (166.0, dict(color='#7d9cb2', trim='#c3d0d8', crescent=290)),               # Crescent Hotel: арка вдоль контура 176 × 33 м, толстая нога —
+                              # к ВСЗ (азимут 290°): фото с прямой (2022, 2025) — толстая слева, проём справа; с T1 — почти ребром
     'w153876698': (24.0, dict(color='#e3d6bb', trim='#efe6d2', panels='#8c5446', rust='#cdbf9f', floor=5.0, winW=0.75, winH=0.6, arch=1,
                               cornice=0.8, belt=0.3, pil=1, mansard='#4e5358', tower='auto', tw=(9, 17, 1), domeCol='#5f7f86')),   # Мэрия: часовая башня, красные филёнки (KartaView S 3334–3382; Commons «Mayoralty of Baku main façade, 2015»)
     'w153876715': (23.0, dict(color='#e6dcc6', trim='#f2ebdc', rust='#d3c6aa', floor=6.0, winW=0.8, winH=0.62, arch=2, pinn=3.5,
@@ -254,6 +267,23 @@ def area(pts):
     return abs(sum(pts[i][0] * pts[(i + 1) % n][1] - pts[(i + 1) % n][0] * pts[i][1] for i in range(n))) / 2
 
 
+def ellipse_fit(pts, n=28):
+    """эллипс той же площади и тех же моментов инерции, что многоугольник (круглая башня по грубому контуру OSM, v1.17.20)"""
+    A = cx = cz = 0.0
+    for i in range(len(pts)):
+        (x0, z0), (x1, z1) = pts[i], pts[(i + 1) % len(pts)]; c = x0 * z1 - x1 * z0
+        A += c / 2; cx += (x0 + x1) * c / 6; cz += (z0 + z1) * c / 6
+    cx /= A; cz /= A; ixx = izz = ixz = 0.0
+    for i in range(len(pts)):
+        (x0, z0), (x1, z1) = [(p[0] - cx, p[1] - cz) for p in (pts[i], pts[(i + 1) % len(pts)])]; c = x0 * z1 - x1 * z0
+        ixx += (x0 * x0 + x0 * x1 + x1 * x1) * c / 12; izz += (z0 * z0 + z0 * z1 + z1 * z1) * c / 12; ixz += (x0 * z1 + 2 * x0 * z0 + 2 * x1 * z1 + x1 * z0) * c / 24
+    ixx /= A; izz /= A; ixz /= A                          # у эллипса с полуосями a, b: момент вдоль оси — a²/4
+    tr, dt = (ixx + izz) / 2, math.sqrt(((ixx - izz) / 2) ** 2 + ixz ** 2); th = 0.5 * math.atan2(2 * ixz, ixx - izz)
+    a, b = 2 * math.sqrt(tr + dt), 2 * math.sqrt(max(tr - dt, 1e-6)); k = math.sqrt(abs(A) / (math.pi * a * b)); a *= k; b *= k
+    return [(cx + a * math.cos(t) * math.cos(th) - b * math.sin(t) * math.sin(th), cz + a * math.cos(t) * math.sin(th) + b * math.sin(t) * math.cos(th))
+            for t in (2 * math.pi * i / n for i in range(n))]
+
+
 def pieces(g, min_area):
     geoms = [g] if g.geom_type == 'Polygon' else list(getattr(g, 'geoms', []))
     out = []
@@ -294,8 +324,8 @@ WALLU = unary_union([Polygon(r['pts']) for r in wall_rows]).buffer(0.05) if wall
 # --- дома ---
 cands = []
 for k, w in WY.items():
-    if 'building' in w['tags']:
-        cands.append(('w' + k, w['tags'], [N[n] for n in w['nodes'] if n in N]))
+    if 'building' in w['tags'] or 'w' + k in PART_ADD:
+        cands.append(('w' + k, dict(w['tags'], building=w['tags'].get('building', 'yes')), [N[n] for n in w['nodes'] if n in N]))
 for k, r in RL.items():
     if 'building' in r['tags'] and r['tags'].get('type') == 'multipolygon':
         outs = [ref for t, ref, role in r['members'] if t == 'way' and role == 'outer' and ref in WY]
@@ -390,6 +420,11 @@ for cid, tags, ll in cands:
     if ll[0] == ll[-1]:
         ll = ll[:-1]
     pts = [xz(*p) for p in ll]
+    if cid in ROUND:
+        pts = ellipse_fit(pts)
+    if cid == CRES_ROT[0]:                                 # x = −восток: поворот по компасу на +a — против часовой в осях (x, z)
+        a = math.radians(CRES_ROT[1]); cx, cz = sum(x for x, z in pts) / len(pts), sum(z for x, z in pts) / len(pts)
+        pts = [(cx + (x - cx) * math.cos(a) - (z - cz) * math.sin(a), cz + (x - cx) * math.sin(a) + (z - cz) * math.cos(a)) for x, z in pts]
     d, s, inz = near_zone(pts)
     far = False
     if not inz or d > FAR:
