@@ -210,7 +210,8 @@ apex26/
 │   ├── v1.17.18.html
 │   ├── v1.17.19.html
 │   ├── v1.17.20.html
-│   └── v1.17.21.html
+│   ├── v1.17.21.html
+│   └── v1.17.22.html
 ├── docs/
 │   ├── BRIEF-model-bolida.md           задание на доводку 3D-модели болида:
 │   │                                   контракт, ограничения r128, бюджет
@@ -674,6 +675,13 @@ apex26/
     │                                   (Marriott), podium (Crescent Hotel), colon
     │                                   (морвокзал), PIT_GAR до 200; look.js —
     │                                   eye:…:высота цели:угол обзора
+    │                                   v1.17.22 — vis.js (справка: видно ли здание
+    │                                   с трассы — кокпит через STEP м, цели призмами
+    │                                   из vis-targets.json, счёт точек → plans/vis.tsv;
+    │                                   NORMAL=1 — в цветах игры, DUMP=S — кадр);
+    │                                   osm/flame.json — Пламенные башни (OSM вне
+    │                                   рамок); city.py — FLAME (ключ flame), Дом
+    │                                   правительства целиком (_gov, WIN_FAR)
     ├── monaco-scan/                    замер Монако, этап 0 (v1.16.22): середина
     │                                   дороги по OSM (osmoff.py — ось улицы,
     │                                   sidewalk.py — между тротуарами; снимок
