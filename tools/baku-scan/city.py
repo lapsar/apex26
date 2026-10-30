@@ -137,6 +137,9 @@ LANDMARK = {   # id: (высота м или None — как вышло, клю�
     'w152302601': (None, dict(color='#e9e7e1', trim='#f4f3ef', floor=3.6, winW=0.55, winH=0.6, pil=1, cornice=0.6)),   # Администрация Президента: белая, вертикали (KartaView S 3622–3789)
     'w152190583': (36.0, dict(color='#d9c39a', trim='#ece0c6', rust='#c2ab81', floor=3.8, winW=0.6, winH=0.58, arch=1, cornice=0.8,
                               belt=0.3, pil=1, balc=0.3, mansard='#55595e', dome='all', domeCol='#5d6468')),   # Four Seasons: купола на углах, мансарда (KartaView S 3957–4025)
+    'w152192175': (19.6, dict(color='#d6ccb2', trim='#e4dcc8', rust='#c8bc9f', roof='#a7aaa7', floor=4.5, winW=0.62, winH=0.6, arch=1, archRows=[1, 2],
+                              cornice=0.8, belt=0.35, pil=1, balc=0.3, shop=1)),   # Морская академия: 4 этажа, известняк, руст и большие окна внизу, арки 2–3 этажей
+                              # между пилястрами, кованые балконы, верхний этаж — прямые окна, серая вальмовая крыша (2 фото владельца 30.10.2026; башни нет)
     'w133641457': (None, dict(color='#dccdae', trim='#ebe1cc', floor=4.6, winW=0.7, winH=0.6, arch=1, cornice=0.8, pil=1)),   # Конституционный суд (у замка)
 }
 PIT_BLD = {   # боксы (v1.17.12): в OSM — навесы «Baku City Circuit» (carport), игра их не ставила. Снимок Wayback 16.05.2021 (выпуск 15423) и
