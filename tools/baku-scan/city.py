@@ -124,8 +124,9 @@ LANDMARK = {   # id: (высота м или None — как вышло, клю�
     'w388388715': (170.0, dict(color='#5d7688', trim='#aebdc7', glass=1.6)),                  # Crescent Place
     'w901738189': (166.0, dict(color='#7d9cb2', trim='#c3d0d8', crescent=290, podium=[3, 4.2, 14, 16])),               # Crescent Hotel: арка вдоль контура 176 × 33 м, толстая нога —
                               # к ВСЗ (азимут 290°): фото с прямой (2022, 2025) — толстая слева, проём справа; с T1 — почти ребром
-    'w25402557': (None, dict(color='#e6d8ba', floor=4.3, trim='#ece2cb', colon=[5, 3, 0.8])),   # Морской вокзал (Bakı Dəniz Vağzalı) у T1: колоннада к улицам и навес
-                              # (фото владельца 2022 с T1; вид колоннады — по памяти, не сверен с фото — v1.17.21)
+    'w25402557': (16.5, dict(color='#d2cdc2', trim='#dedad2', portico=[0, 12, 10, 6, 3, 6, 5.5], sign=['DƏNIZ VAĞZALI', 0, 2.6, '#9a9ea3'])),   # Морской вокзал
+                              # (Bakı Dəniz Vağzalı) у T1 по 3 фото владельца 30.10.2026: фасад к проспекту (az 0) — торцевые блоки 12 и ~20 м, 6 колонн 3 м
+                              # через 10 м, ниша 6 м, аттик 5.5 м кругом с полосами над колоннами, буквы на крыше; v1.17.21 — столбы «по памяти» (colon)
     'w153876698': (24.0, dict(color='#e3d6bb', trim='#efe6d2', panels='#8c5446', rust='#cdbf9f', floor=5.0, winW=0.75, winH=0.6, arch=1,
                               cornice=0.8, belt=0.3, pil=1, mansard='#4e5358', tower='auto', tw=(9, 17, 1), domeCol='#5f7f86')),   # Мэрия: часовая башня, красные филёнки (KartaView S 3334–3382; Commons «Mayoralty of Baku main façade, 2015»)
     'w153876715': (23.0, dict(color='#e6dcc6', trim='#f2ebdc', rust='#d3c6aa', floor=6.0, winW=0.8, winH=0.62, arch=2, pinn=3.5,
