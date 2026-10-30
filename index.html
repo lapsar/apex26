@@ -179,7 +179,8 @@
   #qbanner .qname{color:#fff;font-weight:800;font-size:20px;letter-spacing:.04em;}
   #qbanner .qtime{font-size:16px;font-variant-numeric:tabular-nums;margin-top:2px;}
   #qbanner .qtime .gp{color:#39d353;} #qbanner .qtime .gpp{color:#e23b3b;}
-  #game.tilt .pad.l{visibility:hidden;}   /* руль наклоном: кнопок руля не видно, пока датчик жив (v1.17.24) */
+  #game.tilt .kb[data-c=left],#game.tilt .kb[data-c=right],#game.tilt .pad.r .kb[data-c=brake]{display:none;}   /* руль наклоном: кнопок руля нет, пока датчик жив (v1.17.24), */
+  .kb.tb{display:none;} #game.tilt .kb.tb{display:flex;}   /* тормоз — слева, на их месте (v1.17.25, владелец) */
   .pad.l{left:0;padding-left:max(14px,env(safe-area-inset-left));} .pad.r{right:0;padding-right:max(14px,env(safe-area-inset-right));}
   .kb{width:var(--kb);height:var(--kb);border-radius:calc(var(--kb)*0.22);border:1px solid rgba(255,255,255,.22);background:rgba(15,19,26,.42);
     backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);color:#fff;font-size:calc(var(--kb)*0.35);display:flex;align-items:center;justify-content:center;font-weight:800;position:relative;touch-action:none;transition:background .05s,transform .05s;}
@@ -236,7 +237,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.17.24</div>
+    <div class="verstamp">v1.17.25</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -296,7 +297,7 @@
     <canvas id="cv"></canvas>
     <div id="tower"></div><div id="topinfo"></div><div id="posbadge"></div><div id="bigmsg"></div><div id="lightsG"></div><div id="flagpanel"></div><div id="sbox"></div>
     <div id="topbtns"><button id="btnPause" class="cond" onclick="togglePause()">Пауза</button><button id="snd" class="cond" onclick="toggleMute()">Звук</button><button id="btnCam" class="cond" onclick="toggleCam()">Камера</button><button id="exit" class="cond" onclick="quitToMenu()">Выход</button></div>
-    <div class="pad l"><div class="kb" data-c="left">◄<small>LEFT</small></div><div class="kb" data-c="right">►<small>RIGHT</small></div></div>
+    <div class="pad l"><div class="kb" data-c="left">◄<small>LEFT</small></div><div class="kb" data-c="right">►<small>RIGHT</small></div><div class="kb tb" data-c="brake">▼<small>BRAKE</small></div></div>
     <div class="pad r"><div class="kb" data-c="brake">▼<small>BRAKE</small></div><div class="kb gas" data-c="gas">▲<small>GAS</small></div></div>
     <div id="stage"><div class="stl" id="stageL"></div><div class="str"><div class="stmap" id="stageMap"></div>
       <div class="stgo"><button class="cond" id="stageGo" onclick="stageGo()" disabled>Готовим трассу…</button></div></div></div>
@@ -11395,18 +11396,21 @@ addEventListener('keyup',e=>{if(typing(e))return;const k=e.key.toLowerCase();
   if(k==='arrowleft'||k==='a')keys.left=0;if(k==='arrowright'||k==='d')keys.right=0;if(k==='arrowup'||k==='w')keys.gas=0;if(k==='arrowdown'||k==='s')keys.brake=0;});
 /* ---- руль наклоном (v1.17.24, вопрос владельца 24.10.2026, вариант Б) ----
    Вместо кнопок «влево/вправо» — поворот самого iPad, как баранки. Датчик — вектор тяжести (devicemotion,
-   accelerationIncludingGravity); угол руля — подъём правого края экрана над горизонтом, asin(g·x̂/|g|):
-   держишь ровно — руль прямо, поднял правый край (баранка влево) — влево. Так же работает и iPad, лежащий
-   почти плашмя (наклон края), и поставленный стоймя. Ось «вверх» экрана берётся из самого датчика —
+   accelerationIncludingGravity); угол руля — поворот баранки В ПЛОСКОСТИ ЭКРАНА, atan2(g·x̂, g·ŷ): держишь ровно —
+   руль прямо, повернул против часовой (правый край выше) — влево. От того, насколько экран откинут на себя, угол
+   не зависит (v1.17.25, владелец: «на 60–70° повернул — поворачивает недостаточно»: в v1.17.24 мерился подъём
+   края asin(g·x̂/|g|), и откинутый на 60° телефон при повороте на 30° давал 54 % руля, на 70° — 34 %). Почти плашмя
+   (тяжести в плоскости экрана меньше TILT_W1) угол плавно переходит в подъём края — там направление в плоскости
+   экрана теряется, а наклон края работает: при TILT_W0 и ниже — только он. Ось «вверх» экрана берётся из самого датчика —
    ближайшая к вертикали ось устройства (±x/±y), ПРАВО — она же, повёрнутая по часовой: не нужны ни
    ориентация экрана (window.orientation и screen.orientation на iOS считают её по-разному), ни знак осей
    (у iOS он исторически обратный W3C) — перевернув оба вектора разом, получаем то же число.
    Ось ищется заново при повороте экрана и если «вверх» ушло дальше 120° (перевернули iPad).
    Дальше — тот же закон руля, что у кнопок: число −1…+1 вместо −1/0/+1, тем же сглаживанием steerAmt
    (поэтому ни физика, ни якорь не меняются). Датчик молчит больше TILT_LOST — руль снова на кнопках.
-   TILT_DEAD — мёртвая зона (дрожь рук), TILT_FULL — наклон полного руля, TILT_TAU — сглаживание датчика,
-   TILT_FLAT — меньше этой доли тяжести в плоскости экрана ось не ищется (iPad лежит плашмя). */
-const TILT_DEAD=2, TILT_FULL=25, TILT_TAU=0.06, TILT_LOST=1, TILT_FLAT=0.3;   // °, °, с, с, доля g
+   TILT_DEAD — мёртвая зона (дрожь рук), TILT_FULL — поворот полного руля, TILT_TAU — сглаживание датчика,
+   TILT_FLAT — меньше этой доли тяжести в плоскости экрана ось не ищется (iPad лежит плашмя; 0.3 до v1.17.25 — 72° от вертикали). */
+const TILT_DEAD=2, TILT_FULL=25, TILT_TAU=0.06, TILT_LOST=1, TILT_FLAT=0.15, TILT_W0=0.15, TILT_W1=0.35;   // °, °, с, с, доля g, доля g, доля g
 const TILT={g:null,t:-1,up:null,deg:0,steer:0,listen:false,asked:false,denied:false,shown:false,noteAt:0};
 function tiltSample(ax,ay,az,now){
   if(!(isFinite(ax)&&isFinite(ay)&&isFinite(az))||Math.hypot(ax,ay,az)<4)return;   // не тяжесть (тряска, падение) — руль как был
@@ -11420,12 +11424,13 @@ function tiltSample(ax,ay,az,now){
     TILT.up=Math.abs(x)>Math.abs(y)?[Math.sign(x),0]:[0,Math.sign(y)];   // ближайшая к вертикали ось экрана
   if(!TILT.up){TILT.deg=0;TILT.steer=0;return;}
   const rx=TILT.up[1],ry=-TILT.up[0];                                // «вправо» — «вверх», повёрнутое по часовой
-  const deg=Math.asin(Math.max(-1,Math.min(1,(x*rx+y*ry)/m)))*180/Math.PI;   // >0 — правый край выше, баранка влево
+  const xr=x*rx+y*ry,yu=x*TILT.up[0]+y*TILT.up[1],w=Math.max(0,Math.min(1,(pl/m-TILT_W0)/(TILT_W1-TILT_W0)));
+  const deg=(w*Math.atan2(xr,yu)+(1-w)*Math.asin(Math.max(-1,Math.min(1,xr/m))))*180/Math.PI;   // >0 — баранка влево (правый край выше)
   TILT.deg=deg;
   TILT.steer=-Math.sign(deg)*Math.max(0,Math.min(1,(Math.abs(deg)-TILT_DEAD)/(TILT_FULL-TILT_DEAD)));
   if(now-TILT.noteAt>0.1&&document.getElementById('s-format').classList.contains('active')){TILT.noteAt=now;tiltNote();}}   // строка — только в меню
 function tiltLive(){return TILT.t>=0&&performance.now()/1000-TILT.t<TILT_LOST;}
-/* Руль кадра: доля −1…+1 или null — рулят кнопки. Кнопки руля прячутся, пока датчик жив. */
+/* Руль кадра: доля −1…+1 или null — рулят кнопки. Кнопки руля прячутся, пока датчик жив, тормоз — на их место слева (v1.17.25). */
 function tiltSteer(){const on=sel.steer==='tilt'&&tiltLive()&&!!TILT.up;
   if(on!==TILT.shown){TILT.shown=on;document.getElementById('game').classList.toggle('tilt',on);}
   return on?TILT.steer:null;}
@@ -11449,7 +11454,7 @@ function tiltNote(){const el=document.getElementById('tiltNote');if(!el)return;
     :TILT.asked?'Ждём датчик… Если строка не меняется — датчика нет, руль останется на кнопках.':'';return;}
   if(!TILT.up){el.textContent='Подними iPad, как руль.';return;}
   const p=Math.round(Math.abs(TILT.steer)*100);
-  el.textContent='Наклон работает: '+(p===0?'руль прямо':'руль '+p+' % '+(TILT.steer<0?'влево':'вправо'))+'. Полный руль — наклон '+TILT_FULL+'°.';}
+  el.textContent='Наклон работает: '+(p===0?'руль прямо':'руль '+p+' % '+(TILT.steer<0?'влево':'вправо'))+'. Полный руль — поворот на '+TILT_FULL+'°.';}
 const ptrMap={};
 const TOUCH_NEAR=64;                 // допуск сверки: полпальца, кнопка руля вчетверо шире
 function clearControls(){controls.left=controls.right=controls.gas=controls.brake=0;for(const k in ptrMap)delete ptrMap[k];document.querySelectorAll('.kb').forEach(b=>b.classList.remove('hit'));}

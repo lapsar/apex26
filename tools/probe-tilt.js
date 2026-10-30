@@ -3,8 +3,8 @@
 
    Датчик в обвязке не живой, поэтому вектор тяжести собирается здесь из позы
    iPad и подаётся игре (tiltSample или событием devicemotion). Что сторожит:
-     1. знак и величина: «баранка» влево на θ — руль влево на (asin(cosβ·sinθ)−DEAD)/(FULL−DEAD),
-        при ЛЮБОЙ ориентации экрана (0/90/180/270), наклоне на себя β = 0/30/60°
+     1. знак и величина: «баранка» влево на θ — руль влево на (θ−DEAD)/(FULL−DEAD) (v1.17.25; до неё asin(cosβ·sinθ)),
+        при ЛЮБОЙ ориентации экрана (0/90/180/270), наклоне на себя β = 0/30/60/75°
         и обоих знаках осей (W3C и обратный, как у iOS исторически);
         мёртвая зона — руль ровно 0, дальше полного наклона — ровно ±1;
      2. iPad плашмя с самого начала — оси нет, руль 0; поднял — ось нашлась, дальше
@@ -41,9 +41,12 @@ async function run() {
   const r = R.result('Руль наклоном — знак, величина, ось экрана, путь как у кнопок, разрешение iOS');
   const env = H.loadGame({ seed: 7 });
   if (env.evalIn(`typeof tiltSample!=='function'`)) { r.fail('руля наклоном нет (сборка до v1.17.24)'); return r; }
-  const C = env.evalIn(`({dead:TILT_DEAD,full:TILT_FULL,tau:TILT_TAU,lost:TILT_LOST})`);
+  const C = env.evalIn(`({dead:TILT_DEAD,full:TILT_FULL,tau:TILT_TAU,lost:TILT_LOST,w0:TILT_W0,w1:TILT_W1})`);
+  /* v1.17.25: угол баранки в плоскости экрана — ровно θ при любом β; почти плашмя (доля тяжести в плоскости
+     cosβ ниже w1) плавно переходит в подъём края asin(cosβ·sinθ). */
   const expect = (theta, beta) => {
-    const deg = Math.asin(Math.cos(beta * D2R) * Math.sin(theta * D2R)) / D2R;
+    const w = Math.max(0, Math.min(1, (Math.cos(beta * D2R) - C.w0) / (C.w1 - C.w0)));
+    const deg = w * theta + (1 - w) * Math.asin(Math.cos(beta * D2R) * Math.sin(theta * D2R)) / D2R;
     return -Math.sign(deg) * Math.max(0, Math.min(1, (Math.abs(deg) - C.dead) / (C.full - C.dead)));
   };
   const reset = `TILT.g=null;TILT.up=null;TILT.t=-1;TILT.steer=0;TILT.deg=0;`;
@@ -53,7 +56,7 @@ async function run() {
 
   /* 1. знак и величина */
   let n1 = 0, worst = 0;
-  for (const o of [0, 90, 180, 270]) for (const conv of [1, -1]) for (const beta of [0, 30, 60])
+  for (const o of [0, 90, 180, 270]) for (const conv of [1, -1]) for (const beta of [0, 30, 60, 75])
     for (const theta of [-40, -25, -12, -3, -1, 0, 1, 3, 12, 25, 40]) {
       env.evalIn(reset);
       const got = feed(sensor(theta, beta, o, conv), 1);
@@ -66,7 +69,7 @@ async function run() {
     const got = feed(sensor(theta, 0, 90, -1), 1);
     if (got !== want) r.fail(`θ=${theta.toFixed(1)}°: руль ${got} вместо ровно ${want} (мёртвая зона / упор)`);
   }
-  r.line(`знак и величина: ${n1} поз (4 ориентации × 2 знака осей × β 0/30/60 × 11 углов), худшая ошибка ${worst.toExponential(1)}; влево — руль < 0`);
+  r.line(`знак и величина: ${n1} поз (4 ориентации × 2 знака осей × β 0/30/60/75 × 11 углов), худшая ошибка ${worst.toExponential(1)}; влево — руль < 0`);
 
   /* 2. плашмя, подъём, переворот, orientationchange, не-тяжесть */
   {
@@ -114,7 +117,7 @@ async function run() {
       return {x:player.x,z:player.z,h:player.hdg,s:player.steerAmt,v:player.speed,hid:hid};})()`);
   };
   {
-    const thFull = C.full + 8, thHalf = Math.asin(Math.sin((C.dead + 0.5 * (C.full - C.dead)) * D2R) / Math.cos(30 * D2R)) / D2R;
+    const thFull = C.full + 8, thHalf = C.dead + 0.5 * (C.full - C.dead);
     const base = drive('keys', null, null), keysL = drive('keys', null, 'left'), keysR = drive('keys', null, 'right');
     const tiltL = drive('tilt', thFull, null);
     const same = (a, b) => a.x === b.x && a.z === b.z && a.h === b.h && a.v === b.v;
