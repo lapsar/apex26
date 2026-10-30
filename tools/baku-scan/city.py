@@ -137,6 +137,9 @@ LANDMARK = {   # id: (высота м или None — как вышло, клю�
     'w152302601': (None, dict(color='#e9e7e1', trim='#f4f3ef', floor=3.6, winW=0.55, winH=0.6, pil=1, cornice=0.6)),   # Администрация Президента: белая, вертикали (KartaView S 3622–3789)
     'w152190583': (36.0, dict(color='#d9c39a', trim='#ece0c6', rust='#c2ab81', floor=3.8, winW=0.6, winH=0.58, arch=1, cornice=0.8,
                               belt=0.3, pil=1, balc=0.3, mansard='#55595e', dome='all', domeCol='#5d6468')),   # Four Seasons: купола на углах, мансарда (KartaView S 3957–4025)
+    'w152192175': (19.6, dict(color='#d6ccb2', trim='#e4dcc8', rust='#c8bc9f', roof='#a7aaa7', floor=4.5, winW=0.62, winH=0.6, arch=1, archRows=[1, 2],
+                              cornice=0.8, belt=0.35, pil=1, balc=0.3, shop=1)),   # Морская академия: 4 этажа, известняк, руст и большие окна внизу, арки 2–3 этажей
+                              # между пилястрами, кованые балконы, верхний этаж — прямые окна, серая вальмовая крыша (2 фото владельца 30.10.2026; башни нет)
     'w133641457': (None, dict(color='#dccdae', trim='#ebe1cc', floor=4.6, winW=0.7, winH=0.6, arch=1, cornice=0.8, pil=1)),   # Конституционный суд (у замка)
 }
 PIT_BLD = {   # боксы (v1.17.12): в OSM — навесы «Baku City Circuit» (carport), игра их не ставила. Снимок Wayback 16.05.2021 (выпуск 15423) и
@@ -376,6 +379,46 @@ for k, r in _FD['rels'].items():
     outs = [ref for t, ref, role in r['members'] if t == 'way' and role == 'outer' and ref in _FD['ways']]
     if len(outs) == 1 and 'r' + k not in {c for c, _, _ in cands}:
         cands.append(('r' + k, r['tags'], [tuple(_FD['nodes'][n]) for n in _FD['ways'][outs[0]]['nodes'] if n in _FD['nodes']]))
+# Пламенные башни (v1.17.22): вне рамки обоих архивов OSM — osm/flame.json (API 0.6 /map 49.822–49.830, 40.356–40.362, 30.10.2026, только три
+# башни). Стоят на холме в ~600 м от трассы: площадка — FLAME_BASE м над нулём трассы (SRTM 2000 г., до стройки: Аллея шехидов 74–75 м, бульвар
+# −27…−29; поправка SRTM в городе +7 м — tracks/baku.md), высота башни — height OSM над площадкой. Острие — к середине комплекса.
+FLAME_BASE = 92.0
+_FL = json.load(open(os.path.join(HERE, 'osm', 'flame.json')))
+FLAME = {}
+for k, w in _FL['ways'].items():
+    cands.append(('w' + k, dict(w['tags']), [tuple(_FL['nodes'][n]) for n in w['nodes']]))
+    FLAME['w' + k] = float(w['tags']['height'])
+_fc = {c: [xz(*p) for p in ll] for c, t, ll in cands if c in FLAME}
+_fc = {c: (sum(x for x, z in q) / len(q), sum(z for x, z in q) / len(q)) for c, q in _fc.items()}
+_fm = (sum(x for x, z in _fc.values()) / 3, sum(z for x, z in _fc.values()) / 3)
+for c, (x, z) in _fc.items():                     # азимут острия: 0 — +z, 90 — −x (как crescent)
+    LANDMARK[c] = (FLAME_BASE + FLAME[c], dict(color='#93aabd', trim='#9bb1c3', flame=[FLAME_BASE, round(math.degrees(math.atan2(-(_fm[0] - x), _fm[1] - z)) % 360)]))
+# Дом правительства (v1.17.22): в OSM (w152809510) — только «П» из трёх корпусов, без главного фасада к трассе (снимок Google z19, кадры трансляции
+# владельца tv_01, tv_03: замкнутый квадрат со двором, по углам — башни выше основного объёма, к трассе — арочные ниши). Контур — наименьший
+# прямоугольник вокруг «П» (104 × 67 м), башни — квадраты GOV_TW м в углах с выносом GOV_OUT, высота — этажи OSM × 4.6 (+ башни на GOV_TH м).
+# Окна с деталями — как у дома ближе NEAR (до фасада 103 м; WIN_FAR).
+GOV, GOV_TW, GOV_OUT, GOV_TH = 'w152809510', 17.0, 1.0, 8.5
+WIN_FAR = set()
+def _gov():
+    i = next(j for j, c in enumerate(cands) if c[0] == GOV)
+    cid, t, ll = cands[i]
+    rect = list(Polygon([xz(*p) for p in ll]).minimum_rotated_rectangle.exterior.coords)[:-1]
+    cands[i] = (cid, t, [ll_of(x, z) for x, z in rect] + [ll_of(*rect[0])])
+    cx, cz = sum(x for x, z in rect) / 4, sum(z for x, z in rect) / 4
+    for k, (x, z) in enumerate(rect):
+        a, b = rect[(k - 1) % 4], rect[(k + 1) % 4]
+        ua = ((a[0] - x) / math.hypot(a[0] - x, a[1] - z), (a[1] - z) / math.hypot(a[0] - x, a[1] - z))
+        ub = ((b[0] - x) / math.hypot(b[0] - x, b[1] - z), (b[1] - z) / math.hypot(b[0] - x, b[1] - z))
+        o = (x - ua[0] * GOV_OUT - ub[0] * GOV_OUT, z - ua[1] * GOV_OUT - ub[1] * GOV_OUT)
+        q = [o, (o[0] + ua[0] * GOV_TW, o[1] + ua[1] * GOV_TW), (o[0] + (ua[0] + ub[0]) * GOV_TW, o[1] + (ua[1] + ub[1]) * GOV_TW), (o[0] + ub[0] * GOV_TW, o[1] + ub[1] * GOV_TW)]
+        cands.append(('%s-t%d' % (GOV, k + 1), {'building': 'government', 'name': 'Hökumət Evi'}, [ll_of(x2, z2) for x2, z2 in q + [q[0]]]))
+        WIN_FAR.add('%s-t%d' % (GOV, k + 1))
+    WIN_FAR.add(GOV)
+_gov()
+_GOVK = dict(roof='#8d877b', color='#d6be92', trim='#e3d2b1', rust='#c2a97e', floor=4.6, winW=0.7, winH=0.62, arch=1, cornice=0.85, belt=0.3, pil=1)
+LANDMARK[GOV] = (10 * 4.6 + 1.6, dict(_GOVK))
+for k in range(4):
+    LANDMARK['%s-t%d' % (GOV, k + 1)] = (10 * 4.6 + 1.6 + GOV_TH, dict(_GOVK, arch=3, cornice=1.1, spire=4.5, spireCol='#b39572'))
 _PART = [Polygon([xz(*p) for p in ll]).buffer(0) for cid, t, ll in cands if t.get('building') == 'part' and len(ll) >= 4]
 _PARTU = unary_union(_PART) if _PART else Polygon()
 
@@ -430,7 +473,9 @@ for cid, tags, ll in cands:
         pts = [(cx + (x - cx) * math.cos(a) - (z - cz) * math.sin(a), cz + (x - cx) * math.sin(a) + (z - cz) * math.cos(a)) for x, z in pts]
     d, s, inz = near_zone(pts)
     far = False
-    if not inz or d > FAR:
+    if cid in FLAME:
+        far = True                                         # Пламенные башни — на холме, без конуса взгляда (v1.17.22)
+    elif not inz or d > FAR:
         if not far_view(pts, tags):
             continue
         far = True                                         # дальний город (v1.17.18): без окон проёмами, крыша — без снимка
@@ -500,7 +545,7 @@ for cid, tags, ll in cands:
             k['dome'] = dome_all(cp)
             if not k['dome']:
                 k.pop('dome')
-        rc = roof_col(cp) if not wb and not k.get('pit') and not far else '#e8e8e4' if k.get('pit') else None   # боксы: белый тент крыши (Wayback 2021)
+        rc = k['roof'] if k.get('roof') else roof_col(cp) if not wb and not k.get('pit') and not far else '#e8e8e4' if k.get('pit') else None   # боксы: белый тент крыши (Wayback 2021)
         if rc:
             k['roof'] = rc
         rows.append(dict(id=cid + ('' if len(parts) == 1 else '-%d' % (j + 1)), S=s, d=d, name=name, h=hh, col=col, plain=plain,
@@ -522,9 +567,10 @@ for r in rows:
         L.append("    {name:'Pit garages', h:%.1f, color:'%s', band:'#3f454c', floor:4.2, roof:'%s', garage:{fromS:%d, toS:%d}, poly:%s},"
                  % (r['h'], r['col'], r['sk']['roof'], PIT_GAR[0], PIT_GAR[1], poly(r['pts'])))
         continue
-    extra = ', plain:1, crenel:1' if r['wb'] else ', plain:1' if r['plain'] else (', win:1' if r['d'] <= NEAR and 'glass' not in r['sk'] else '')
+    dn = 0 if r['id'].split('-')[0] in WIN_FAR or r['id'] in WIN_FAR else r['d']   # Дом правительства — окна, как у дома у трассы (v1.17.22)
+    extra = ', plain:1, crenel:1' if r['wb'] else ', plain:1' if r['plain'] else (', win:1' if dn <= NEAR and 'glass' not in r['sk'] else '')
     for kk, vv in r['sk'].items():                        # детали фасада (v1.17.6): окна и балконы — только у домов с окнами
-        if not vv and vv != 0 or vv == 0 and kk != 'tower' or (kk in ('winW', 'winH', 'winGap', 'balc', 'arch', 'shop', 'rust', 'belt', 'floor') and r['d'] > NEAR and kk != 'floor'):
+        if not vv and vv != 0 or vv == 0 and kk != 'tower' or (kk in ('winW', 'winH', 'winGap', 'balc', 'arch', 'shop', 'rust', 'belt', 'floor') and dn > NEAR and kk != 'floor'):
             continue
         extra += ', %s:%s' % (kk, ("'%s'" % vv) if isinstance(vv, str) else json.dumps(vv) if isinstance(vv, list) else ('%g' % vv))
     L.append("    {name:'%s', h:%.1f, color:'%s', band:'%s'%s, poly:%s}," % ((r['name'] or r['id']).replace("'", ''), r['h'], r['col'],
