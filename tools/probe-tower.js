@@ -29,8 +29,8 @@ const H = require('./harness');
 const R = require('./report');
 
 const FLIP_MAX = 5;          // «туда-обратно за 3 с» за гонку на трассу
-const BODY = 6.04;           // корпус болида
-const MARGIN_MIN = 0.99 * BODY;   // допуск на кадр дискретизации
+let BODY = 6.04;             // корпус болида — защёлка башни игры (TOWER_HYST = CAR_LEN, v1.17.24), читается из сборки
+const marginMin = () => 0.99 * BODY;   // допуск на кадр дискретизации
 
 function run(opt) {
   opt = opt || {};
@@ -47,6 +47,7 @@ function run(opt) {
     let sw = 0, flip = 0, worst = 0, dur = 0, minMarg = Infinity, playerSw = 0, playerFlip = 0;
     for (const seed of seeds) {
       const env = H.loadGame({ seed });
+      BODY = env.evalIn("typeof TOWER_HYST!=='undefined'?TOWER_HYST:6.04");
       H.setupWeekend(env, { trackIdx: T.idx, diff: opt.diff || 'normal', laps });
       H.startRaceAt(env, 11);
       H.lightsOut(env);
@@ -88,7 +89,7 @@ function run(opt) {
     if (flip / n > FLIP_MAX)
       r.fail(`${T.name}: башня мельтешит — ${(flip / n).toFixed(1)} перестановок «туда-обратно за 3 с»`
         + ` за гонку при пороге ${FLIP_MAX}`);
-    if (isFinite(minMarg) && minMarg < MARGIN_MIN)
+    if (isFinite(minMarg) && minMarg < marginMin())
       r.fail(`${T.name}: строки поменялись местами при запасе ${minMarg.toFixed(2)} м`
         + ` — меньше корпуса (${BODY} м), значит защёлки нет`);
   }

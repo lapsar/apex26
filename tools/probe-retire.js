@@ -47,7 +47,8 @@ function run(opt) {
       H.lightsOut(env);
       H.noRetirements(env);
       const o = env.evalIn(`(function(){var dt=1/60,M=track.M,KIND='${kind}';
-        var BODY=[[1.05,2.0],[-1.05,2.0],[1.05,-1.7],[-1.05,-1.7],[1.0,3.25],[-1.0,3.25],[0.78,-2.55],[-0.78,-2.55]];
+        var __HL=typeof CAR_HL!=='undefined'?CAR_HL:3.02,__HW=typeof CAR_HW!=='undefined'?CAR_HW:1.285;   // размер болида — из игры (v1.17.24), у старых сборок прежний
+        var BODY=(typeof CAR_PTS!=='undefined'?CAR_PTS:[[1.05,2.0],[-1.05,2.0],[1.05,-1.7],[-1.05,-1.7],[1.0,3.25],[-1.0,3.25],[0.78,-2.55],[-0.78,-2.55]]);
         function beyond(x,z,sg,i){var W=sg>0?track.WR:track.WL,V=sg>0?track.VR:track.VL,best=3,bs=-9,segs=[];
           var pt=function(j){return [track.P[j].x+track.R[j].x*sg*W[j],track.P[j].z+track.R[j].z*sg*W[j]];};
           for(var k=-12;k<=12;k++){var j=(i+k+M)%M,j2=(j+1)%M;if(V&&!V[j])continue;
@@ -63,7 +64,7 @@ function run(opt) {
         function rect(c){var m=c.mesh,h=m.rotation.y;return {x:m.position.x,z:m.position.z,fx:Math.sin(h),fz:Math.cos(h)};}
         function pen(a,b){var best=1e9,ax=[[a.fx,a.fz],[a.fz,-a.fx],[b.fx,b.fz],[b.fz,-b.fx]],dx=b.x-a.x,dz=b.z-a.z;   // перекрытие двух корпусов 6.04×2.57 (SAT)
           for(var k=0;k<4;k++){var ux=ax[k][0],uz=ax[k][1],d=Math.abs(dx*ux+dz*uz);
-            var ra=3.02*Math.abs(a.fx*ux+a.fz*uz)+1.285*Math.abs(a.fz*ux-a.fx*uz),rb=3.02*Math.abs(b.fx*ux+b.fz*uz)+1.285*Math.abs(b.fz*ux-b.fx*uz);
+            var ra=__HL*Math.abs(a.fx*ux+a.fz*uz)+__HW*Math.abs(a.fz*ux-a.fx*uz),rb=__HL*Math.abs(b.fx*ux+b.fz*uz)+__HW*Math.abs(b.fz*ux-b.fx*uz);
             var o=ra+rb-d;if(o<=0)return 0;if(o<best)best=o;}return best;}
         /* место отказа: на прямой и не медленно (для вылета — до ближайшего тяжёлого торможения) */
         var v=null,f0=0;
@@ -90,7 +91,7 @@ function run(opt) {
         var flag=neutral.mode,i=v.retiredIdx,hw=halfAt(i),side=v.retiredSide,secs=raceTime-tS;
         /* геометрия вставшего: ближний к оси край кузова (по 4 углам корпуса) и углы против видимой стены */
         var P=track.P[i],Rr=track.R[i],h=v.mesh.rotation.y,s=Math.sin(h),co=Math.cos(h),near=1e9;
-        [[1.285,3.02],[-1.285,3.02],[1.285,-3.02],[-1.285,-3.02]].forEach(function(b){var x=v.mesh.position.x+b[0]*co+b[1]*s,z=v.mesh.position.z-b[0]*s+b[1]*co;
+        [[__HW,__HL],[-__HW,__HL],[__HW,-__HL],[-__HW,-__HL]].forEach(function(b){var x=v.mesh.position.x+b[0]*co+b[1]*s,z=v.mesh.position.z-b[0]*s+b[1]*co;
           var lat=((x-P.x)*Rr.x+(z-P.z)*Rr.z)*side;if(lat<near)near=lat;});
         var wall=-9;hull(v).forEach(function(p){var b=beyond(p[0],p[1],side,i);if(b>wall)wall=b;});
         var room=1e9;for(var q=0;q*track.length/M<=45;q++){var jq=(i-q+M)%M;room=Math.min(room,((side>0?track.WR:track.WL)[jq])-0.35-halfAt(jq));}   // простор за кромкой на подходе (45 м), как выбирает место игра

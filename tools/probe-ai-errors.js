@@ -39,7 +39,7 @@ function run() {
     H.lightsOut(env);
     H.noRetirements(env);
     const o = env.evalIn(`(function(){
-      var M=track.M,BODY=[[1.05,2.0],[-1.05,2.0],[1.05,-1.7],[-1.05,-1.7],[1.0,3.25],[-1.0,3.25],[0.78,-2.55],[-0.78,-2.55]];
+      var M=track.M,BODY=(typeof CAR_PTS!=='undefined'?CAR_PTS:[[1.05,2.0],[-1.05,2.0],[1.05,-1.7],[-1.05,-1.7],[1.0,3.25],[-1.0,3.25],[0.78,-2.55],[-0.78,-2.55]]);
       /* видимая стена — та же мерка, что у пробника wallvis: лента по показанным точкам, разрыв — перемычкой (spanPath).
          До v1.16.66 здесь стояла стена по данным (W поперёк осевой) — она дальше видимой, и углы кузова заходили в отбойник. */
       function beyond(x,z,sg,i){var W=sg>0?track.WR:track.WL,V=sg>0?track.VR:track.VL,best=3,bs=-9,segs=[];

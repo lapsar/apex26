@@ -538,6 +538,34 @@ function go(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remo
 let renderer,scene,cam,clock,skyMesh,ENVSHADOW;
 let track=null;
 const MAXSPEED=88;                // m/s (~317 km/h); brake scales with it so braking zones keep their length
+/* РАЗМЕРЫ БОЛИДА — одно место на всю игру (v1.17.24). Касание, стена, объезд, очередь, сход, разворот, дым и пробники читают
+   размер машины отсюда; модель (buildCar) обязана им соответствовать (контракт — docs/notes/game.md). Производные округлены
+   до миллиметра (r3): тогда число то же самое до последнего бита, что и прежняя цифра в коде, и гонка не сдвигается. */
+const r3=x=>Math.round(x*1000)/1000;
+const CAR_LEN=6.04, CAR_WID=2.57;                       // габарит модели: нос +3.36 … корма −2.68, колёса снаружи ±1.285
+const CAR_HL=CAR_LEN/2, CAR_HW=CAR_WID/2;               // полудлина 3.02 и полуширина 1.285 (деление на 2 точное)
+const CAR_AXF=2.0, CAR_AXR=-1.7, CAR_TRK=1.05;          // передняя и задняя оси (z), колёса x=±CAR_TRK
+const CAR_TAIL=2.68;                                    // корма за центром
+/* 8 точек корпуса для стены (playerWallPush, errWallBeyond, пробники): колёса, концы переднего крыла, заднее крыло —
+   крылья выступают за колёса на ~1.3 м, без них нос проходил сквозь отбойник. */
+const CAR_PTS=[[CAR_TRK,CAR_AXF],[-CAR_TRK,CAR_AXF],[CAR_TRK,CAR_AXR],[-CAR_TRK,CAR_AXR],[1.0,3.25],[-1.0,3.25],[0.78,-2.55],[-0.78,-2.55]];
+/* Силуэт болида сверху — выпуклая оболочка модели makeCar (x вправо, z вперёд): колёса ±1.285, нос 3.36, корма 2.68. */
+const CAR_HULL=[[CAR_HW,-2.2],[CAR_HW,2.5],[1.05,3.2],[0.51,3.36],[-0.51,3.36],[-1.05,3.2],[-CAR_HW,2.5],[-CAR_HW,-2.2],[-0.78,-CAR_TAIL],[0.78,-CAR_TAIL]];
+const HULL_A=r3(CAR_HL-0.02), HULL_B=r3(CAR_HW-0.035);  // полудлина и полуширина для касания: 6.0 × 2.5 (картинка 6.04 × 2.57 — колёса чуть заходят, так задумано с прежним B)
+const HULL_REACH2=r3((2*Math.hypot(HULL_A,HULL_B))**2); // 6.5² м²: две полудиагонали касания — дальше корпуса не достают
+const CAR_GAP=0.13;                                     // м: зазор между бортами соседей бок о бок
+const CAR_SEP=r3(CAR_HW+CAR_GAP);                       // 1.415: полуширина соседа + зазор (к ней — полуширина сходящего)
+const CAR_PASS=r3(CAR_HW+0.25);                         // 1.535: объезд вставшего — его полуразмах поперёк + это
+const CAR_PEN_L=r3(CAR_HL+0.05), CAR_PEN_W=r3(CAR_HW+0.05);   // корпус соперника с запасом 5 см — против вставшего (ghostPen)
+const LANE_SAME=r3(CAR_WID-0.27);                       // 2.3: «в моей полосе» — корпуса перекрыты поперёк
+const LANE_SAME_P=r3(LANE_SAME-CAR_HW);                 // 1.015: то же против игрока и сходящего — к его полуразмаху
+const LANE_OV=r3(CAR_WID+0.03);                         // 2.6: обгон — сбоку от переднего на ширину машины
+const LANE_PASS=r3(CAR_WID+0.83);                       // 3.4: объезд стоящего — шире, с запасом
+const CAR_WALL_HW=r3(CAR_HW+0.165);                     // 1.45: середина объезжающего не ближе этого к стене (ghostLim)
+const CAR_ROOM_HW=r3(CAR_HW+0.115);                     // 1.4: разворот — корпус на пути не ближе этого к стене
+const CAR_AHEAD=r3(CAR_HL+0.08), CAR_BEHIND=r3(CAR_HL+0.3);   // 3.1 и 3.32: вставший уже позади / ещё впереди — вдоль к его полуразмаху
+const SMOKE_ENG_Z=r3(CAR_TAIL-0.38), SMOKE_WX=r3(CAR_TRK+0.2);   // дым: мотор у задней кромки кузова; у колёс — чуть снаружи шины
+const RET_SLEW=[r3(CAR_LEN+0.46),r3(CAR_LEN-1.04),r3(CAR_WID+0.83)];   // 6.5, 5.0, 3.4 м между кромкой и стеной: вставший — поперёк, наискось, вдоль
 /* Наименьший радиус поворота — предел по ВЫКРУТУ колёс, которого в игре не было вовсе:
    был только предел по сцеплению, поэтому на нуле болид вращался на месте.
    3.7 м базы (колёса z=+2.0 и -1.70) при выкруте 20° дают 10.1 м. Двадцать градусов —
@@ -7845,8 +7873,6 @@ function wallSpanFill(){
    (выпуклая оболочка модели + TIP_PAD) разделяющей осью; вошёл — выталкивается по кратчайшему пути, от стены — только к
    дороге. На ровной стене не срабатывает: 8 точек держат борт в 0.115 м от неё, дальше TIP_PAD. */
 const TIP_PAD=0.05, TIP_CELL=8;   // м: запас к силуэту, клетка сетки поиска отрезков
-/* Силуэт болида сверху — выпуклая оболочка модели makeCar (x вправо, z вперёд): колёса ±1.285, нос 3.36, корма 2.68. */
-const CAR_HULL=[[1.285,-2.2],[1.285,2.5],[1.05,3.2],[0.51,3.36],[-0.51,3.36],[-1.05,3.2],[-1.285,2.5],[-1.285,-2.2],[-0.78,-2.68],[0.78,-2.68]];
 const CAR_HULL_E=CAR_HULL.map((p,k)=>{const q=CAR_HULL[(k+1)%CAR_HULL.length],ex=q[0]-p[0],ez=q[1]-p[1],l=Math.hypot(ex,ez),nx=ez/l,nz=-ex/l;
   return [nx,nz,nx*p[0]+nz*p[1]+TIP_PAD];});   // наружная нормаль ребра и его отступ с запасом
 function wallSegsBuild(){const M=track.M,g=new Map();let n=0;
@@ -9503,7 +9529,6 @@ const LOD_NEAR=4;                                     // rivals close enough to 
    НАСТОЯЩИМ поворотом кузова (дорога плюс доворот crab, у вставшего — его угол). Разделяющие
    оси — четыре стороны обоих корпусов, выталкивание — по оси наименьшего перекрытия. У ровно
    параллельных корпусов оси те же, что прежде, и касание прежнее. Внахлёст 946 -> 0 кадров. */
-const HULL_A=3.0, HULL_B=1.25;            // полудлина и полуширина для касания: 6.0 × 2.5 (картинка 6.04 × 2.57 — колёса чуть заходят, так задумано с прежним B)
 const CONTACT_RUB=1.0;                    // м/с²: трение бортом, пока касаешься. Подобрано так, что гонка стоит игроку столько же, сколько с прежним касанием (40 гонок: +0.03 с на гонку, разброс)
 /* СТЕНА — только положение (v1.16.77: вынесено из физики игрока, чтобы звать и после касаний с соперниками).
    Точки корпуса держатся в 0.35 м от линии стены; отрезки видимой стены — против силуэта болида (wallHullPush).
@@ -9547,8 +9572,7 @@ function wallPoint(wx,wz,hint){const o=WALL_PT;
       if(q[2]<=ex+1e-3){o.dx=q[0];o.dz=q[1];}else{o.dx=-R.x*sign*ex;o.dz=-R.z*sign*ex;}}}
   return o;}
 function playerWallPush(){const s=Math.sin(player.hdg),co=Math.cos(player.hdg);let hit=false,maxEx=0,wIdx=0,wSign=1,nearEx=-1e9,nearSign=1,tipN=null;
-    for(const wc of [[1.05,2.0],[-1.05,2.0],[1.05,-1.7],[-1.05,-1.7],
-                     [1.0,3.25],[-1.0,3.25],[0.78,-2.55],[-0.78,-2.55]]){   // wings overhang the wheels by ~1.3 m: without these the nose passed through the rail and the hit (and its sound) landed a beat late
+    for(const wc of CAR_PTS){   // CAR_PTS: wings overhang the wheels by ~1.3 m: without these the nose passed through the rail and the hit (and its sound) landed a beat late
       const wx=player.x+wc[0]*co+wc[1]*s, wz=player.z-wc[0]*s+wc[1]*co;
       const q=wallPoint(wx,wz,player.hint),ex=q.ex;
       if(ex>nearEx){nearEx=ex;nearSign=q.sign;}
@@ -9562,7 +9586,7 @@ function playerWallPush(){const s=Math.sin(player.hdg),co=Math.cos(player.hdg);l
 function carContacts(dt,nudge){
   const fx=Math.sin(player.hdg),fz=Math.cos(player.hdg),rx=fz,rz=-fx;   // вперёд и вбок у игрока
   for(const c of field){if(nudge&&c.retired||c.gone)continue;const dx=player.x-c.x,dz=player.z-c.z;   // увезённого (clearAway) нет
-    if(dx*dx+dz*dz>42.25)continue;                                      // 6.5 м — две полудиагонали: дальше корпуса не достают
+    if(dx*dx+dz*dz>HULL_REACH2)continue;                                // 6.5 м — две полудиагонали: дальше корпуса не достают
     const hc=c.mesh.rotation.y,gx=Math.sin(hc),gz=Math.cos(hc),qx=gz,qz=-gx;
     let best=Infinity,nx=0,nz=0,apart=false,latO=0;
     for(let k=0;k<4;k++){
@@ -10041,7 +10065,7 @@ function update(dt){
      НАСТОЯЩЕМУ углу к дороге. Вдоль дороги — 1.285 и 3.02, поперёк трассы — 3.02 и 1.285.
      Прежде соперник видел игрока по центру, и вставший поперёк (±3 м) был для него невидим. */
   {const F=track.F[player.hint||0],ra=player.hdg-Math.atan2(F.x,F.z),sa=Math.abs(Math.sin(ra)),ca=Math.abs(Math.cos(ra));
-   player.spanX=3.02*sa+1.285*ca; player.spanL=3.02*ca+1.285*sa;}
+   player.spanX=CAR_HL*sa+CAR_HW*ca; player.spanL=CAR_HL*ca+CAR_HW*sa;}
   const __ghosts=field.filter(o=>o.retired&&o.ghost&&!o.ghost.retired);   // вставшие, которых соперникам надо объезжать (c.ghost, v1.16.79); обычно пусто
   const __hard=field.filter(o=>o.retired?(o.ghost&&!o.ghost.retired):(o.fail&&o.fail.on));   // вбок к ним — точная проверка корпусов (ghostPen): вставшие и сходящие
   for(const c of field){if(c.retired){retiredTick(c,dt);continue;}
@@ -10087,7 +10111,7 @@ function update(dt){
     let ahd=null,gp=1e9;                                             // nearest car ahead IN MY LANE, player included
     {const k=__oidx.get(c);
      for(let j=(k===undefined?0:k)-1;j>=0;j--){const o=__order[j];
-       if(Math.abs(o.lane-c.lane)<(o.spanX!==undefined?1.015+o.spanX:2.3)){ahd=o;gp=o.dist-c.dist;break;}}   // игрок и сходящий — по ширине (spanX): вдоль дороги те же 2.3 м, поперёк до 4.0
+       if(Math.abs(o.lane-c.lane)<(o.spanX!==undefined?LANE_SAME_P+o.spanX:LANE_SAME)){ahd=o;gp=o.dist-c.dist;break;}}   // игрок и сходящий — по ширине (spanX): вдоль дороги те же 2.3 м, поперёк до 4.0
      /* Вставший — в мерках ЭТОГО болида: dist и lane у каждого свои. Вблизи — по земле (вдоль и поперёк дороги у вставшего):
         в тугом повороте далеко вбок от осевой разность u врёт на десятки процентов, и соперник въезжал в корпус (Монца, шикана). */
      for(const r of __ghosts){const g=r.ghost,gu=((((r.u-c.u)%1)+1.5)%1-0.5)*track.length;
@@ -10193,10 +10217,10 @@ function update(dt){
       if(c.speed>cap)c.speed=soft?Math.max(cap,c.speed-FOLLOW_BRAKE*dt):cap;}   // ...и сбрасывать не быстрее тормозов: присваивание давало 1482 м/с² и множилось по очереди
     /* Вставший болид не сдвигается (касание двигает только игрока), поэтому к нему — жёсткий упор: пока полоса не ушла вбок
        на его ширину, нос не заходит в его корпус; полоса меняется и на месте, так что объезд не запирается (v1.16.79). */
-    const myX=carHalfWidth(c.crab||0)+0.13;                                 // своя ширина поперёк дороги — с доворотом кузова
+    const myX=carHalfWidth(c.crab||0)+CAR_GAP;                                 // своя ширина поперёк дороги — с доворотом кузова
     c.gBlk=0;c.gHold=null;                                                   // вставший держит на месте — с какой стороны от него отойти (v1.16.87) и кто он (v1.16.88)
     for(const r of __ghosts){const g=r.ghost,ga=g.dist-c.dist;if(ga<=0||ga>40||Math.abs(c.lane-g.lane)>=g.spanX+myX)continue;
-      const d=ga-g.spanL-3.02-0.3;if(d<=0){c.speed=0;c.gBlk=Math.sign(c.lane-g.lane)||1;c.gHold=g;continue;}const capG=d/FOLLOW_TAU;if(c.speed>capG)c.speed=Math.max(capG,c.speed-FOLLOW_BRAKE*dt);}
+      const d=ga-g.spanL-CAR_HL-0.3;if(d<=0){c.speed=0;c.gBlk=Math.sign(c.lane-g.lane)||1;c.gHold=g;continue;}const capG=d/FOLLOW_TAU;if(c.speed>capG)c.speed=Math.max(capG,c.speed-FOLLOW_BRAKE*dt);}
     for(const r of __ghosts){if(Math.abs(c.x-r.x)>14||Math.abs(c.z-r.z)>14||c.speed<=0)continue;   // и точно — корпус против корпуса: в тугой шикане развёрнутый стоит косо к дороге
       const p0=ghostPen(c,c.lane,0,r);if(ghostPen(c,c.lane,c.speed*dt,r)>p0+1e-4){c.speed=0;const R=track.R[iu];c.gBlk=Math.sign((c.x-r.x)*R.x+(c.z-r.z)*R.z)||1;c.gHold=r.ghost;}}
     if(c.speed<0)c.speed=0;
@@ -10230,8 +10254,8 @@ function update(dt){
       if(c.speed<0.5){c.ovPad=Math.min(GHOST_PAD,c.ovPad+GHOST_PAD_V*dt);if(c.gHold===c.ovLock)c.ovStk+=dt;   // «заперт» — когда держит сам вставший, а не очередь объезжающих впереди (v1.16.88: ждал очереди 4 с — и уходил на другую сторону, куда не пересечь)
         if(c.ovStk>GHOST_FLIP){c.ovStk=0;if(ghostFits(c.ovLock,-c.ovDir)){c.ovDir=-c.ovDir;c.ovPad=0;}}}else c.ovStk=0;}   // другая сторона — только где болид помещается (v1.16.88: у стены за вставшим уходил на 4 с туда, где места нет вовсе, и терял очередь)
     if(c.ovLock){const o=c.ovLock;                                           // committed to passing a stopped car: hold the line until actually past it
-      if(o.retired||o.speed>c.pace*0.5||c.dist>o.dist+(o.isGhost?o.spanL+3.1:3.0)||o.dist-c.dist>20)c.ovLock=null;   // without this the car drifts back to the racing line the moment it clears the 2.3 m "same lane" window, gets caught again and crawls behind forever
-      else want=o.lane+c.ovDir*((o.spanX!==undefined?Math.max(3.4,o.spanX+1.535):3.4)+(o.isGhost&&c.ovPadFor===o?c.ovPad:0));}   // вставшего игрока объезжаем по его ширине: две полуширины + 0.25 м
+      if(o.retired||o.speed>c.pace*0.5||c.dist>o.dist+(o.isGhost?o.spanL+CAR_AHEAD:HULL_A)||o.dist-c.dist>20)c.ovLock=null;   // without this the car drifts back to the racing line the moment it clears the 2.3 m "same lane" window, gets caught again and crawls behind forever
+      else want=o.lane+c.ovDir*((o.spanX!==undefined?Math.max(LANE_PASS,o.spanX+CAR_PASS):LANE_PASS)+(o.isGhost&&c.ovPadFor===o?c.ovPad:0));}   // вставшего игрока объезжаем по его ширине: две полуширины + 0.25 м
     const entA=entryAhead(iu);                                               // точка входа в ближайший поворот впереди
     const entSide=entA>0?-Math.sign(track.K[(iu+entA)%track.M]):0;            // внутренняя сторона этого поворота: K>0 — левый, значит внутри это -1
     const crawler=!!c.ahd&&c.ahd.speed<c.pace*0.5;                           // stopped or barely moving
@@ -10258,15 +10282,15 @@ function update(dt){
     else if(c.duel&&entSide&&Math.abs(c.lane-line)<1.0)c.duelDir=freeSide(c,c.duel.lane,entSide,hw);   // защёлка жива, а болид ещё не тронулся вбок — можно перецелиться на следующий поворот, не мечась на полпути
     const gLock=!!c.ovLock&&c.ovLock.isGhost&&c.ovLock!==c.ahd;              // объезжаем вставшего, а ближе — стоящий сосед: цель не перебивать (v1.16.88)
     if(c.ahd&&c.gp<20&&c.pace>c.ahd.speed+1.0&&(!na||slowAhd)&&(!afterApex||crawler||c.ovLock||c.duel===c.ahd)&&!gLock){              // faster potential -> go around. Under yellow/VSC only a car that cannot hold the pace may be passed — that is the rule, and without it a queue would crawl behind a stopped car for ever (v1.15.26)
-      let ov=c.ovSide, off=2.6;
+      let ov=c.ovSide, off=LANE_OV;
       if(crawler){                                                           // ahead much slower/stopped: take the open side (toward centre) and clear fully
         ov=c.ahd.lane>0.3?-1:(c.ahd.lane<-0.3?1:c.ovSide);
         ov=c.ahd.isGhost?(c.ovLock===c.ahd?c.ovDir:ghostSide(c.ahd)):freeSide(c,c.ahd.lane,c.ovLock===c.ahd?c.ovDir:ov,hw);   // вставшего — с той стороны, где до стены просторнее                // ...but not into a side somebody else has already taken
-        off=(c.ahd.spanX!==undefined?Math.max(3.4,c.ahd.spanX+1.535):3.4)+(c.ahd.isGhost&&c.ovPadFor===c.ahd?c.ovPad:0);   // поперёк трассы игрок занимает ±3 м — 3.4 от его центра это въезд в него
+        off=(c.ahd.spanX!==undefined?Math.max(LANE_PASS,c.ahd.spanX+CAR_PASS):LANE_PASS)+(c.ahd.isGhost&&c.ovPadFor===c.ahd?c.ovPad:0);   // поперёк трассы игрок занимает ±3 м — 3.4 от его центра это въезд в него
         if(c.ahd.speed<6){c.ovLock=c.ahd;c.ovDir=ov;}}                       // latch ONLY onto a car that has genuinely stopped. "crawler" measures against MY pace at MY point on the track, so in every braking zone the car ahead — already in the corner — looks stopped; latching there forced the whole field onto one line two seconds after the lights and killed the start scramble (v1.15.26, found 08.2026)
       else if(c.duel===c.ahd)ov=c.duelDir;                                   // сторона выбрана при заходе — не менять её на полпути
       want=c.ahd.lane+ov*off;}
-    else if(c.duel&&!c.ovLock)want=c.duel.lane+c.duelDir*2.6;                // цель ушла из моей полосы — значит я уже сбоку; держим линию, пока не проехали
+    else if(c.duel&&!c.ovLock)want=c.duel.lane+c.duelDir*LANE_OV;                // цель ушла из моей полосы — значит я уже сбоку; держим линию, пока не проехали
     /* Объезжая ВСТАВШЕГО игрока, коридор шире — до hw·0.75, как у ошибающегося (v1.16.21): болид
        поперёк узкой трассы (Хунгароринг, hw 6) занимает половину дороги, и в hw·0.62 объезд
        не помещался — соперник подпирал его до 10 с. */
@@ -10289,7 +10313,7 @@ function update(dt){
     const mix=c.gridLane+(want-c.gridLane)*eff;
     let nl=c.lane+(mix-c.lane)*Math.min(1,dt*(0.5+eff*1.2+(c.errPh?2.2:0)));   // в ошибке уходим вбок быстрее: обычная постоянная 0.6 с не успевает за 6 с показать уход
     for(const o of __order){if(o===c||o.isPlayer)continue;           // keep bots off EACH OTHER; the player is handled by the contact oval, so bots never dodge the player
-      const sep=o.spanX!==undefined?o.spanX+1.415:CAR_WID+0.13;      // сходящего, развёрнутого поперёк, — по его ширине (v1.16.79)
+      const sep=o.spanX!==undefined?o.spanX+CAR_SEP:CAR_WID+CAR_GAP;      // сходящего, развёрнутого поперёк, — по его ширине (v1.16.79)
       if(Math.abs(o.dist-c.dist)<CAR_LEN&&Math.abs(nl-o.lane)<sep){   // push apart exactly while the hulls would overlap along the road; a settled queue sits at 6.3 m and is left alone
         const side=Math.sign(c.lane-o.lane)||(c.ovSide||1);
         const wantSep=o.lane+side*sep;                      // 2.7 m: the hull is 2.57 across, so the old 2.4 left the wheels overlapping by 17 cm side by side
@@ -10303,11 +10327,11 @@ function update(dt){
        уступает» (§2). Прямо сзади в затылок правило не действует — иначе машина за кормой вставшего
        игрока не может уйти в объезд через его полосу (`overtake` застревал на 6 из 6 зёрен). */
     if(!player.retired){const F=track.F[iu],lon=(player.x-c.x)*F.x+(player.z-c.z)*F.z;
-      if(Math.abs(lon)<3.02+(player.spanL||3.02)-1.5){
-        const sep=(player.spanX||1.285)+1.285+0.13, gNow=Math.abs(c.lane-player.lane), gMin=Math.min(gNow,sep);
+      if(Math.abs(lon)<CAR_HL+(player.spanL||CAR_HL)-1.5){
+        const sep=(player.spanX||CAR_HW)+CAR_HW+CAR_GAP, gNow=Math.abs(c.lane-player.lane), gMin=Math.min(gNow,sep);
         if(Math.abs(nl-player.lane)<gMin){const sd=Math.sign(c.lane-player.lane)||(c.ovSide||1);nl=player.lane+sd*gMin;}}}
-    for(const r of __ghosts){const g=r.ghost,ga=g.dist-c.dist;if(ga>=g.spanL+3.1||ga<=-(g.spanL+3.32))continue;   // вставший — как игрок сбоку: ближе его ширины не подходить, а если уже ближе — не ближе, чем есть; стоящий ПОЗАДИ него (упор — на spanL+3.32) не сбоку: ему вбок можно, в корпус не пустит ghostPen ниже (v1.16.88: окно ловило его на 1 см, и «другая сторона» не могла пересечь полосу за вставшим)
-      const sep=g.spanX+carHalfWidth(c.crab||0)+0.13,gNow=Math.abs(c.lane-g.lane),gMin=Math.min(gNow,sep);
+    for(const r of __ghosts){const g=r.ghost,ga=g.dist-c.dist;if(ga>=g.spanL+CAR_AHEAD||ga<=-(g.spanL+CAR_BEHIND))continue;   // вставший — как игрок сбоку: ближе его ширины не подходить, а если уже ближе — не ближе, чем есть; стоящий ПОЗАДИ него (упор — на spanL+3.32) не сбоку: ему вбок можно, в корпус не пустит ghostPen ниже (v1.16.88: окно ловило его на 1 см, и «другая сторона» не могла пересечь полосу за вставшим)
+      const sep=g.spanX+carHalfWidth(c.crab||0)+CAR_GAP,gNow=Math.abs(c.lane-g.lane),gMin=Math.min(gNow,sep);
       if(Math.abs(nl-g.lane)<gMin){const sd=Math.sign(c.lane-g.lane)||1;nl=g.lane+sd*gMin;}}
     const mlat=8*dt;nl=Math.max(c.lane-mlat,Math.min(c.lane+mlat,nl));   // no car crosses the road faster than 8 m/s sideways: the push-apart rule alone reached 18, and at 60 m/s forward that is a 17-degree crab — the car slid sideways instead of steering
     if(c.gBlk&&!c.ovLock)nl=c.gBlk>0?Math.max(nl,c.lane+mlat*0.5):Math.min(nl,c.lane-mlat*0.5);   // вставший держит, а объезда нет (защёлка отпущена по dist, его угол ещё у борта) — отойти от него, а не стоять (v1.16.87)
@@ -10321,7 +10345,6 @@ function update(dt){
   placePlayer(player);field.forEach(c=>placeAI(c,dt));{const px=player.x,pz=player.z;carContacts(dt);carContacts(dt);wallSqueeze(dt,px,pz);}placePlayer(player);updateCarLOD();smokeFlush();smokeUpdate();   // дым — по уже передвинутым кузовам (SMOKE_*); rivals move first, then push the player out of them: otherwise they slide through sideways
   updateCamera(dt);render();updateHUD();
 }
-const CAR_LEN=6.04, CAR_WID=2.57;                       // real hull, the same numbers the contact oval is built on
 function carHalfWidth(ang){return (CAR_LEN*Math.abs(Math.sin(ang))+CAR_WID*Math.abs(Math.cos(ang)))/2;}
 function wallAt(i,side){return ((side>0?track.WR:track.WL)[i])-0.35;}   // 0.35 = the margin the player's own wall test uses
 /* Park a retired car by the LOCAL barrier, not by lap-wide averages.
@@ -10333,7 +10356,7 @@ function retireSpot(c){
   let side=c.lane>=0?1:-1;                                    // the side it was already on...
   if(wallAt(i,-side)-hw>wallAt(i,side)-hw+0.5)side=-side;     // ...unless the other one is clearly roomier
   const free=wallAt(i,side)-hw;                               // corridor between road edge and barrier
-  const base=free>=6.5?0.7:free>=5.0?0.45:free>=3.4?0.25:0.0; // slewed across it if there is room, along the barrier if not
+  const base=free>=RET_SLEW[0]?0.7:free>=RET_SLEW[1]?0.45:free>=RET_SLEW[2]?0.25:0.0; // slewed across it if there is room, along the barrier if not
   return {i,hw,side,free,base};}
 /* СХОД ЕЗДОЙ, А НЕ ОДНИМ КАДРОМ (v1.16.79, владелец 14.10.2026: «сход выглядит как внезапная и мгновенная остановка, иногда
    прямо на глазах»). До неё retireCar за один кадр обнулял скорость (хоть с 300 км/ч), переставлял болид вбок на 2–12 м — в 20 см
@@ -10384,7 +10407,7 @@ const SPIN_ON=0.5;                       // тяжёлое торможение:
 const SPIN_MIN_V=120/3.6;                // м/с: медленнее — ошибке не разворот (в трафике болид мог идти поворот вдвое медленнее)
 const SPIN_GRIP=0.6;                     // остаток сцепления в момент срыва: курс хода поворачивает не больше чем на эту долю кривизны дороги, и доля тает к остановке (v1.16.84)
 const SPIN_STEP=2;                       // м: шаг расчёта пути разворота (spinTrace)
-const SPIN_CROWD=2.6;                    // м: сосед внутри поворота дальше этого (корпус и запас) — не на пути разворота
+const SPIN_CROWD=LANE_OV;                    // м: сосед внутри поворота дальше этого (корпус и запас) — не на пути разворота
 const SPIN_CROWD_A=30;                   // м: и впереди ближе этого
 const SPIN_CROWD_T=0.5;                  // с: и сзади ближе этого хода — тоже (влетит в разворачивающегося)
 const SPIN_DEC=30;                       // м/с²: боком, с блокировкой и прижимной силой — с 230 км/ч ~2.1 с и ~68 м, со 150 — ~1.4 с и ~29 м
@@ -10398,7 +10421,7 @@ const SPIN_DRIFT_SHARE=0.5;              // доля «унесло» среди
 const SPIN_EDGE=0.6;                     // м: весь кузов за белой линией не ближе этого, и до видимой стены — тоже (запас ERR_GAP — отдельно)
 const SPIN_PAUSE=1.5;                    // с: постоял — и в путь (Пиастри ~2 с)
 const SPIN_PIVOT=1.4;                    // рад/с: доворот газом с вывернутым рулём, если встал боком или задом (Перес: всего ~5.5 с)
-const SPIN_PIV_ARM=2.0;                  // м: от середины до передней оси — корма заносится вокруг неё (v1.16.84; до неё крутило вокруг середины — «как на подставке»)
+const SPIN_PIV_ARM=CAR_AXF;                  // м: от середины до передней оси — корма заносится вокруг неё (v1.16.84; до неё крутило вокруг середины — «как на подставке»)
 const SPIN_GO_YAW=0.25;                  // рад: доворачивает до «носом вдоль трассы, чуть к полотну» — дальше едет дугой
 const SPIN_ARC_TOL=0.6;                  // рад: ближе этого к такому курсу (встал почти по ходу — «унесло») — без доворота, сразу дугой
 const SPIN_LOOK=12;                      // м: дуга к краю полотна — курс на точку на столько впереди
@@ -10516,7 +10539,7 @@ function spinPlan(c,C,v,ret,ang){const M=track.M,L=track.length,dec=ret?SPIN_DEC
     else{let a=0,b=SPIN_GRIP;for(let n=0;n<10;n++){const m=(a+b)/2,em=end(tr(m));if(!em)break;if(em.lane*side>tgt)a=m;else b=m;}g=a;T=tr(g);}}
   const eT=end(T);if(!eT||eT.lane*side<lo||eT.lane*side>hi)return null;
   if(!ret){const half=carHalfWidth(ang),l0=c.lane*side;for(let j=1;j<=10;j++){const q=T.q[Math.round(eI*j/10)],i=Math.floor(q.u*M)%M;   // по всему пути — не в стену
-      if(q.lane*side>wallAt(i,side)-Math.max(half,1.4)-SPIN_EDGE*0.5)return null;
+      if(q.lane*side>wallAt(i,side)-Math.max(half,CAR_ROOM_HW)-SPIN_EDGE*0.5)return null;
       if(q.lane*side<l0-1)return null;}}                                          // и не внутрь поворота
   return {X:X,dec:dec,tr:T,g:g,tgt:side*tgt};}
 /* Разворот в месте C возможен? Решение — за ERR_LEAD до входа (точка ix), а путь считается из точки срыва C.on: болид там — в своей
@@ -10619,7 +10642,7 @@ function failStep(c,iu,dt){const f=c.fail,hw=halfAt(iu),nz=neutralAt(iu);f.t+=dt
   dl=Math.max(-0.7*ds-0.005,Math.min(0.7*ds+0.005,dl));}                         // и вбок не круче ~35° к ходу: путь вылета, отставший из-за соседа, догоняется плавно
   {const F=track.F[iu],R=track.R[iu];                                            // сквозь передних не проезжать: не быстрее, чем позволяет зазор (FOLLOW_TAU)
    for(const o of cars){if(o===c||o.retired||free&&o.fail&&o.fail.on)continue;const dx=o.x-c.x,dz=o.z-c.z,lon=dx*F.x+dz*F.z;if(lon<=0||lon>14)continue;
-     if(Math.abs(dx*R.x+dz*R.z)>(c.spanX||1.285)+(o.spanX||1.285)+0.1)continue;
+     if(Math.abs(dx*R.x+dz*R.z)>(c.spanX||CAR_HW)+(o.spanX||CAR_HW)+0.1)continue;
      const cap=Math.max(0,o.speed)+Math.max(0,lon-CAR_LEN-0.26)/FOLLOW_TAU;if(v>cap){const vn=Math.max(cap,Math.min(v,c.speed-FOLLOW_BRAKE*dt));
        if(W){const st=spinWorld(c,f,vn*dt);if(st){ds=st.ds;dl=st.dl;f.st=st;}}else{ds*=vn/Math.max(v,1e-6);dl*=vn/Math.max(v,1e-6);}v=vn;}}}   // не быстрее тормозов: присваивание — «стоп-кран» и рывок разворота
   if(W){f.thRp=f.thR;f.thR=Math.atan2(Math.sin(f.st.psi-f.st.mv),Math.cos(f.st.psi-f.st.mv));}   // курс дороги меняется свободно (видимый курс не трогает), остальное — не быстрее SPIN_RATE: сосед придержал — догнать без рывка   // по прямой: кузов = курс дороги − курс хода − вращение (видимый курс дороги не тащит)
@@ -10687,7 +10710,7 @@ function spinMove(c,f,iu,dt,v,free){const a=c.crab,L=track.length,hw=halfAt(iu);
 function spinClear(c,iu){const F=track.F[iu],R=track.R[iu],P=track.P[iu],eL=c.fail.side*halfAt(iu)*SPIN_LANE;
   for(const o of cars){if(o===c||o.retired)continue;const dx=o.x-c.x,dz=o.z-c.z,lon=dx*F.x+dz*F.z;
     if(lon>14||lon<-SPIN_GAP_BACK)continue;
-    if(Math.abs((o.x-P.x)*R.x+(o.z-P.z)*R.z-eL)>(o.spanX||1.285)+1.285+0.8)continue;   // не у этого края
+    if(Math.abs((o.x-P.x)*R.x+(o.z-P.z)*R.z-eL)>(o.spanX||CAR_HW)+CAR_HW+0.8)continue;   // не у этого края
     if(lon>=-12||-lon<Math.max(0,o.speed-c.speed)*SPIN_GAP_T+12)return false;}
   return true;}
 /* Вставший болид — дым мотора ещё RET_SMOKE_AFTER с, реже и слабее. */
@@ -10746,7 +10769,7 @@ function ghostPen(c,lane,ds,r,crab){const M=track.M,fi=((((c.u+ds/track.length)%
   const h=Math.atan2(F.x+(F2.x-F.x)*t,F.z+(F2.z-F.z)*t)-(crab===undefined?(c.crab||0):crab),ax=Math.sin(h),az=Math.cos(h),hr=r.mesh.rotation.y,bx=Math.sin(hr),bz=Math.cos(hr);
   const dx=r.mesh.position.x-x,dz=r.mesh.position.z-z,AX=[[ax,az],[az,-ax],[bx,bz],[bz,-bx]];let best=1e9;
   for(const u of AX){const d=Math.abs(dx*u[0]+dz*u[1]);
-    const o=3.07*Math.abs(ax*u[0]+az*u[1])+1.335*Math.abs(az*u[0]-ax*u[1])+3.02*Math.abs(bx*u[0]+bz*u[1])+1.285*Math.abs(bz*u[0]-bx*u[1])-d;
+    const o=CAR_PEN_L*Math.abs(ax*u[0]+az*u[1])+CAR_PEN_W*Math.abs(az*u[0]-ax*u[1])+CAR_HL*Math.abs(bx*u[0]+bz*u[1])+CAR_HW*Math.abs(bz*u[0]-bx*u[1])-d;
     if(o<=0)return 0;if(o<best)best=o;}
   return best;}
 /* Корпус соперника всё же в корпусе сходящего или вставшего (развёрнутый наехал сам, крутясь): соперника — вбок, а если вбок не
@@ -10759,9 +10782,9 @@ function ghostSeparate(c,list){for(const r of list){if(r===c||Math.abs(c.x-r.x)>
 /* Сторона объезда вставшего: где от его борта до предела полосы (ghostLim) просторнее — В ЕГО СЕЧЕНИИ дороги: его настоящая
    полоса (lane0) и стены там, где он стоит (v1.16.87). До неё — его полоса в мерке подъезжающего и стены у подъезжающего: в шикане
    после тоннеля Монако дорога у них смотрит по-разному, сторона выходила к стене, и соперник стоял за вставшим до конца VSC (~24 с). */
-function ghostLim(iu,hw){return [Math.max(hw*0.75,Math.min(hw*1.1,wallAt(iu,-1)-1.45)),Math.max(hw*0.75,Math.min(hw*1.1,wallAt(iu,1)-1.45))];}
-function ghostSide(g){const L=ghostLim(g.i,halfAt(g.i)),need=g.spanX+1.535,l=g.lane0;return L[1]-(l+need)>=(l-need)+L[0]?1:-1;}
-function ghostFits(g,s){const L=ghostLim(g.i,halfAt(g.i)),need=g.spanX+1.535,l=g.lane0;return s>0?L[1]>=l+need:L[0]>=need-l;}   // объезд с этой стороны в его сечении помещается (v1.16.88)
+function ghostLim(iu,hw){return [Math.max(hw*0.75,Math.min(hw*1.1,wallAt(iu,-1)-CAR_WALL_HW)),Math.max(hw*0.75,Math.min(hw*1.1,wallAt(iu,1)-CAR_WALL_HW))];}
+function ghostSide(g){const L=ghostLim(g.i,halfAt(g.i)),need=g.spanX+CAR_PASS,l=g.lane0;return L[1]-(l+need)>=(l-need)+L[0]?1:-1;}
+function ghostFits(g,s){const L=ghostLim(g.i,halfAt(g.i)),need=g.spanX+CAR_PASS,l=g.lane0;return s>0?L[1]>=l+need:L[0]>=need-l;}   // объезд с этой стороны в его сечении помещается (v1.16.88)
 const GHOST_PAD=2.5, GHOST_PAD_V=1.0;    // м, м/с: встал перед вставшим — добирает отступ объезда (в шикане его угол выступает в чужом сечении)
 const GHOST_FLIP=4.0;                    // с: не помогло — объезд с другой стороны (страховка: выбранная сторона заперта)
 function sectorAt(u){const s=Math.floor(((u%1)+1)%1*MARSHAL_SECTORS);return (s%MARSHAL_SECTORS+MARSHAL_SECTORS)%MARSHAL_SECTORS;}
@@ -11021,16 +11044,16 @@ function smokeAt(x,y,z,k,v,F,R,sd,a,kind,shade){const S=smokePool(),q=S.p[S.next
 function smokeFlush(){if(!smokeQ.length)return;
   for(const e of smokeQ){const c=e.c;if(c.retired&&e.kind!=='eng')continue;const m=c.mesh,h=m.rotation.y,fx=Math.sin(h),fz=Math.cos(h),lx=Math.cos(h),lz=-Math.sin(h);
     const F=track.F[e.iu],R=track.R[e.iu],k=c.num*251+e.pn*4,sh=smokeShade(e.iu);
-    if(e.kind==='eng'){const sd=e.pn%2?1:-1,x=m.position.x-fx*2.3+lx*sd*0.25,z=m.position.z-fz*2.3+lz*sd*0.25;   // из-под крышки мотора, у задней кромки кузова
+    if(e.kind==='eng'){const sd=e.pn%2?1:-1,x=m.position.x-fx*SMOKE_ENG_Z+lx*sd*0.25,z=m.position.z-fz*SMOKE_ENG_Z+lz*sd*0.25;   // из-под крышки мотора, у задней кромки кузова
       smokeAt(x,m.position.y+0.55,z,k,c.speed,F,R,sd,e.a,2,sh);continue;}
-    if(e.kind==='rear'){for(const sg of [1,-1]){const x=m.position.x-fx*1.7+lx*sg*1.25,z=m.position.z-fz*1.7+lz*sg*1.25,sd=Math.sign(sg*(R.x*lx+R.z*lz))||sg;   // задние колёса z=−1.7 (контракт модели), чуть снаружи шины
+    if(e.kind==='rear'){for(const sg of [1,-1]){const x=m.position.x+fx*CAR_AXR+lx*sg*SMOKE_WX,z=m.position.z+fz*CAR_AXR+lz*sg*SMOKE_WX,sd=Math.sign(sg*(R.x*lx+R.z*lz))||sg;   // задние колёса z=−1.7 (контракт модели), чуть снаружи шины
         smokeAt(x,m.position.y,z,k+(sg>0?0:2),c.speed,F,R,sd,0.8,0,sh);if((e.pn+(sg>0?0:1))%2===0)smokeAt(x,m.position.y,z,k+(sg>0?1:3),c.speed,F,R,sd,0.6,1,sh);}
       continue;}
     const sIn=-e.side,sgIn=Math.sign(sIn*(R.x*lx+R.z*lz))||1;   // внутреннее колесо: в мерке lane наружу — e.side (lane вправо по R)
-    const wheel=(sg,wk)=>[m.position.x+fx*2.0+lx*sg*wk,m.position.z+fz*2.0+lz*sg*wk];   // передняя ось z=+2.0, колесо x=±1.05 (контракт модели)
-    const y=m.position.y;let w=wheel(sgIn,1.25);   // чуть снаружи шины — иначе её закрывает колесо
+    const wheel=(sg,wk)=>[m.position.x+fx*CAR_AXF+lx*sg*wk,m.position.z+fz*CAR_AXF+lz*sg*wk];   // передняя ось z=+2.0, колесо x=±1.05 (контракт модели)
+    const y=m.position.y;let w=wheel(sgIn,SMOKE_WX);   // чуть снаружи шины — иначе её закрывает колесо
     smokeAt(w[0],y,w[1],k,c.speed,F,R,sIn,1,0,sh);smokeAt(w[0],y,w[1],k+1,c.speed,F,R,sIn,1,1,sh);
-    if(e.pn%2===0){w=wheel(-sgIn,1.25);smokeAt(w[0],y,w[1],k+2,c.speed,F,R,-sIn,0.45,0,sh);smokeAt(w[0],y,w[1],k+3,c.speed,F,R,-sIn,0.5,1,sh);}}
+    if(e.pn%2===0){w=wheel(-sgIn,SMOKE_WX);smokeAt(w[0],y,w[1],k+2,c.speed,F,R,-sIn,0.45,0,sh);smokeAt(w[0],y,w[1],k+3,c.speed,F,R,-sIn,0.5,1,sh);}}
   smokeQ.length=0;}
 function smokeUpdate(){const S=track._smoke;if(!S||!cam)return;const geo=S.mesh.geometry,pos=geo.attributes.position.array,col=geo.attributes.color.array;
   const e=cam.matrixWorld.elements,rx=e[0],ry=e[1],rz=e[2],ux=e[4],uy=e[5],uz=e[6];let live=0;
@@ -11060,7 +11083,7 @@ function errWallBeyond(c,lane,sg){const M=track.M,fi=(((c.u%1)+1)%1)*M,i=Math.fl
   const P=track.P[i].clone().lerp(track.P[i2],tt),R=track.R[i].clone().lerp(track.R[i2],tt).normalize(),F=track.F[i].clone().lerp(track.F[i2],tt);   // положение — как в placeAI: машина стоит между точками, в повороте стена в 4 м дальше уже ближе
   const cx=P.x+R.x*lane,cz=P.z+R.z*lane,yaw=Math.atan2(F.x,F.z)-(c.crab||0),s=Math.sin(yaw),co=Math.cos(yaw);
   let worst=-9;
-  for(const wc of [[1.05,2.0],[-1.05,2.0],[1.05,-1.7],[-1.05,-1.7],[1.0,3.25],[-1.0,3.25],[0.78,-2.55],[-0.78,-2.55]]){
+  for(const wc of CAR_PTS){
     const x=cx+wc[0]*co+wc[1]*s,z=cz-wc[0]*s+wc[1]*co;let best=3,bs=-9;
     for(const sgm of segs){const ax=sgm[0][0],az=sgm[0][1],ux=sgm[1][0]-ax,uz=sgm[1][1]-az,L2=ux*ux+uz*uz;if(L2<1e-9)continue;
       let t=((x-ax)*ux+(z-az)*uz)/L2;t=t<0?0:t>1?1:t;const d=Math.hypot(x-ax-ux*t,z-az-uz*t);
@@ -11136,7 +11159,7 @@ function entryAhead(i){const M=track.M;
    мечется из стороны в сторону каждый кадр. */
 function freeSide(c,base,cur,hw){
   const lim=hw*0.62;                                                   // мерить надо ДОСТИЖИМУЮ полосу: у самой кромки
-  const at=s=>laneRoom(c,Math.max(-lim,Math.min(lim,base+s*3.4)));     // объезд упирается в край полотна и не состоится вовсе
+  const at=s=>laneRoom(c,Math.max(-lim,Math.min(lim,base+s*LANE_PASS)));     // объезд упирается в край полотна и не состоится вовсе
   const a=at(cur), b=at(-cur);
   return b>a+0.8?-cur:cur;}
 function carIdx(o){return o===player?(player.hint||0):Math.floor(((o.u%1)+1)%1*track.M)%track.M;}
@@ -11170,7 +11193,7 @@ function render(){renderer.render(scene,cam);}
 
 /* ---------- HUD ---------- */
 function rankCmp(a,b){if(!!a.retired!==!!b.retired)return a.retired?1:-1;return b.dist-a.dist;}
-const TOWER_HYST=6.04;                                                    // корпус болида: строка меняется, только когда обгоняющий прошёл на корпус
+const TOWER_HYST=CAR_LEN;                                                   // корпус болида: строка меняется, только когда обгоняющий прошёл на корпус
 let towerOrd=null;
 /* Порядок В БАШНЕ (только показ) — тот же rankCmp, но с защёлкой.
    Без неё строки сортируются по dist без гистерезиса, а dist меряется по ЦЕНТРУ
