@@ -63,6 +63,7 @@ const PROBES = [
   { key: 'sectors',   mod: './probe-sectors.js',            secs: 70 },
   { key: 'stage',     mod: './probe-stage.js',              secs: 40 },
   { key: 'failroom',  mod: './probe-fail-room.js',          secs: 200 },
+  { key: 'tilt',      mod: './probe-tilt.js',               secs: 15 },
 ];
 
 /* Быстрая проверка правки окружения (цвета, реклама, трибуны, щиты):

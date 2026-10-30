@@ -179,6 +179,7 @@
   #qbanner .qname{color:#fff;font-weight:800;font-size:20px;letter-spacing:.04em;}
   #qbanner .qtime{font-size:16px;font-variant-numeric:tabular-nums;margin-top:2px;}
   #qbanner .qtime .gp{color:#39d353;} #qbanner .qtime .gpp{color:#e23b3b;}
+  #game.tilt .pad.l{visibility:hidden;}   /* руль наклоном: кнопок руля не видно, пока датчик жив (v1.17.24) */
   .pad.l{left:0;padding-left:max(14px,env(safe-area-inset-left));} .pad.r{right:0;padding-right:max(14px,env(safe-area-inset-right));}
   .kb{width:var(--kb);height:var(--kb);border-radius:calc(var(--kb)*0.22);border:1px solid rgba(255,255,255,.22);background:rgba(15,19,26,.42);
     backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);color:#fff;font-size:calc(var(--kb)*0.35);display:flex;align-items:center;justify-content:center;font-weight:800;position:relative;touch-action:none;transition:background .05s,transform .05s;}
@@ -235,7 +236,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.17.23</div>
+    <div class="verstamp">v1.17.24</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -271,6 +272,9 @@
     <div class="viewsel" id="viewPick"><button data-v="cockpit" class="sel">Из кокпита</button><button data-v="chase">За болидом</button></div>
     <div class="step cond">Сложность соперников</div>
     <div class="viewsel" id="diffPick"><button data-d="easy" class="sel">Новичок</button><button data-d="normal">Норма</button><button data-d="hard">Профи</button></div>
+    <div class="step cond">Руль</div>
+    <div class="viewsel" id="steerPick"><button data-s="keys" class="sel">Кнопки</button><button data-s="tilt">Наклон</button></div>
+    <div class="sub" id="tiltNote" style="margin:6px 0 0;min-height:1.5em"></div>
     <div class="field"><label class="cond">Сводка</label><div class="card" style="cursor:default" id="summaryCard"><div class="stripe" style="background:var(--accent)"></div></div></div>
     <div class="spacer"></div>
     <div class="actionbar"><button class="btn ghost" onclick="go('s-driver')">Назад</button><button class="btn primary" onclick="startWeekend(true)">В кокпит →</button></div>
@@ -457,7 +461,7 @@ const TRACKS=[
    widths:[[0,7.2],[10,7.1],[20,7.0],[30,7.0],[40,7.0],[50,7.0],[60,7.0],[70,7.0],[80,7.0],[90,7.0],[100,7.0],[110,7.0],[120,7.0],[130,7.0],[140,7.0],[150,7.0],[160,7.1],[170,7.1],[180,7.3],[190,7.5],[200,7.6],[210,7.5],[220,7.4],[230,7.2],[240,7.0],[250,6.9],[260,6.9],[270,6.9],[280,6.9],[290,6.9],[300,6.9],[310,6.9],[320,6.9],[330,6.9],[340,6.9],[350,6.9],[360,6.9],[370,6.9],[380,6.9],[390,6.9],[400,6.9],[410,6.9],[420,6.9],[430,6.9],[440,6.9],[450,6.9],[460,7.1],[470,7.5],[480,8.0],[490,8.2],[500,8.4],[510,8.6],[520,8.7],[530,8.9],[540,8.9],[550,8.8],[560,8.7],[570,8.5],[580,8.5],[590,8.4],[600,8.4],[610,8.4],[620,8.4],[630,8.5],[640,8.6],[650,8.7],[660,8.8],[670,8.9],[680,9.0],[690,9.1],[700,9.2],[710,9.2],[720,9.2],[730,9.2],[740,9.2],[750,9.2],[760,9.2],[770,9.2],[780,9.2],[790,9.2],[800,9.2],[810,9.2],[820,9.2],[830,9.2],[840,9.2],[850,9.3],[860,9.4],[870,9.5],[880,9.4],[890,9.1],[900,8.7],[910,8.1],[920,7.7],[930,7.4],[940,7.3],[950,7.3],[960,7.3],[970,7.3],[980,7.4],[990,7.4],[1000,7.4],[1010,7.4],[1020,7.4],[1030,7.4],[1040,7.4],[1050,7.4],[1060,7.4],[1070,7.4],[1080,7.4],[1090,7.4],[1100,7.4],[1110,7.5],[1120,7.6],[1130,8.0],[1140,8.6],[1150,9.2],[1160,9.7],[1170,9.9],[1180,9.8],[1190,9.5],[1200,9.1],[1210,8.8],[1220,8.7],[1230,8.7],[1240,8.7],[1250,8.7],[1260,8.7],[1270,8.7],[1280,8.7],[1290,8.7],[1300,8.7],[1310,8.7],[1320,8.7],[1330,8.7],[1340,8.7],[1350,8.7],[1360,8.7],[1370,8.7],[1380,8.7],[1390,8.8],[1400,8.9],[1410,8.8],[1420,8.4],[1430,8.1],[1440,7.9],[1450,7.8],[1460,7.8],[1470,7.7],[1480,7.7],[1490,7.6],[1500,7.6],[1510,7.5],[1520,7.4],[1530,7.2],[1540,7.0],[1550,6.8],[1560,6.6],[1570,6.5],[1580,6.4],[1590,6.4],[1600,6.7],[1610,7.2],[1620,7.8],[1630,8.4],[1640,9.0],[1650,9.6],[1660,9.9],[1670,9.8],[1680,9.8],[1690,9.8],[1700,9.8],[1710,9.8],[1720,9.8],[1730,9.9],[1740,9.9],[1750,9.9],[1760,9.6],[1770,9.0],[1780,8.5],[1790,7.9],[1800,7.5],[1810,7.5],[1820,7.5],[1830,7.5],[1840,7.5],[1850,7.5],[1860,7.5],[1870,7.5],[1880,7.5],[1890,7.5],[1900,7.5],[1910,7.5],[1920,7.5],[1930,7.5],[1940,7.5],[1950,7.4],[1960,7.2],[1970,6.8],[1980,6.5],[1990,6.2],[2000,5.9],[2010,5.5],[2020,5.2],[2030,5.0],[2040,4.9],[2050,4.9],[2060,4.9],[2070,4.9],[2080,4.9],[2090,4.9],[2100,4.9],[2110,4.9],[2120,4.8],[2130,4.7],[2140,4.6],[2150,4.5],[2160,4.5],[2170,4.4],[2180,4.3],[2190,4.3],[2200,4.2],[2210,4.3],[2220,4.3],[2230,4.4],[2240,4.5],[2250,4.6],[2260,4.7],[2270,4.9],[2280,4.9],[2290,4.9],[2300,4.9],[2310,4.9],[2320,4.9],[2330,4.9],[2340,4.9],[2350,4.9],[2360,4.9],[2370,4.7],[2380,4.8],[2390,5.3],[2400,5.4],[2410,5.3],[2420,5.2],[2430,5.2],[2440,5.2],[2450,5.2],[2460,5.2],[2470,5.2],[2480,5.2],[2490,5.2],[2500,5.2],[2510,5.2],[2520,5.2],[2530,5.2],[2540,5.2],[2550,5.2],[2560,5.2],[2570,5.2],[2580,5.2],[2590,5.2],[2600,5.2],[2610,4.9],[2620,4.3],[2630,3.9],[2640,3.8],[2650,3.8],[2660,3.8],[2670,3.8],[2680,4.1],[2690,4.6],[2700,5.2],[2710,5.8],[2720,6.1],[2730,5.7],[2740,5.1],[2750,4.6],[2760,4.4],[2770,4.7],[2780,5.2],[2790,5.7],[2800,5.9],[2810,6.0],[2820,6.0],[2830,6.0],[2840,6.0],[2850,6.0],[2860,6.0],[2870,6.0],[2880,6.0],[2890,6.0],[2900,6.0],[2910,6.1],[2920,6.1],[2930,6.1],[2940,6.1],[2950,6.2],[2960,6.2],[2970,6.2],[2980,6.2],[2990,6.3],[3000,6.3],[3010,6.3],[3020,6.3],[3030,6.3],[3040,6.4],[3050,6.4],[3060,6.4],[3070,6.4],[3080,6.5],[3090,6.6],[3100,6.8],[3110,6.9],[3120,7.0],[3130,6.9],[3140,6.9],[3150,6.9],[3160,6.9],[3170,6.9],[3180,6.8],[3190,6.8],[3200,6.8],[3210,6.8],[3220,6.8],[3230,6.8],[3240,6.8],[3250,6.8],[3260,6.8],[3270,6.8],[3280,6.8],[3290,6.8],[3300,6.8],[3310,6.8],[3320,6.8],[3330,6.8],[3340,6.8],[3350,6.8],[3360,6.8],[3370,6.8],[3380,6.7],[3390,6.5],[3400,6.3],[3410,6.0],[3420,6.0],[3430,6.0],[3440,6.0],[3450,6.0],[3460,6.0],[3470,6.0],[3480,6.0],[3490,6.0],[3500,6.0],[3510,6.0],[3520,6.0],[3530,6.0],[3540,6.0],[3550,6.0],[3560,6.0],[3570,6.0],[3580,5.9],[3590,5.6],[3600,5.4],[3610,5.0],[3620,4.7],[3630,4.4],[3640,4.1],[3650,4.0],[3660,3.9],[3670,3.9],[3680,3.9],[3690,3.9],[3700,3.9],[3710,3.9],[3720,3.9],[3730,3.9],[3740,3.9],[3750,3.9],[3760,3.9],[3770,3.9],[3780,3.9],[3790,3.9],[3800,3.9],[3810,3.9],[3820,3.9],[3830,3.9],[3840,3.9],[3850,3.9],[3860,3.9],[3870,3.9],[3880,3.9],[3890,3.9],[3900,3.9],[3910,3.9],[3920,3.9],[3930,4.0],[3940,4.2],[3950,4.6],[3960,5.2],[3970,5.7],[3980,6.1],[3990,6.6],[4000,7.0],[4010,7.5],[4020,7.9],[4030,8.3],[4040,8.8],[4050,9.1],[4060,9.2],[4070,9.2],[4080,9.2],[4090,9.2],[4100,9.2],[4110,9.2],[4120,9.2],[4130,9.2],[4140,9.2],[4150,9.2],[4160,9.2],[4170,9.2],[4180,9.2],[4190,9.2],[4200,9.2],[4210,9.2],[4220,9.2],[4230,9.2],[4240,9.2],[4250,9.2],[4260,9.2],[4270,9.2],[4280,9.2],[4290,9.2],[4300,9.2],[4310,9.2],[4320,9.2],[4330,9.2],[4340,9.2],[4350,9.1],[4360,9.0],[4370,9.0],[4380,8.9],[4390,8.8],[4400,8.7],[4410,8.6],[4420,8.6],[4430,8.5],[4440,8.4],[4450,8.3],[4460,8.3],[4470,8.2],[4480,8.1],[4490,8.0],[4500,7.9],[4510,7.5],[4520,6.8],[4530,6.2],[4540,5.7],[4550,5.0],[4560,4.6],[4570,4.8],[4580,5.0],[4590,5.0],[4600,5.0],[4610,5.0],[4620,5.0],[4630,5.0],[4640,5.0],[4650,5.0],[4660,4.9],[4670,4.8],[4680,4.6],[4690,4.5],[4700,4.4],[4710,4.4],[4720,4.3],[4730,4.2],[4740,4.3],[4750,4.3],[4760,4.4],[4770,4.4],[4780,4.5],[4790,4.6],[4800,4.6],[4810,4.7],[4820,4.8],[4830,4.9],[4840,5.0],[4850,5.0],[4860,5.0],[4870,5.0],[4880,5.3],[4890,5.8],[4900,6.3],[4910,6.9],[4920,7.5],[4930,7.8],[4940,7.8],[4950,7.8],[4960,8.2],[4970,8.8],[4980,9.4],[4990,9.9],[5000,10.0],[5010,10.0],[5020,10.0],[5030,10.0],[5040,10.0],[5050,10.0],[5060,9.9],[5070,9.7],[5080,9.5],[5090,9.5],[5100,9.5],[5110,9.5],[5120,9.5],[5130,9.5],[5140,9.5],[5150,9.5],[5160,9.5],[5170,9.5],[5180,9.5],[5190,9.5],[5200,9.5],[5210,9.5],[5220,9.3],[5230,9.0],[5240,8.8],[5250,8.8],[5260,8.8],[5270,8.8],[5280,8.8],[5290,8.8],[5300,8.8],[5310,8.8],[5320,8.8],[5330,8.8],[5340,8.8],[5350,8.8],[5360,8.8],[5370,8.8],[5380,8.8],[5390,8.8],[5400,8.8],[5410,8.8],[5420,8.8],[5430,8.8],[5440,8.8],[5450,8.8],[5460,8.8],[5470,8.8],[5480,8.8],[5490,8.8],[5500,8.8],[5510,8.8],[5520,9.2],[5530,9.8],[5540,10.4],[5550,11.0],[5560,11.5],[5570,11.5],[5580,11.5],[5590,11.5],[5600,11.5],[5610,11.5],[5620,11.5],[5630,11.5],[5640,11.5],[5650,11.5],[5660,11.5],[5670,11.5],[5680,11.5],[5690,11.5],[5700,11.5],[5710,11.5],[5720,11.5],[5730,11.5],[5740,11.5],[5750,11.5],[5760,11.5],[5770,11.5],[5780,11.5],[5790,11.5],[5800,11.5],[5810,11.5],[5820,11.5],[5830,11.5],[5840,11.5],[5850,11.3],[5860,10.9],[5870,10.3],[5880,9.8],[5890,9.2],[5900,8.6],[5910,8.0],[5920,7.5]],
    desc:"Улицы Баку: узкий замок у стен Старого города и самая длинная прямая календаря вдоль набережной."},
 ];
-const sel={track:null,roster:null,custom:"",laps:3,view:"cockpit",diff:"easy"};
+const sel={track:null,roster:null,custom:"",laps:3,view:"cockpit",diff:"easy",steer:"keys"};
 /* СЛОЖНОСТЬ — ЭТО ДОЛЯ ОТ ОДНОЙ И ТОЙ ЖЕ МАШИНЫ, а не отдельные числа для ИИ.
    До v1.15.66 у игрока и у ИИ были РАЗНЫЕ законы: игрок ограничен законом руля,
    то есть машиной с прижимной силой (1.64 g на 15 м/с, 4.88 g на 88), а ИИ —
@@ -522,6 +526,9 @@ function applyAccent(hex){document.documentElement.style.setProperty('--accent',
 function buildLapPick(){document.querySelectorAll('#lapPick button').forEach(b=>{b.classList.toggle('sel',+b.dataset.l===sel.laps);b.onclick=()=>{sel.laps=+b.dataset.l;buildLapPick();buildSummary();};});}
 function buildViewPick(){document.querySelectorAll('#viewPick button').forEach(b=>{b.classList.toggle('sel',b.dataset.v===sel.view);b.onclick=()=>{sel.view=b.dataset.v;buildViewPick();};});}
 function buildDiffPick(){document.querySelectorAll('#diffPick button').forEach(b=>{b.classList.toggle('sel',b.dataset.d===sel.diff);b.onclick=()=>{sel.diff=b.dataset.d;buildDiffPick();};});}
+function buildSteerPick(){document.querySelectorAll('#steerPick button').forEach(b=>{b.classList.toggle('sel',b.dataset.s===sel.steer);
+  b.onclick=()=>{sel.steer=b.dataset.s;buildSteerPick();tiltAsk();};});   // разрешение iOS спрашивается только из нажатия — вот оно
+  tiltNote();}
 function buildSummary(){const c=document.getElementById('summaryCard');if(sel.track===null||sel.roster===null){c.innerHTML='<div class="stripe" style="background:var(--accent)"></div>—';return;}
   const t=TRACKS[sel.track],r=ROSTER[sel.roster],shown=sel.custom||r.name;
   c.innerHTML=`<div class="stripe" style="background:var(--accent)"></div><h3 class="cond" style="font-size:17px">${shown} · #${r.num}</h3>
@@ -531,7 +538,7 @@ function go(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remo
   document.getElementById(id).classList.add('active');
   if(id==='s-track')buildTrackCards();
   if(id==='s-driver'){if(selTeam!==null&&sel.roster!==null)openDriverView(selTeam);else backToTeams();}
-  if(id==='s-format'){buildLapPick();buildViewPick();buildDiffPick();buildSummary();}
+  if(id==='s-format'){buildLapPick();buildViewPick();buildDiffPick();buildSteerPick();buildSummary();}
   try{window.scrollTo(0,0);}catch(e){}}
 
 /* ============================================================ ENGINE ============================================================ */
@@ -9482,7 +9489,7 @@ function stagePrewarm(){const c=cam.clone(),p=track.P[0],f=track.F[0];
 function stageGo(){if(!stageOk)return;stageOk=false;if(!stageAuto)releaseTouches();   // палец, нажавший кнопку, не должен остаться педалью
   cancelAnimationFrame(stageRaf);stageDot=null;
   document.getElementById('stage').classList.remove('show');document.getElementById('stageMap').innerHTML='';beginQuali();}
-function startWeekend(withStage){AUDIO.init();AUDIO.resume();releaseTouches();   // кнопка, залипшая на прошлом экране, не должна рулить в новом заезде
+function startWeekend(withStage){tiltAsk();AUDIO.init();AUDIO.resume();releaseTouches();   // кнопка, залипшая на прошлом экране, не должна рулить в новом заезде
   applyAccent(ROSTER[sel.roster].color);camMode=sel.view;initThree();clearScene();
   track=makeTrack(TRACKS[sel.track]);track.refLap=track.length/(MAXSPEED*0.85);
   stageAuto=!withStage;stageShow();
@@ -9936,7 +9943,8 @@ function update(dt){
   player.speed=Math.max(-REV_MAX,Math.min(player.speed,playerTop));
   AUDIO.engine(Math.abs(player.speed),kGo?1:0);   // выше потолка флага — звук отпущенного газа (v1.16.71)
   // steering — smoothed; calmer at speed; right press turns right
-  let steerInput=(qualiOutro||raceOutro)?outroSteer:(kR?1:0)-(kL?1:0);
+  const tiltIn=tiltSteer();                                            // руль наклоном (v1.17.24): null — кнопки
+  let steerInput=(qualiOutro||raceOutro)?outroSteer:(kL||kR||tiltIn===null)?(kR?1:0)-(kL?1:0):tiltIn;   // нажатая кнопка руля главнее наклона
   player.steerAmt+=(steerInput-player.steerAmt)*Math.min(1,dt*7);       // ramp: light tap = light turn
   const av=Math.abs(player.speed);
   // Два предела сразу: по сцеплению (был всегда) и по выкруту колёс (не было — оттого
@@ -11385,6 +11393,63 @@ addEventListener('keydown',e=>{if(typing(e))return;const k=e.key.toLowerCase();
   if(k==='arrowup'||k==='w'){keys.gas=1;e.preventDefault();}if(k==='arrowdown'||k==='s'){keys.brake=1;e.preventDefault();}if(k==='c')toggleCam();});
 addEventListener('keyup',e=>{if(typing(e))return;const k=e.key.toLowerCase();
   if(k==='arrowleft'||k==='a')keys.left=0;if(k==='arrowright'||k==='d')keys.right=0;if(k==='arrowup'||k==='w')keys.gas=0;if(k==='arrowdown'||k==='s')keys.brake=0;});
+/* ---- руль наклоном (v1.17.24, вопрос владельца 24.10.2026, вариант Б) ----
+   Вместо кнопок «влево/вправо» — поворот самого iPad, как баранки. Датчик — вектор тяжести (devicemotion,
+   accelerationIncludingGravity); угол руля — подъём правого края экрана над горизонтом, asin(g·x̂/|g|):
+   держишь ровно — руль прямо, поднял правый край (баранка влево) — влево. Так же работает и iPad, лежащий
+   почти плашмя (наклон края), и поставленный стоймя. Ось «вверх» экрана берётся из самого датчика —
+   ближайшая к вертикали ось устройства (±x/±y), ПРАВО — она же, повёрнутая по часовой: не нужны ни
+   ориентация экрана (window.orientation и screen.orientation на iOS считают её по-разному), ни знак осей
+   (у iOS он исторически обратный W3C) — перевернув оба вектора разом, получаем то же число.
+   Ось ищется заново при повороте экрана и если «вверх» ушло дальше 120° (перевернули iPad).
+   Дальше — тот же закон руля, что у кнопок: число −1…+1 вместо −1/0/+1, тем же сглаживанием steerAmt
+   (поэтому ни физика, ни якорь не меняются). Датчик молчит больше TILT_LOST — руль снова на кнопках.
+   TILT_DEAD — мёртвая зона (дрожь рук), TILT_FULL — наклон полного руля, TILT_TAU — сглаживание датчика,
+   TILT_FLAT — меньше этой доли тяжести в плоскости экрана ось не ищется (iPad лежит плашмя). */
+const TILT_DEAD=2, TILT_FULL=25, TILT_TAU=0.06, TILT_LOST=1, TILT_FLAT=0.3;   // °, °, с, с, доля g
+const TILT={g:null,t:-1,up:null,deg:0,steer:0,listen:false,asked:false,denied:false,shown:false,noteAt:0};
+function tiltSample(ax,ay,az,now){
+  if(!(isFinite(ax)&&isFinite(ay)&&isFinite(az))||Math.hypot(ax,ay,az)<4)return;   // не тяжесть (тряска, падение) — руль как был
+  const g=TILT.g;
+  if(!g||now-TILT.t>0.5)TILT.g=[ax,ay,az];
+  else{const k=1-Math.exp(-Math.max(0,now-TILT.t)/TILT_TAU);g[0]+=(ax-g[0])*k;g[1]+=(ay-g[1])*k;g[2]+=(az-g[2])*k;}
+  TILT.t=now;
+  const x=TILT.g[0],y=TILT.g[1],m=Math.hypot(x,y,TILT.g[2]),pl=Math.hypot(x,y);
+  if(m<1)return;
+  if(pl>=TILT_FLAT*m&&(!TILT.up||(x*TILT.up[0]+y*TILT.up[1])<pl*Math.cos(120*Math.PI/180)))
+    TILT.up=Math.abs(x)>Math.abs(y)?[Math.sign(x),0]:[0,Math.sign(y)];   // ближайшая к вертикали ось экрана
+  if(!TILT.up){TILT.deg=0;TILT.steer=0;return;}
+  const rx=TILT.up[1],ry=-TILT.up[0];                                // «вправо» — «вверх», повёрнутое по часовой
+  const deg=Math.asin(Math.max(-1,Math.min(1,(x*rx+y*ry)/m)))*180/Math.PI;   // >0 — правый край выше, баранка влево
+  TILT.deg=deg;
+  TILT.steer=-Math.sign(deg)*Math.max(0,Math.min(1,(Math.abs(deg)-TILT_DEAD)/(TILT_FULL-TILT_DEAD)));
+  if(now-TILT.noteAt>0.1&&document.getElementById('s-format').classList.contains('active')){TILT.noteAt=now;tiltNote();}}   // строка — только в меню
+function tiltLive(){return TILT.t>=0&&performance.now()/1000-TILT.t<TILT_LOST;}
+/* Руль кадра: доля −1…+1 или null — рулят кнопки. Кнопки руля прячутся, пока датчик жив. */
+function tiltSteer(){const on=sel.steer==='tilt'&&tiltLive()&&!!TILT.up;
+  if(on!==TILT.shown){TILT.shown=on;document.getElementById('game').classList.toggle('tilt',on);}
+  return on?TILT.steer:null;}
+function tiltListen(){if(TILT.listen)return;TILT.listen=true;
+  addEventListener('devicemotion',e=>{const a=e.accelerationIncludingGravity;
+    if(a&&a.x!=null&&a.y!=null&&a.z!=null)tiltSample(+a.x,+a.y,+a.z,performance.now()/1000);});
+  addEventListener('orientationchange',()=>{TILT.up=null;});}
+/* Только из нажатия: iOS 13+ спрашивает «доступ к движению» лишь в ответ на касание. Повторный вызов после
+   «Разрешить» отвечает сразу, без вопроса. Отказ — только явный «denied» (Chrome вне касания отвечает «prompt»). */
+function tiltAsk(){if(sel.steer!=='tilt')return;
+  const DM=typeof DeviceMotionEvent!=='undefined'?DeviceMotionEvent:null;
+  if(DM&&typeof DM.requestPermission==='function'){
+    try{DM.requestPermission().then(r=>{TILT.denied=r==='denied';tiltNote();},()=>{TILT.denied=true;tiltNote();});}
+    catch(err){TILT.denied=true;}}
+  TILT.asked=true;tiltListen();   // слушать можно всегда: без разрешения события просто не приходят
+  tiltNote();setTimeout(tiltNote,1500);}
+/* Строка под выбором руля в меню: работает ли датчик и куда он рулит сейчас — проверка до заезда. */
+function tiltNote(){const el=document.getElementById('tiltNote');if(!el)return;
+  if(sel.steer!=='tilt'){el.textContent='';return;}
+  if(!tiltLive()){el.textContent=TILT.denied?'Нет доступа к датчику движения — руль останется на кнопках. Разрешить: закрыть игру и открыть заново, нажать «Наклон» и «Разрешить».'
+    :TILT.asked?'Ждём датчик… Если строка не меняется — датчика нет, руль останется на кнопках.':'';return;}
+  if(!TILT.up){el.textContent='Подними iPad, как руль.';return;}
+  const p=Math.round(Math.abs(TILT.steer)*100);
+  el.textContent='Наклон работает: '+(p===0?'руль прямо':'руль '+p+' % '+(TILT.steer<0?'влево':'вправо'))+'. Полный руль — наклон '+TILT_FULL+'°.';}
 const ptrMap={};
 const TOUCH_NEAR=64;                 // допуск сверки: полпальца, кнопка руля вчетверо шире
 function clearControls(){controls.left=controls.right=controls.gas=controls.brake=0;for(const k in ptrMap)delete ptrMap[k];document.querySelectorAll('.kb').forEach(b=>b.classList.remove('hit'));}
