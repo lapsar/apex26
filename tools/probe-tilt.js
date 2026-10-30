@@ -11,8 +11,10 @@
         и почти плашмя (β = 80°) рулит; перевернули на 180° — ось нашлась заново,
         знак верный; событие orientationchange сбрасывает ось; не-тяжесть (|g| < 4) пропускается;
      3. сглаживание: скачок датчика — за TILT_TAU руль проходит 63 % пути;
-     4. в заезде: полный наклон влево — ТОТ ЖЕ путь болида до бита, что кнопка «влево»;
-        половина наклона — steerAmt → −0.5; нажатая кнопка главнее наклона;
+     4. в заезде: руль на упоре — кадр наклона тот же до бита, что кадр кнопки «влево» (закон поворота один);
+        половина наклона — steerAmt ровно −0.5 (v1.17.26: у наклона нет разгона руля); внутри мёртвой зоны с
+        курсом, сбитым на 2°, — путь тот же, что у отпущенных кнопок (выравниватель, вариант А); 90 % руля при
+        повороте руки 0→30° за 0.3 с — не позже кнопки; нажатая кнопка главнее наклона;
         режим «Кнопки» с подаваемым датчиком — путь тот же, что без датчика;
         кнопки руля спрятаны, пока датчик жив, и вернулись, когда он смолк;
      5. разрешение: в режиме «Кнопки» слушатель не вешается; «Наклон» без
@@ -41,13 +43,13 @@ async function run() {
   const r = R.result('Руль наклоном — знак, величина, ось экрана, путь как у кнопок, разрешение iOS');
   const env = H.loadGame({ seed: 7 });
   if (env.evalIn(`typeof tiltSample!=='function'`)) { r.fail('руля наклоном нет (сборка до v1.17.24)'); return r; }
-  const C = env.evalIn(`({dead:TILT_DEAD,full:TILT_FULL,tau:TILT_TAU,lost:TILT_LOST,w0:TILT_W0,w1:TILT_W1})`);
+  const C = env.evalIn(`({dead:TILT_DEAD,full:TILT_FULL,expo:typeof TILT_EXPO==='number'?TILT_EXPO:1,tau:TILT_TAU,lost:TILT_LOST,w0:TILT_W0,w1:TILT_W1})`);
   /* v1.17.25: угол баранки в плоскости экрана — ровно θ при любом β; почти плашмя (доля тяжести в плоскости
      cosβ ниже w1) плавно переходит в подъём края asin(cosβ·sinθ). */
   const expect = (theta, beta) => {
     const w = Math.max(0, Math.min(1, (Math.cos(beta * D2R) - C.w0) / (C.w1 - C.w0)));
     const deg = w * theta + (1 - w) * Math.asin(Math.cos(beta * D2R) * Math.sin(theta * D2R)) / D2R;
-    return -Math.sign(deg) * Math.max(0, Math.min(1, (Math.abs(deg) - C.dead) / (C.full - C.dead)));
+    return -Math.sign(deg) * Math.pow(Math.max(0, Math.min(1, (Math.abs(deg) - C.dead) / (C.full - C.dead))), C.expo);   // v1.17.26: мягкий центр
   };
   const reset = `TILT.g=null;TILT.up=null;TILT.t=-1;TILT.steer=0;TILT.deg=0;`;
   const feed = (v, t) => env.evalIn(`tiltSample(${v[0]},${v[1]},${v[2]},${t});TILT.steer`);
@@ -108,25 +110,49 @@ async function run() {
 
   /* 4. в заезде (Монца, квала с места): 3 с газа, руль — кнопкой или наклоном */
   const T = H.tracks(true)[0];
-  const drive = (mode, tiltTheta, btn) => {
+  const drive = (mode, tiltTheta, btn, hdgErr) => {
     const e = H.setupWeekend(H.loadGame({ seed: 7 }), { trackIdx: T.idx });
-    return e.evalIn(`(function(){sel.steer=${JSON.stringify(mode)};var hid=[];
+    return e.evalIn(`(function(){sel.steer=${JSON.stringify(mode)};var hid=[];player.hdg+=${(hdgErr || 0) * D2R};
       for(var f=0;f<180;f++){controls.gas=1;controls.brake=0;controls.left=${btn === 'left' ? 1 : 0};controls.right=${btn === 'right' ? 1 : 0};
         ${tiltTheta === null ? '' : `if(f<120)tiltSample(${sensor(tiltTheta, 30, 90, -1)},performance.now()/1000);`}
         update(1/60);hid.push(document.getElementById('game').classList.contains('tilt'));}
       return {x:player.x,z:player.z,h:player.hdg,s:player.steerAmt,v:player.speed,hid:hid};})()`);
   };
+  /* Один кадр из одинакового состояния (руль уже на упоре, 30 м/с): закон поворота у наклона и кнопки один. */
+  const oneFrame = (mode, tiltTheta, btn) => {
+    const e = H.setupWeekend(H.loadGame({ seed: 7 }), { trackIdx: T.idx });
+    return e.evalIn(`(function(){sel.steer=${JSON.stringify(mode)};player.speed=30;player.steerAmt=${btn === 'left' || tiltTheta > 0 ? -1 : 0};
+      controls.gas=1;controls.left=${btn === 'left' ? 1 : 0};${tiltTheta == null ? '' : `tiltSample(${sensor(tiltTheta, 30, 90, -1)},performance.now()/1000);`}
+      update(1/60);return {x:player.x,z:player.z,h:player.hdg,s:player.steerAmt};})()`);
+  };
+  /* Отклик: рука доворачивает телефон 0→30° за 0.3 с; кадр, когда руль дошёл до 90 % (кнопка — с нажатия). */
+  const reach = mode => {
+    const e = H.setupWeekend(H.loadGame({ seed: 7 }), { trackIdx: T.idx });
+    const hand = JSON.stringify(Array.from({ length: 90 }, (_, f) => sensor(Math.min(30, 30 * f / 18), 30, 90, -1)));
+    return e.evalIn(`(function(){sel.steer=${JSON.stringify(mode)};var H=${hand};
+      for(var f=0;f<90;f++){controls.gas=1;controls.left=${mode === 'keys' ? 1 : 0};
+        ${mode === 'tilt' ? 'tiltSample(H[f][0],H[f][1],H[f][2],performance.now()/1000+f/60);' : ''}   /* часы обвязки в цикле стоят — время кадра явно */
+        update(1/60);if(player.steerAmt<=-0.9)return f+1;}return 999;})()`);
+  };
   {
-    const thFull = C.full + 8, thHalf = C.dead + 0.5 * (C.full - C.dead);
+    const thFull = C.full + 8, thHalf = C.dead + Math.pow(0.5, 1 / C.expo) * (C.full - C.dead);
     const base = drive('keys', null, null), keysL = drive('keys', null, 'left'), keysR = drive('keys', null, 'right');
     const tiltL = drive('tilt', thFull, null);
     const same = (a, b) => a.x === b.x && a.z === b.z && a.h === b.h && a.v === b.v;
     if (!(base.v > 5)) r.fail(`болид не поехал (скорость ${base.v.toFixed(1)} м/с) — заезд пробника не годится`);
-    if (!same(tiltL, keysL)) r.fail(`полный наклон влево ≠ кнопка «влево»: Δx ${(tiltL.x - keysL.x).toExponential(2)}, Δкурс ${(tiltL.h - keysL.h).toExponential(2)}`);
+    if (tiltL.s !== -1) r.fail(`полный наклон влево: steerAmt ${tiltL.s} вместо ровно −1`);
+    const f1k = oneFrame('keys', null, 'left'), f1t = oneFrame('tilt', thFull, null);
+    if (!(f1k.x === f1t.x && f1k.z === f1t.z && f1k.h === f1t.h)) r.fail(`руль на упоре: кадр наклона ≠ кадру кнопки (Δкурс ${(f1t.h - f1k.h).toExponential(2)}) — закон поворота разный`);
     if (!(keysL.s < -0.9 && keysR.s > 0.9)) r.fail(`кнопки: steerAmt влево ${keysL.s.toFixed(3)}, вправо ${keysR.s.toFixed(3)}`);
     const half = drive('tilt', thHalf, null);
-    /* к кадру 120 руль сошёлся к −0.5, дальше датчик смолк (время стоит — он «жив»), руль держится */
-    if (Math.abs(half.s + 0.5) > 0.01) r.fail(`половина наклона: steerAmt ${half.s.toFixed(4)} вместо −0.5`);
+    /* v1.17.26: разгона руля у наклона нет — руль ровно та доля, что дал датчик */
+    if (Math.abs(half.s + 0.5) > 1e-9) r.fail(`половина наклона: steerAmt ${half.s.toFixed(6)} вместо ровно −0.5 (разгон руля у наклона?)`);
+    /* А (v1.17.26): внутри мёртвой зоны руль 0 — выравниватель прямой работает, как у отпущенных кнопок */
+    const keysErr = drive('keys', null, null, 2), tiltErr = drive('tilt', C.dead - 1, null, 2);
+    if (!same(keysErr, tiltErr)) r.fail(`наклон ${C.dead - 1}° (в мёртвой зоне) с курсом, сбитым на 2°, ≠ отпущенным кнопкам: Δкурс ${(tiltErr.h - keysErr.h).toExponential(2)}`);
+    /* Отклик: руль у наклона до 90 % не позже кнопки (рука 0→30° за 0.3 с) */
+    const rk = reach('keys'), rt = reach('tilt');
+    if (rt > rk) r.fail(`отклик: наклон дошёл до 90 % руля за ${rt} кадров, кнопка — за ${rk}`);
     const over = drive('tilt', thFull, 'right');
     if (!same(over, keysR)) r.fail('кнопка «вправо» при наклоне влево не главнее наклона');
     const inert = drive('keys', thFull, null);
@@ -140,7 +166,7 @@ async function run() {
     e.advance((C.lost + 0.1) * 1000);
     const off = e.evalIn(`(function(){update(1/60);return {cls:document.getElementById('game').classList.contains('tilt'),st:tiltSteer()};})()`);
     if (!on || off.cls || off.st !== null) r.fail(`датчик смолк: кнопки ${off.cls ? 'спрятаны' : 'видны'}, руль ${off.st === null ? 'на кнопках' : 'всё ещё наклоном'}`);
-    r.line(`${T.name}: полный наклон влево = кнопка «влево» до бита (курс ${keysL.h.toFixed(4)}); половина — ${half.s.toFixed(3)}; кнопка главнее; «Кнопки» с датчиком — путь прежний; смолк — кнопки вернулись`);
+    r.line(`${T.name}: руль на упоре — кадр наклона = кадру кнопки; половина — ${half.s.toFixed(3)} без разгона; в мёртвой зоне ${C.dead - 1}° — путь как у отпущенных кнопок; 90 % руля: наклон ${rt} кадров, кнопка ${rk}; кнопка главнее; «Кнопки» с датчиком — путь прежний; смолк — кнопки вернулись`);
   }
 
   /* 5. разрешение */

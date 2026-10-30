@@ -237,7 +237,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.17.25</div>
+    <div class="verstamp">v1.17.26</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -9946,7 +9946,11 @@ function update(dt){
   // steering — smoothed; calmer at speed; right press turns right
   const tiltIn=tiltSteer();                                            // руль наклоном (v1.17.24): null — кнопки
   let steerInput=(qualiOutro||raceOutro)?outroSteer:(kL||kR||tiltIn===null)?(kR?1:0)-(kL?1:0):tiltIn;   // нажатая кнопка руля главнее наклона
-  player.steerAmt+=(steerInput-player.steerAmt)*Math.min(1,dt*7);       // ramp: light tap = light turn
+  /* Разгон руля — для кнопок: короткое нажатие даёт лёгкий поворот. Наклону он не нужен: телефон и так поворачивается плавно,
+     а разгон поверх руки добавлял ~0.2 с — руль доходил до 90 % через 0.43–0.52 с против 0.30 у кнопки (v1.17.26, владелец:
+     «не успеваю завернуть»). Наклон ставит руль сразу; сглаживание — у датчика (TILT_TAU). */
+  if(tiltIn!==null&&!(kL||kR)&&!(qualiOutro||raceOutro))player.steerAmt=steerInput;
+  else player.steerAmt+=(steerInput-player.steerAmt)*Math.min(1,dt*7);       // ramp: light tap = light turn
   const av=Math.abs(player.speed);
   // Два предела сразу: по сцеплению (был всегда) и по выкруту колёс (не было — оттого
   // болид и вращался на месте). Ниже 45 км/ч решает второй, выше — первый, и там всё
@@ -11408,9 +11412,12 @@ addEventListener('keyup',e=>{if(typing(e))return;const k=e.key.toLowerCase();
    Ось ищется заново при повороте экрана и если «вверх» ушло дальше 120° (перевернули iPad).
    Дальше — тот же закон руля, что у кнопок: число −1…+1 вместо −1/0/+1, тем же сглаживанием steerAmt
    (поэтому ни физика, ни якорь не меняются). Датчик молчит больше TILT_LOST — руль снова на кнопках.
-   TILT_DEAD — мёртвая зона (дрожь рук), TILT_FULL — поворот полного руля, TILT_TAU — сглаживание датчика,
+   TILT_DEAD — мёртвая зона: внутри руль ровно 0, и на прямой работает выравниватель, как у отпущенных кнопок (v1.17.26, вариант А:
+   при 2° он у наклона почти не включался — 3° руки уводили на 250 км/ч на 6.7 м за 3 с); TILT_FULL — поворот полного руля;
+   TILT_EXPO — мягкий центр (вариант Б): доля руля — степень доли поворота, малый поворот рулит слабо, к TILT_FULL — полный
+   (v1.17.26: 5° / 20° / 1.5 — 10° дают 19 %, 15° — 54 %, 20° — 100 %; в v1.17.25 2° / 25° линейно — 35 / 57 / 78 %); TILT_TAU — сглаживание датчика,
    TILT_FLAT — меньше этой доли тяжести в плоскости экрана ось не ищется (iPad лежит плашмя; 0.3 до v1.17.25 — 72° от вертикали). */
-const TILT_DEAD=2, TILT_FULL=25, TILT_TAU=0.06, TILT_LOST=1, TILT_FLAT=0.15, TILT_W0=0.15, TILT_W1=0.35;   // °, °, с, с, доля g, доля g, доля g
+const TILT_DEAD=5, TILT_FULL=20, TILT_EXPO=1.5, TILT_TAU=0.06, TILT_LOST=1, TILT_FLAT=0.15, TILT_W0=0.15, TILT_W1=0.35;   // °, °, —, с, с, доля g, доля g, доля g
 const TILT={g:null,t:-1,up:null,deg:0,steer:0,listen:false,asked:false,denied:false,shown:false,noteAt:0};
 function tiltSample(ax,ay,az,now){
   if(!(isFinite(ax)&&isFinite(ay)&&isFinite(az))||Math.hypot(ax,ay,az)<4)return;   // не тяжесть (тряска, падение) — руль как был
@@ -11427,7 +11434,7 @@ function tiltSample(ax,ay,az,now){
   const xr=x*rx+y*ry,yu=x*TILT.up[0]+y*TILT.up[1],w=Math.max(0,Math.min(1,(pl/m-TILT_W0)/(TILT_W1-TILT_W0)));
   const deg=(w*Math.atan2(xr,yu)+(1-w)*Math.asin(Math.max(-1,Math.min(1,xr/m))))*180/Math.PI;   // >0 — баранка влево (правый край выше)
   TILT.deg=deg;
-  TILT.steer=-Math.sign(deg)*Math.max(0,Math.min(1,(Math.abs(deg)-TILT_DEAD)/(TILT_FULL-TILT_DEAD)));
+  TILT.steer=-Math.sign(deg)*Math.pow(Math.max(0,Math.min(1,(Math.abs(deg)-TILT_DEAD)/(TILT_FULL-TILT_DEAD))),TILT_EXPO);
   if(now-TILT.noteAt>0.1&&document.getElementById('s-format').classList.contains('active')){TILT.noteAt=now;tiltNote();}}   // строка — только в меню
 function tiltLive(){return TILT.t>=0&&performance.now()/1000-TILT.t<TILT_LOST;}
 /* Руль кадра: доля −1…+1 или null — рулят кнопки. Кнопки руля прячутся, пока датчик жив, тормоз — на их место слева (v1.17.25). */
