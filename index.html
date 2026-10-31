@@ -10668,8 +10668,9 @@ function failStep(c,iu,dt){const f=c.fail,hw=halfAt(iu),nz=neutralAt(iu);f.t+=dt
   else if(ds>0.02){f.dlr=Math.max(-0.7,Math.min(0.7,(nl-c.lane)/ds));f.thR+=(Math.atan2(nl-c.lane,ds)-f.thR)*Math.min(1,dt*8);}   // курс движения — по НАСТОЯЩЕМУ ходу (после удара — вдоль стены, плавно)
   else f.thR*=Math.max(0,1-dt*4);
   /* Стена — там, где болид БУДЕТ после шага (v1.17.24; до неё — в прежней точке с новой полосой: удар о косую стену кармана Баку
-     замечался кадром позже, и болид выталкивало вбок на 0.7–2 м за кадр). В кадре удара — доля шага до касания; скорость после
-     удара — по углу хода к САМОЙ стене (глубина за остаток шага), а не к дороге. */
+     замечался кадром позже, и болид выталкивало вбок на 0.7–2 м за кадр). Скорость после удара — по углу хода к САМОЙ стене
+     (доля шага до касания — бисекцией, глубина — за остаток шага), а не к дороге. Сам шаг не укорачивается: «полшага, потом
+     целый» в шикане Монцы, где болид далеко от осевой и шаг в мире вдвое длиннее, давал рывок 1.27 м. */
   let push=0;
   if(!K){const u0=c.u,at=t=>{c.u=(((u0+t*ds/track.length)%1)+1)%1;return failWall(c,c.lane+t*(nl-c.lane));};
     push=at(1);
@@ -10677,7 +10678,6 @@ function failStep(c,iu,dt){const f=c.fail,hw=halfAt(iu),nz=neutralAt(iu);f.t+=dt
       let a=0,b=1;if(at(0))b=0;else for(let q=0;q<6;q++){const m=(a+b)/2;if(at(m))b=m;else a=m;}
       const L=(1-a)*Math.hypot(ds,nl-c.lane),sn=L>1e-6?Math.min(1,Math.abs(push)/L):1;
       f.hit=true;f.vImp=v*Math.sqrt(1-sn*sn)*RET_WALL_KEEP;retThud(c,f.kind==='spin'&&!f.ret?0.4:0.8);   // поперёк стены — гаснет, вдоль — доля
-      if(a>0){ds*=a;nl=c.lane+a*(nl-c.lane);push=0;}else{c.u=u0;push=failWall(c,nl);}
       if(W)f.world=false;}
     c.u=u0;}
   if(push){nl-=push;if(W)f.world=false;
