@@ -9350,10 +9350,16 @@ const buildCar=(function(){        // self-contained model block; only THREE and
     // ---- ЗАДНЕЕ КРЫЛО (2026: профили до ±0.575, верх ≈0.98, XR 150–750; бим-винга нет) ----
     { const n=S?2:6, span=y=>{const P=[];for(let i=0;i<=n;i++)P.push([-0.55+1.10*i/n,y.y,y.z]);return P;};
       add(g, sweep(span({y:0.86,z:-2.02}),foil(S?6:12,0.36,0.045,0.05),null,true), body, 0,0,0);     // основной профиль
-      add(g, sweep(span({y:0.945,z:-2.22}),foil(S?6:12,0.24,0.040,0.24),null,true), body, 0,0,0);   // верхний закрылок
-      if(!S) add(g, box(1.08,0.012,0.05), c3, 0,0.985,-2.33, 0.24,0,0); }                        // акцентная кромка
-    for(const s of[-1,1])                                                                         // борт — тёмный, скруглённый
-      add(g, plate([[-1.84,0.72],[-1.83,0.90],[-1.90,0.99],[-2.30,1.01],[-2.38,0.95],[-2.39,0.76],[-2.30,0.68],[-1.95,0.66]],0.03), carbon, s*0.565+0.015,0,0, 0,-Math.PI/2,0);
+      add(g, sweep(span({y:0.915,z:-2.22}),foil(S?6:12,0.24,0.040,0.24),null,true), body, 0,0,0);   // верхний закрылок (v1.17.26: 0.945 — сзади просвет)
+      if(!S) add(g, box(1.08,0.012,0.05), c3, 0,0.955,-2.33, 0.24,0,0); }                        // акцентная кромка
+    // борт — тёмный, трапецией: передняя кромка уходит вниз-назад, низ переходит в стойку к диффузору (как у SF-26, v1.17.26)
+    for(const s of[-1,1]){
+      add(g, plate([[-1.86,0.86],[-1.88,0.96],[-1.95,1.00],[-2.30,1.01],[-2.38,0.96],[-2.40,0.66],[-2.30,0.60],[-2.16,0.60],[-2.00,0.68]],0.03), carbon, s*0.565+0.015,0,0, 0,-Math.PI/2,0);
+      const C=[[0.565,0.70],[0.562,0.60],[0.545,0.51],[0.510,0.44],[0.465,0.37]], sh=new THREE.Shape(), q=0.011;   // стойка: изгиб вниз-внутрь, на скат диффузора
+      C.forEach((c,i)=>{const x=s*(c[0]+q);i?sh.lineTo(x,c[1]):sh.moveTo(x,c[1]);});
+      for(let i=C.length-1;i>=0;i--)sh.lineTo(s*(C[i][0]-q),C[i][1]);
+      add(g, new THREE.ExtrudeGeometry(sh,{depth:0.12,bevelEnabled:false}), carbon, 0,0,-2.14);
+    }
     // «лебединые шеи» как у McLaren 2026 (v1.17.26): из крышки мотора вверх, через переднюю кромку и сверху на основной профиль
     // (до неё — два бруска, не доставали ни до крыла, ни до кузова; борта-плиты свисали до 0.44 м)
     for(const s of[-1,1]) add(g, sweep(crPath([[s*0.055,0.70,-1.55],[s*0.055,0.80,-1.68],[s*0.055,0.90,-1.79],[s*0.055,0.95,-1.89],
@@ -9372,7 +9378,7 @@ const buildCar=(function(){        // self-contained model block; only THREE and
         [RIM-0.012,hw-0.02],[RIM-0.012,-hw+0.02],[RIM,-hw]].map(p=>new THREE.Vector2(p[0],p[1]));
       add(sp, new THREE.LatheGeometry(prof,seg), tyre, 0,0,0, 0,0,Math.PI/2);
       // тормозной барабан со ступицей внутри обода: в него входят рычаги подвески (до v1.17.26 кончались в воздухе)
-      const d0=-hw+0.012, d1=S?hw-0.02:hw-0.10;
+      const d0=-hw+0.012, d1=S?hw-0.001:hw-0.087;   // до дна диска (v1.17.26: висел в ободе с зазором 1.5 см)
       add(sp, new THREE.CylinderGeometry(0.200,0.200,d1-d0,S?10:24), S?tyre:cover, sg*(d0+d1)/2,0,0, 0,0,Math.PI/2);
       add(sp, new THREE.CircleGeometry(RIM-0.012,seg), tyre, sg*(S?hw+0.001:hw-0.085),0,0, 0,sg*Math.PI/2,0);   // дно диска
       for(const a of[0,Math.PI])                                                      // маркировка — две дуги с разрывами
@@ -9391,8 +9397,14 @@ const buildCar=(function(){        // self-contained model block; only THREE and
     const frontWheels=[wheels[0], wheels[1]];
 
     // ---- ПОДВЕСКА (у обоих LOD): рычаги от шасси к ступице ----
-    for(const s of[-1,1]) for(const [z,x0,xw] of [[1.80,0.20,0.785],[-1.60,0.14,0.745]]){
-      const L=xw-x0-0.10, xm=s*(x0+L/2);
+    function rod(a,b,r){const A=new THREE.Vector3(...a),D=new THREE.Vector3(...b).sub(A),L=D.length(),geo=new THREE.CylinderGeometry(r,r,L,6);
+      geo.applyMatrix4(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),D.normalize())));
+      geo.translate(A.x+D.x*L/2,A.y+D.y*L/2,A.z+D.z*L/2);add(g,geo,carbon,0,0,0);}
+    for(const s of[-1,1]){
+      // передние — от борта и днища носа (низ носа 0.35) в тормозной барабан (v1.17.26: верхний не доходил до носа 2.4 см, нижний шёл под носом в воздухе)
+      rod([s*0.155,0.47,1.95],[s*0.685,0.44,1.86],0.02);
+      rod([s*0.050,0.365,1.75],[s*0.685,0.26,1.66],0.02);
+      const L=0.745-0.14-0.10, xm=s*(0.14+L/2), z=-1.60;
       add(g, new THREE.CylinderGeometry(0.02,0.02,L,6), carbon, xm,0.44,z+0.10, 0,s*0.20,Math.PI/2);
       add(g, new THREE.CylinderGeometry(0.02,0.02,L,6), carbon, xm,0.26,z-0.10, 0,-s*0.20,Math.PI/2);
     }
