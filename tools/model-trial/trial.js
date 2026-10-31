@@ -1,6 +1,6 @@
 // Замер Г (31.10.2026): Mercedes W17 и McLaren MCL40 — упрощение 8/4 тыс., перекраска в наши материалы, снимки рядом с нашей.
 // Папка рядом (../serve, как у sf26-scan): index.html игры, GLTFLoader.js и meshopt_simplifier.js (three r128),
-// модели из 2026_mercedes_w17.zip / 2026_mclaren_mcl40.zip (main) распакованы в serve/merc и serve/mcl. OUT — папка снимков.
+// модели из 2026_mercedes_w17.zip / 2026_mclaren_mcl40.zip (ветка models) распакованы в serve/merc и serve/mcl. OUT — папка снимков.
 'use strict';const path=require('path'),fs=require('fs'),http=require('http');
 const S=path.resolve(__dirname,'..'),SERVE=path.join(S,'serve'),OUT=path.join(S,process.env.OUT||'trial');
 const TYPES={'.html':'text/html','.js':'text/javascript','.gltf':'model/gltf+json','.bin':'application/octet-stream','.png':'image/png','.jpg':'image/jpeg'};

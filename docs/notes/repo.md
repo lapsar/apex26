@@ -547,7 +547,7 @@ apex26/
     │                                   рядом с нашей (render.js) → docs/notes/img/sf26-zamer.jpg; модели в репо нет
     ├── model-trial/                    замер Г (31.10.2026): Mercedes W17 и McLaren MCL40 — размеры и колёса
     │                                   (measure3.js), упрощение 8/4 тыс. и перекраска в наши материалы (trial.js)
-    │                                   → docs/notes/img/zamer-g-mercedes-mclaren.jpg; архивы моделей — в main
+    │                                   → docs/notes/img/zamer-g-mercedes-mclaren.jpg; архивы моделей — в ветке models
     ├── hungaroring-scan/               замер Хунгароринга: контур в метры со СВЕРКОЙ
     │                                   метода на всех вшитых трассах (convert.py --check),
     │                                   направление обхода и радиусы (geom.py),
