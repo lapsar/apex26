@@ -235,7 +235,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.17.24</div>
+    <div class="verstamp">v1.17.25</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -9156,10 +9156,64 @@ const buildCar=(function(){        // self-contained model block; only THREE and
     const base=N*n; put(0); put(N-1);
     for(let i=1;i<n-1;i++){ idx.push(base, base+i, base+i+1);                 // задний торец
                             idx.push(base+n, base+n+i+1, base+n+i); }         // передний торец
+    if(st[N-1].z<st[0].z) for(let t=0;t<idx.length;t+=3){const q=idx[t+1];idx[t+1]=idx[t+2];idx[t+2]=q;}   // станции по убыванию z (понтоны) — грани наружу (до v1.17.25 понтоны были вывернуты)
     const geo=new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pos,3));
     geo.setIndex(idx); geo.computeVertexNormals(); return geo;
   }
+  
+  // ---- v1.17.25: гладкие детали болида (своё; в r128 нет ни сплайн-труб нужного вида, ни сечений) ----
+  // Скруглённое сечение кузова — суперэллипс |u|^p+|v|^p=1, по часовой (как SEC), низ плоский (ложится на днище).
+  function roundSec(n,p){const a=[];for(let i=0;i<n;i++){const t=-Math.PI/n-2*Math.PI*i/n,c=Math.cos(t),s=Math.sin(t);
+      let v=Math.sign(s)*Math.pow(Math.abs(s),2/p);if(v<-0.9)v=-1;a.push([Math.sign(c)*Math.pow(Math.abs(c),2/p),v]);}
+    a.p=p;return a;}
+  const sstep=t=>{t=Math.max(0,Math.min(1,t));return t*t*(3-2*t);};
+  // Станции сглаживаются сплайном Катмулла — Рома (k точек на пролёт): излом силуэта уходит, опорные станции те же.
+  function smooth(st,k){if(k<=1)return st;const out=[],N=st.length,key=['z','x','y','w','h'];
+    for(let i=0;i<N-1;i++)for(let j=0;j<k;j++){const t=j/k,p0=st[Math.max(0,i-1)],p1=st[i],p2=st[i+1],p3=st[Math.min(N-1,i+2)],o={};
+      for(const q of key)o[q]=0.5*(2*p1[q]+(p2[q]-p0[q])*t+(2*p0[q]-5*p1[q]+4*p2[q]-p3[q])*t*t+(3*p1[q]-p0[q]-3*p2[q]+p3[q])*t*t*t);
+      out.push(o);}
+    out.push(Object.assign({},st[N-1]));return out;}
+  function crPath(P,k){if(k<=1)return P;const out=[],N=P.length;
+    for(let i=0;i<N-1;i++)for(let j=0;j<k;j++){const t=j/k,p0=P[Math.max(0,i-1)],p1=P[i],p2=P[i+1],p3=P[Math.min(N-1,i+2)];
+      out.push([0,1,2].map(q=>0.5*(2*p1[q]+(p2[q]-p0[q])*t+(2*p0[q]-5*p1[q]+4*p2[q]-p3[q])*t*t+(3*p1[q]-p0[q]-3*p2[q]+p3[q])*t*t*t)));}
+    out.push(P[N-1].slice());return out;}
+  // Станция цепочки на высоте z (линейно между соседними) и верх кузова над точкой (x,z) по той же формуле сечения.
+  function stAt(st,z){let a=st[0],b=st[st.length-1];for(let i=0;i<st.length-1;i++){const p=st[i],q=st[i+1];
+      if((z-p.z)*(z-q.z)<=0){a=p;b=q;break;}}
+    const t=Math.abs(b.z-a.z)<1e-9?0:(z-a.z)/(b.z-a.z),o={};for(const k of['x','y','w','h'])o[k]=a[k]+(b[k]-a[k])*t;return o;}
+  function topAt(st,sec,x,z){const s=stAt(st,z),u=Math.min(1,Math.abs(x-s.x)/(s.w/2));
+    return s.y+s.h/2*Math.pow(1-Math.pow(u,sec.p),1/sec.p);}
+  // Полоса ливреи ПО САМОЙ поверхности цепочки (на g выше): side 0 — по верху (|u|≤half), ±1 — по борту (|v−v0|≤half).
+  function band(st,sec,side,v0,half,gr,n){const p=sec.p,pos=[],idx=[],cs=[];
+    for(let i=0;i<=n;i++){const f=i/n;
+      if(side===0){const u=-half+2*half*f;cs.push([u,Math.pow(1-Math.pow(Math.abs(u),p),1/p)]);}
+      else{const v=side>0?v0+half-2*half*f:v0-half+2*half*f;cs.push([side*Math.pow(1-Math.pow(Math.abs(v),p),1/p),v]);}}
+    for(const s of st)for(const [u,v] of cs)pos.push(s.x+u*(s.w/2+gr),s.y+v*(s.h/2+gr),s.z);
+    const asc=st[st.length-1].z>st[0].z,m=cs.length;
+    for(let k=0;k<st.length-1;k++)for(let i=0;i<m-1;i++){const a0=k*m+i,b0=k*m+i+1,c0=(k+1)*m+i,d0=(k+1)*m+i+1;
+      if(asc)idx.push(a0,c0,b0, b0,c0,d0);else idx.push(a0,b0,c0, b0,d0,c0);}
+    const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));geo.setIndex(idx);geo.computeVertexNormals();return geo;}
+  // Труба по пути: сечение [u,v] против часовой (u — вбок, почти по горизонту; v — вверх), sc(t) — масштаб [su,sv] по доле пути.
+  function sweep(path,sec,sc,closedSec){const n=sec.length,N=path.length,pos=[],idx=[],V=THREE.Vector3;
+    for(let k=0;k<N;k++){const p=path[k],a=path[Math.max(0,k-1)],b=path[Math.min(N-1,k+1)];
+      const T=new V(b[0]-a[0],b[1]-a[1],b[2]-a[2]).normalize(),Nn=new V(T.z,0,-T.x);
+      if(Nn.lengthSq()<1e-8)Nn.set(1,0,0);Nn.normalize();const B=new V().crossVectors(T,Nn),[su,sv]=sc?sc(k/(N-1)):[1,1];
+      for(const [u,v] of sec)pos.push(p[0]+Nn.x*u*su+B.x*v*sv,p[1]+Nn.y*u*su+B.y*v*sv,p[2]+Nn.z*u*su+B.z*v*sv);}
+    const m=closedSec?n:n-1;
+    for(let k=0;k<N-1;k++)for(let i=0;i<m;i++){const j=(i+1)%n,a0=k*n+i,b0=k*n+j,c0=(k+1)*n+i,d0=(k+1)*n+j;idx.push(a0,b0,c0, b0,d0,c0);}
+    const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));geo.setIndex(idx);geo.computeVertexNormals();return geo;}
+  function tube(n,a,b){const s=[];for(let i=0;i<n;i++){const t=2*Math.PI*i/n;s.push([a*Math.cos(t),b*Math.sin(t)]);}return s;}
+  // Профиль крыла: хорда c вдоль u (носик спереди, u<0), толщина t к хвосту тоньше, угол атаки al — хвост выше.
+  function foil(n,c,t,al){const s=[],ca=Math.cos(al),sa=Math.sin(al);
+    for(let i=0;i<n;i++){const q=2*Math.PI*i/n,u=c/2*Math.cos(q),v=t/2*Math.sin(q)*(1-0.3*Math.cos(q));s.push([u*ca-v*sa,u*sa+v*ca]);}return s;}
+  // Плоский обтекатель (гало) двумя половинами: верх и низ — разные цвета, общий шов по кромке.
+  function foilHalves(n,w,t){const top=[],bot=[];for(let i=0;i<=n;i++){const q=Math.PI*i/n;
+      top.push([w/2*Math.cos(q),t/2*Math.sin(q)]);bot.push([w/2*Math.cos(Math.PI+q),t/2*Math.sin(Math.PI+q)]);}return {top,bot};}
+  function ellipse(a,b,n){const e=new THREE.CircleGeometry(1,n);e.scale(a,b,1);return e;}   // смотрит на +z
+  // Пластина по контуру [[z,y],…] толщиной d (борт крыла): ставить с поворотом −π/2 по y, x — внешняя грань.
+  function plate(pts,d){const sh=new THREE.Shape();sh.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)sh.lineTo(pts[i][0],pts[i][1]);
+    return new THREE.ExtrudeGeometry(sh,{depth:d,bevelEnabled:false});}
   
   // makeCar-совместимая сборка болида.
   //   colorHex — цвет команды из игры (единственный цвет, который игра передаёт)
@@ -9179,14 +9233,16 @@ const buildCar=(function(){        // self-contained model block; only THREE and
     // Размеры — регламент FIA 2026 (game.md, «Наш болид и настоящий 2026»), пропорции и высоты сверены с готовой
     // моделью SF-26 (замер В, img/sf26-zamer.jpg; её детали не копируются). Оси z +1.80 / −1.60 (база 3.40), нос +3.10,
     // хвост −2.35 (длина 5.45), колёса снаружи ±0.945 (ширина 1.90), колесо ⌀ 0.71. Блок РАЗМЕРЫ БОЛИДА — те же числа.
-    // ---- ДНИЩЕ (от XF 350 до XR 300; у задних колёс сужается) ----
-    add(g, box(1.40,0.04,1.40), carbon2, 0,0.08, 0.75);
-    add(g, box(1.30,0.04,1.30), carbon2, 0,0.08,-0.60);
-    add(g, box(1.04,0.04,0.66), carbon2, 0,0.08,-1.58);
-    if(!S) for(const s of[-1,1]){
-      add(g, box(0.06,0.10,1.30), carbon, s*0.69,0.12, 0.80, 0,0,s*0.12);       // кромка днища спереди
-      add(g, box(0.06,0.08,1.20), carbon, s*0.64,0.11,-0.60, 0,s*0.04,0);      // кромка вдоль борта
-    }
+    // v1.17.25 (вариант Б владельца): кузов — сглаженные станции и скруглённое сечение, крылья — гладкие профили во весь
+    // размах, обвод кокпита вместо рамки, гало одной деталью (сверху цвет команды, снизу тёмное), ливрея лежит на самом кузове.
+    const SECb=roundSec(S?10:16,2.6), SECp=roundSec(S?10:16,3.2);   // кузов и понтоны (у понтона углы острее)
+
+    // ---- ДНИЩЕ: один лист по контуру (спереди шире, к задним колёсам сужается), снизу 0.06, сверху 0.10 ----
+    { const F=[[0.70,1.45],[0.72,0.90],[0.72,0.30],[0.69,-0.30],[0.62,-0.85],[0.53,-1.30],[0.52,-1.92]];
+      const sh=new THREE.Shape(); sh.moveTo(F[0][0],F[0][1]);
+      for(let i=1;i<F.length;i++) sh.lineTo(F[i][0],F[i][1]);
+      for(let i=F.length-1;i>=0;i--) sh.lineTo(-F[i][0],F[i][1]);
+      add(g, new THREE.ExtrudeGeometry(sh,{depth:0.04,bevelEnabled:false}), carbon2, 0,0.10,0, Math.PI/2,0,0); }
 
     // ---- ДИФФУЗОР (потолок поднимается к хвосту, боковины, перегородки) ----
     add(g, box(1.00,0.03,0.36), carbon, 0,0.13,-1.48, 0.20,0,0);
@@ -9197,7 +9253,7 @@ const buildCar=(function(){        // self-contained model block; only THREE and
       for(const x of[-0.24,0.24]) add(g, box(0.025,0.16,0.50), carbon, x,0.17,-1.80);
     }
 
-    // ---- ШАССИ + НОС: одна цепочка призм (коробка передач -> кончик носа) ----
+    // ---- ШАССИ + НОС: одна цепочка (коробка передач -> кончик носа), станции сглажены ----
     const CH=[
       {z:-2.10,x:0,w:0.20,h:0.26,y:0.40}, {z:-1.75,x:0,w:0.28,h:0.34,y:0.41},
       {z:-1.30,x:0,w:0.42,h:0.44,y:0.43}, {z:-0.90,x:0,w:0.56,h:0.50,y:0.45},
@@ -9207,10 +9263,9 @@ const buildCar=(function(){        // self-contained model block; only THREE and
       {z: 2.20,x:0,w:0.28,h:0.26,y:0.47}, {z: 2.60,x:0,w:0.22,h:0.20,y:0.40},
       {z: 2.90,x:0,w:0.16,h:0.15,y:0.32}, {z: 3.10,x:0,w:0.10,h:0.10,y:0.26},
     ];
-    add(g, chain(S? pick(CH,[0,2,4,6,8,10,12,13]) : CH), body, 0,0,0);
-    if(!S) for(let i=8;i<=11;i++){ const a0=CH[i], b0=CH[i+1];                 // полоса ливреи по верху носа
-      const ta=a0.y+a0.h/2, tb=b0.y+b0.h/2, dz=b0.z-a0.z, dy=tb-ta, L=Math.hypot(dz,dy);
-      add(g, box((a0.w+b0.w)*0.25, 0.025, L), c2, 0, (ta+tb)/2+0.005, (a0.z+b0.z)/2, Math.asin(-dy/L),0,0); }
+    const CHs=smooth(CH,S?1:2);
+    add(g, chain(CHs,SECb), body, 0,0,0);
+    if(!S) add(g, band(CHs.filter(s=>s.z>=1.0&&s.z<=2.75),SECb,0,1,0.18,0.004,S?2:4), c2, 0,0,0);   // полоса ливреи по верху носа
 
     // ---- ВОЗДУХОЗАБОРНИК + МОТОРНАЯ КРЫШКА: за головой пилота, спад к коробке передач ----
     const CV=[
@@ -9219,71 +9274,82 @@ const buildCar=(function(){        // self-contained model block; only THREE and
       {z:-0.45,x:0,w:0.30,h:0.36,y:0.86}, {z:-0.20,x:0,w:0.28,h:0.39,y:0.895},
       {z:-0.02,x:0,w:0.24,h:0.37,y:0.905},
     ];
-    add(g, chain(S? pick(CV,[0,2,4,6]) : CV), body, 0,0,0);
-    add(g, box(0.15,0.16,0.06), carbon, 0,1.00,0.00);           // зев воздухозаборника над головой
+    add(g, chain(smooth(CV,S?1:2),SECb), body, 0,0,0);
+    add(g, ellipse(0.075,0.060,S?8:14), carbon, 0,0.995,-0.015);    // зев воздухозаборника над головой
     if(!S) add(g, box(0.02,0.14,1.10), c3, 0,0.97,-1.00, -0.24,0,0);   // плавник по хребту крышки
 
-    // ---- КОКПИТ ----
-    add(g, box(0.40,0.02,0.80), carbon2, 0,0.755,0.55, 0.03,0,0);   // тёмный пол кокпита
-    if(!S){
-      for(const s of[-1,1]) add(g, box(0.07,0.10,0.86), carbon, s*0.225,0.77,0.52);   // боковины обода
-      add(g, box(0.48,0.07,0.10), carbon,  0,0.78,0.97);         // передняя перемычка обода
-      for(const s of[-1,1]){ add(g, box(0.20,0.025,0.04), carbon, s*0.42,0.74,0.95, 0,0,s*0.12);   // стойка зеркала
-        add(g, box(0.13,0.055,0.04), carbon, s*0.55,0.76,0.95); }                                 // корпус зеркала
+    // ---- КОКПИТ: проём по верху шасси (тёмный) и обвод цветом кузова — без рамки из брусков ----
+    { const zc=0.50, a=0.47, ow=t=>{const c=Math.cos(t),s=Math.sin(t);           // проём: суперэллипс, к носу уже
+        const z=zc+a*Math.sign(c)*Math.pow(Math.abs(c),0.8), x=0.205*Math.sign(s)*Math.pow(Math.abs(s),0.8)*(1-0.32*(z-zc)/a);
+        return [x,z]; };
+      const n=S?14:28, rings=S?1:3, pos=[], idx=[], ctr=[0,topAt(CHs,SECb,0,zc)+0.004,zc];
+      pos.push(...ctr);
+      for(let r=1;r<=rings;r++) for(let i=0;i<n;i++){const [x0,z0]=ow(i*2*Math.PI/n),f=r/rings,x=x0*f,z=zc+(z0-zc)*f;
+        pos.push(x,topAt(CHs,SECb,x,z)+0.004,z);}
+      for(let i=0;i<n;i++){const j=(i+1)%n;idx.push(0,1+i,1+j);
+        for(let r=1;r<rings;r++){const a0=1+(r-1)*n+i,b0=1+(r-1)*n+j,c0=1+r*n+i,d0=1+r*n+j;idx.push(a0,c0,b0, b0,c0,d0);}}
+      const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));geo.setIndex(idx);geo.computeVertexNormals();
+      add(g, geo, carbon2, 0,0,0);
+      const rim=[];for(let i=0;i<=n;i++){const [x,z]=ow(i*2*Math.PI/n);rim.push([x*1.04,topAt(CHs,SECb,x*1.04,z)+0.006,zc+(z-zc)*1.02]);}
+      add(g, sweep(rim,tube(S?4:6,0.026,0.018),null,true), body, 0,0,0);
+    }
+    if(!S) for(const s of[-1,1]){                                       // зеркала на понтонах: стойка и обтекаемый корпус
+      add(g, sweep([[s*0.44,0.62,0.80],[s*0.49,0.67,0.795],[s*0.52,0.705,0.79]],tube(5,0.011,0.011),null,true), carbon, 0,0,0);
+      const mh=new THREE.SphereGeometry(1,12,6);mh.scale(0.078,0.030,0.030);add(g, mh, body, s*0.57,0.72,0.79);
+      add(g, ellipse(0.070,0.024,12), carbon2, s*0.57,0.72,0.759, 0,Math.PI,0);
     }
 
     // ---- ПЕРЕДНЕЕ КРЫЛО (2026: между колёс, профили до ±0.675, борта у ±0.66) ----
-    // основной профиль — нижний и самый передний, закрылки назад и вверх; центр ниже, законцовки подняты
+    // четыре профиля во весь размах одной гладкой поверхностью каждый: в центре ниже, к краям подняты и отогнуты назад
     const wz=[2.95,2.75,2.58,2.44], wy=[0.10,0.16,0.22,0.27], wd=[0.32,0.24,0.20,0.16], wt=[0.040,0.035,0.030,0.028];
-    const wsw=[0.20,0.14,0.08,0.03];
-    for(let k=0;k<4;k++){ const m=(k===3? c3 : body), back=0.22*Math.sin(wsw[k]);
-      add(g, box(S? 1.32 : 0.70, wt[k], wd[k]), m, 0,wy[k]+(S?0.02:0),wz[k]-(S?back*0.5:0));
-      if(!S) for(const s of[-1,1]) add(g, box(0.32,wt[k],wd[k]), m, s*0.50,wy[k]+0.035,wz[k]-back, 0,s*wsw[k],s*0.14);
-    }
+    const wsw=[0.20,0.14,0.08,0.03], wa=[0.05,0.16,0.26,0.36];
+    for(let k=0;k<4;k++){ const P=[], n=S?6:10;
+      for(let i=0;i<=n;i++){const x=-0.655+1.31*i/n, e=sstep((Math.abs(x)-0.18)/0.30);
+        P.push([x, wy[k]+0.035*e, wz[k]-0.22*Math.sin(wsw[k])*e]);}
+      add(g, sweep(P,foil(S?6:8,wd[k],wt[k],wa[k]),null,true), k===3? c3 : body, 0,0,0); }
     for(const s of[-1,1]){
-      add(g, box(0.04,0.22,0.58), body,   s*0.665,0.19,2.72, 0,-s*0.06,0);     // борт крыла
-      if(!S){
-        add(g, box(0.04,0.10,0.24), c2,     s*0.675,0.33,2.58, 0,-s*0.06,s*0.18); // отогнутая верхушка борта
-        add(g, box(0.025,0.07,0.12), carbon, s*0.30,0.15,2.86);                   // перегородки на профиле
-      } }
+      add(g, plate([[3.00,0.07],[2.40,0.07],[2.37,0.13],[2.41,0.31],[2.55,0.37],[2.76,0.35],[2.93,0.23],[3.01,0.13]],0.03), body, s*0.665+0.015,0,0, 0,-Math.PI/2,0);   // борт крыла
+      if(!S) add(g, box(0.02,0.07,0.12), carbon, s*0.30,0.15,2.86);        // перегородки на профиле
+    }
     for(const s of[-1,1]) add(g, box(0.04,0.16,0.22), carbon, s*0.10,0.20,2.82);   // пилоны носа к крылу
 
     // ---- ПОНТОНЫ (до ±0.715, вход у кокпита, к хвосту сужаются «бутылкой») ----
     const PZ=[ 0.95, 0.75, 0.45, 0.10,-0.25,-0.60,-0.95,-1.25];
     const PO=[ 0.56, 0.69,0.715,0.715, 0.68, 0.58, 0.45, 0.34];   // внешний край
     const PT=[ 0.58, 0.66, 0.68, 0.66, 0.62, 0.56, 0.50, 0.45];   // верх
-    const PB=0.12;                                                // низ — на днище
+    const PB=0.10;                                                // низ — на днище
     for(const s of[-1,1]){
-      const st=PZ.map((z,i)=>({z, x:s*(PO[i]+0.24)/2, w:PO[i]-0.24, h:PT[i]-PB, y:(PT[i]+PB)/2}));
-      const stU = S? pick(st,[0,2,4,6,7]) : st;
-      add(g, chain(stU), body, 0,0,0);
-      // Боковая ливрея — от ФАКТИЧЕСКИ использованных станций (на прореженном LOD грань идёт по другой прямой)
-      for(let i=(S?1:2); i<=(S?2:5); i++){ const a0=stU[i], b0=stU[i+1];
-        const oa=Math.abs(a0.x)+a0.w/2, ob=Math.abs(b0.x)+b0.w/2, dz=b0.z-a0.z, dx=ob-oa, L=Math.hypot(dz,dx);
-        const ya=a0.y+a0.h*0.15, yb=b0.y+b0.h*0.15;
-        add(g, box(0.03,0.06,L+0.05), c2, s*(oa+ob)/2, (ya+yb)/2, (a0.z+b0.z)/2, 0, s*Math.asin(dx/L), 0); }   // +5 см — стык без щели
-      if(S) continue;
-      add(g, box(0.18,0.14,0.10), carbon, s*0.46,0.44,0.98);                              // зев воздухозаборника
-      add(g, box(0.30,0.035,0.20), body, s*0.58,0.60,0.90, 0,s*0.10,0);                    // дефлектор над входом
+      const st=smooth(PZ.map((z,i)=>({z, x:s*(PO[i]+0.24)/2, w:PO[i]-0.24, h:PT[i]-PB, y:(PT[i]+PB)/2})),S?1:2);
+      add(g, chain(st,SECp), body, 0,0,0);
+      // ливрея — полоса по самому борту понтона (v1.17.24: брусками, повёрнутыми зеркально, концы торчали наружу)
+      add(g, band(st.filter(q=>q.z<=0.80&&q.z>=-0.98),SECp,s,0,0.12,0.004,S?2:3), c2, 0,0,0);
+      add(g, ellipse(0.12,0.085,S?8:16), carbon2, s*0.40,0.43,0.953);      // вход воздухозаборника в торце понтона
     }
 
-    // ---- ГАЛО: дуга вокруг головы, стойка вперёд к шасси, опоры назад к дуге безопасности ----
-    add(g, new THREE.TorusGeometry(0.33,0.04,S?4:6,S?8:12,Math.PI), halo, 0,0.94,0.20, Math.PI/2,0,Math.PI);
-    add(g, box(0.07,0.30,0.07), halo, 0,0.82,0.63, -0.75,0,0);                                       // передняя стойка
-    if(!S) for(const s of[-1,1]) add(g, box(0.05,0.05,0.42), halo, s*0.31,0.88,0.02, 0.32,0,0);     // задние опоры
+    // ---- ГАЛО: дуга-«капля» вокруг головы (спереди выше, к плечам ниже), задние концы уходят в кузов, стойка — к носу.
+    //      Сечение — плоский обтекатель; верхняя половина цветом команды, нижняя тёмная (две поверхности по одному пути).
+    { const L=[[0.30,0.58,-0.14],[0.318,0.70,-0.09],[0.327,0.80,-0.03],[0.33,0.855,0.05],[0.33,0.875,0.20],[0.32,0.895,0.36],
+               [0.29,0.920,0.48],[0.22,0.940,0.60],[0.12,0.955,0.68],[0,0.960,0.72]];
+      const hoop=crPath(L.map(p=>[-p[0],p[1],p[2]]).concat(L.slice(0,-1).reverse()),S?1:2);
+      const hs=foilHalves(S?3:6,0.088,0.040);
+      add(g, sweep(hoop,hs.top,null,false), body, 0,0,0);
+      add(g, sweep(hoop,hs.bot,null,false), halo, 0,0,0);
+      const pil=crPath([[0,0.957,0.70],[0,0.92,0.80],[0,0.86,0.89],[0,0.79,0.98],[0,0.74,1.05]],S?1:2);
+      const ps=foilHalves(S?3:6,0.060,0.040), wid=t=>[1+0.35*t,1];
+      add(g, sweep(pil,ps.top,wid,false), body, 0,0,0);
+      add(g, sweep(pil,ps.bot,wid,false), halo, 0,0,0); }
 
     // ---- ШЛЕМ ----
     add(g, new THREE.SphereGeometry(0.145,S?8:12,S?6:8), helm, 0,0.82,0.24);
     if(!S) add(g, new THREE.SphereGeometry(0.15,10,4,0,Math.PI*2,Math.PI*0.44,Math.PI*0.28), visor, 0,0.82,0.24);
 
     // ---- ЗАДНЕЕ КРЫЛО (2026: профили до ±0.575, верх ≈0.98, XR 150–750; бим-винга нет) ----
-    add(g, box(1.10,0.045,0.36), body, 0,0.86,-2.02, 0.05,0,0);          // основной профиль
-    add(g, box(1.10,0.040,0.24), body, 0,0.94,-2.22, 0.22,0,0);          // верхний закрылок
-    if(!S) add(g, box(1.08,0.022,0.10), c3,   0,0.975,-2.30, 0.22,0,0);  // акцентная кромка
-    for(const s of[-1,1]){
-      add(g, box(0.035,0.40,0.62), c2,     s*0.565,0.80,-2.06);              // борт
-      if(!S) add(g, box(0.04,0.18,0.30), body, s*0.57,0.55,-1.92, 0,0,s*0.05);   // низ борта к днищу
-    }
+    { const n=S?2:6, span=y=>{const P=[];for(let i=0;i<=n;i++)P.push([-0.55+1.10*i/n,y.y,y.z]);return P;};
+      add(g, sweep(span({y:0.86,z:-2.02}),foil(S?6:12,0.36,0.045,0.05),null,true), body, 0,0,0);     // основной профиль
+      add(g, sweep(span({y:0.945,z:-2.22}),foil(S?6:12,0.24,0.040,0.24),null,true), body, 0,0,0);   // верхний закрылок
+      if(!S) add(g, box(1.08,0.012,0.05), c3, 0,0.985,-2.33, 0.24,0,0); }                        // акцентная кромка
+    for(const s of[-1,1])                                                                         // борт — тёмный, скруглённый
+      add(g, plate([[-1.80,0.50],[-1.79,0.84],[-1.86,0.99],[-2.30,1.01],[-2.39,0.94],[-2.40,0.62],[-2.26,0.46],[-1.98,0.44]],0.03), carbon, s*0.565+0.015,0,0, 0,-Math.PI/2,0);
     for(const s of[-1,1]) add(g, box(0.04,0.30,0.10), carbon, s*0.12,0.70,-1.96, 0.30,0,0);   // подкосы «лебединая шея»
     add(g, box(0.14,0.20,0.34), carbon, 0,0.42,-2.18);                                         // задняя силовая структура
     add(g, new THREE.PlaneGeometry(0.09,0.07),

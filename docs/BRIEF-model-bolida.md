@@ -79,7 +79,7 @@ makeCar(colorHex, num, simple) -> THREE.Group
 Группа обязана вернуть:
 
 ```js
-g.userData = { frontWheels, wheels, sw, spin };   // spin — группы вращения колёс (v1.17.24)
+g.userData = { frontWheels, wheels, sw, spin };   // spin — группы вращения колёс (v1.17.24); с v1.17.25 кузов гладкий, гало одной деталью (game.md)
 ```
 
 - **`frontWheels`** — массив из 2 групп передних колёс. Каждый кадр игра делает
