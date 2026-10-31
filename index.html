@@ -235,7 +235,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.17.23</div>
+    <div class="verstamp">v1.17.24</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
 
@@ -542,36 +542,37 @@ const MAXSPEED=88;                // m/s (~317 km/h); brake scales with it so br
    размер машины отсюда; модель (buildCar) обязана им соответствовать (контракт — docs/notes/game.md). Производные округлены
    до миллиметра (r3): тогда число то же самое до последнего бита, что и прежняя цифра в коде, и гонка не сдвигается. */
 const r3=x=>Math.round(x*1000)/1000;
-const CAR_LEN=6.04, CAR_WID=2.57;                       // габарит модели: нос +3.36 … корма −2.68, колёса снаружи ±1.285
-const CAR_HL=CAR_LEN/2, CAR_HW=CAR_WID/2;               // полудлина 3.02 и полуширина 1.285 (деление на 2 точное)
-const CAR_AXF=2.0, CAR_AXR=-1.7, CAR_TRK=1.05;          // передняя и задняя оси (z), колёса x=±CAR_TRK
-const CAR_TAIL=2.68;                                    // корма за центром
+const CAR_LEN=5.45, CAR_WID=1.90;                       // габарит модели = регламент 2026: нос +3.10 … корма −2.35, колёса снаружи ±0.945 (до v1.17.24 — 6.04 × 2.57)
+const CAR_HL=CAR_LEN/2, CAR_HW=CAR_WID/2;               // полудлина 2.725 и полуширина 0.95 (деление на 2 точное)
+const CAR_AXF=1.80, CAR_AXR=-1.60, CAR_TRK=0.785, CAR_TRK_R=0.745;   // оси (z, база 3.40), середины передних и задних колёс (x)
+const CAR_TAIL=2.35;                                    // корма за центром
 /* 8 точек корпуса для стены (playerWallPush, errWallBeyond, пробники): колёса, концы переднего крыла, заднее крыло —
-   крылья выступают за колёса на ~1.3 м, без них нос проходил сквозь отбойник. */
-const CAR_PTS=[[CAR_TRK,CAR_AXF],[-CAR_TRK,CAR_AXF],[CAR_TRK,CAR_AXR],[-CAR_TRK,CAR_AXR],[1.0,3.25],[-1.0,3.25],[0.78,-2.55],[-0.78,-2.55]];
-/* Силуэт болида сверху — выпуклая оболочка модели makeCar (x вправо, z вперёд): колёса ±1.285, нос 3.36, корма 2.68. */
-const CAR_HULL=[[CAR_HW,-2.2],[CAR_HW,2.5],[1.05,3.2],[0.51,3.36],[-0.51,3.36],[-1.05,3.2],[-CAR_HW,2.5],[-CAR_HW,-2.2],[-0.78,-CAR_TAIL],[0.78,-CAR_TAIL]];
-const HULL_A=r3(CAR_HL-0.02), HULL_B=r3(CAR_HW-0.035);  // полудлина и полуширина для касания: 6.0 × 2.5 (картинка 6.04 × 2.57 — колёса чуть заходят, так задумано с прежним B)
-const HULL_REACH2=r3((2*Math.hypot(HULL_A,HULL_B))**2); // 6.5² м²: две полудиагонали касания — дальше корпуса не достают
+   крылья выступают за колёса на ~0.9 м, без них нос проходил сквозь отбойник. */
+const CAR_PTS=[[CAR_TRK,CAR_AXF],[-CAR_TRK,CAR_AXF],[CAR_TRK_R,CAR_AXR],[-CAR_TRK_R,CAR_AXR],[0.68,3.0],[-0.68,3.0],[0.57,-2.30],[-0.57,-2.30]];
+/* Силуэт болида сверху — выпуклая оболочка модели makeCar (x вправо, z вперёд): колёса ±0.945 (z −1.955…2.155),
+   борта переднего крыла ±0.685 до 3.02, профиль крыла 3.11, заднее крыло ±0.585 до корм 2.35. */
+const CAR_HULL=[[CAR_HW,-1.955],[CAR_HW,2.155],[0.685,3.02],[0.35,3.11],[-0.35,3.11],[-0.685,3.02],[-CAR_HW,2.155],[-CAR_HW,-1.955],[-0.585,-CAR_TAIL],[0.585,-CAR_TAIL]];
+const HULL_A=r3(CAR_HL-0.02), HULL_B=r3(CAR_HW-0.035);  // полудлина и полуширина для касания: 5.41 × 1.83 (картинка 5.45 × 1.90 — колёса чуть заходят, так задумано с прежним B)
+const HULL_REACH2=r3((2*Math.hypot(HULL_A,HULL_B))**2); // 5.71² м²: две полудиагонали касания — дальше корпуса не достают
 const CAR_GAP=0.13;                                     // м: зазор между бортами соседей бок о бок
-const CAR_SEP=r3(CAR_HW+CAR_GAP);                       // 1.415: полуширина соседа + зазор (к ней — полуширина сходящего)
-const CAR_PASS=r3(CAR_HW+0.25);                         // 1.535: объезд вставшего — его полуразмах поперёк + это
+const CAR_SEP=r3(CAR_HW+CAR_GAP);                       // 1.08: полуширина соседа + зазор (к ней — полуширина сходящего)
+const CAR_PASS=r3(CAR_HW+0.25);                         // 1.2: объезд вставшего — его полуразмах поперёк + это
 const CAR_PEN_L=r3(CAR_HL+0.05), CAR_PEN_W=r3(CAR_HW+0.05);   // корпус соперника с запасом 5 см — против вставшего (ghostPen)
-const LANE_SAME=r3(CAR_WID-0.27);                       // 2.3: «в моей полосе» — корпуса перекрыты поперёк
-const LANE_SAME_P=r3(LANE_SAME-CAR_HW);                 // 1.015: то же против игрока и сходящего — к его полуразмаху
-const LANE_OV=r3(CAR_WID+0.03);                         // 2.6: обгон — сбоку от переднего на ширину машины
-const LANE_PASS=r3(CAR_WID+0.83);                       // 3.4: объезд стоящего — шире, с запасом
-const CAR_WALL_HW=r3(CAR_HW+0.165);                     // 1.45: середина объезжающего не ближе этого к стене (ghostLim)
-const CAR_ROOM_HW=r3(CAR_HW+0.115);                     // 1.4: разворот — корпус на пути не ближе этого к стене
-const CAR_AHEAD=r3(CAR_HL+0.08), CAR_BEHIND=r3(CAR_HL+0.3);   // 3.1 и 3.32: вставший уже позади / ещё впереди — вдоль к его полуразмаху
-const SMOKE_ENG_Z=r3(CAR_TAIL-0.38), SMOKE_WX=r3(CAR_TRK+0.2);   // дым: мотор у задней кромки кузова; у колёс — чуть снаружи шины
-const RET_SLEW=[r3(CAR_LEN+0.46),r3(CAR_LEN-1.04),r3(CAR_WID+0.83)];   // 6.5, 5.0, 3.4 м между кромкой и стеной: вставший — поперёк, наискось, вдоль
+const LANE_SAME=r3(CAR_WID-0.27);                       // 1.63: «в моей полосе» — корпуса перекрыты поперёк
+const LANE_SAME_P=r3(LANE_SAME-CAR_HW);                 // 0.68: то же против игрока и сходящего — к его полуразмаху
+const LANE_OV=r3(CAR_WID+0.03);                         // 1.93: обгон — сбоку от переднего на ширину машины
+const LANE_PASS=r3(CAR_WID+0.83);                       // 2.73: объезд стоящего — шире, с запасом
+const CAR_WALL_HW=r3(CAR_HW+0.165);                     // 1.115: середина объезжающего не ближе этого к стене (ghostLim)
+const CAR_ROOM_HW=r3(CAR_HW+0.115);                     // 1.065: разворот — корпус на пути не ближе этого к стене
+const CAR_AHEAD=r3(CAR_HL+0.08), CAR_BEHIND=r3(CAR_HL+0.3);   // 2.805 и 3.025: вставший уже позади / ещё впереди — вдоль к его полуразмаху
+const SMOKE_ENG_Z=r3(CAR_TAIL-0.38), SMOKE_WX=r3(CAR_TRK+0.16);   // дым: мотор у задней кромки кузова; у колёс — по внешней кромке шины
+const RET_SLEW=[r3(CAR_LEN+0.46),r3(CAR_LEN-1.04),r3(CAR_WID+0.83)];   // 5.91, 4.41, 2.73 м между кромкой и стеной: вставший — поперёк, наискось, вдоль
 /* Наименьший радиус поворота — предел по ВЫКРУТУ колёс, которого в игре не было вовсе:
    был только предел по сцеплению, поэтому на нуле болид вращался на месте.
-   3.7 м базы (колёса z=+2.0 и -1.70) при выкруте 20° дают 10.1 м. Двадцать градусов —
+   3.7 м базы (колёса z=+2.0 и -1.70) при выкруте 20° дают 10.1 м; с v1.17.24 база 3.40 (регламент 2026) — 9.3 м. Двадцать градусов —
    монакская спецификация настоящей Ф-1 (обычная 14°, монакская 20-21°, ради неё режут
    рычаги подвески), то есть самое тесное, на что способен настоящий болид. */
-const TURN_RMIN=10.1;
+const TURN_RMIN=9.3;
 /* Задний ход — на кнопке тормоза. Нужен только чтобы отъехать от стены: без вращения
    на месте иначе никак. Ехать задом по трассе невозможно ПО ПОСТРОЕНИЮ: запас тратится
    метром назад и восполняется метром вперёд, поэтому болид не может оказаться дальше
@@ -9109,7 +9110,7 @@ function mergeStatics(root,exclude){                  // collapse children into 
 function mergeCar(g){                                 // static body by material, then each wheel, then the wheel
   const ex=(g.userData.wheels||[]).concat(g.userData.sw?[g.userData.sw]:[]);
   mergeStatics(g,ex);
-  (g.userData.wheels||[]).forEach(w=>mergeStatics(w,[]));
+  (g.userData.wheels||[]).forEach(w=>mergeStatics(w.userData.spin||w,[]));   // колесо сливается внутри группы вращения
   if(g.userData.sw) mergeStatics(g.userData.sw,[]);
   return g;
 }
@@ -9175,171 +9176,167 @@ const buildCar=(function(){        // self-contained model block; only THREE and
     const tyre=M('#0c0c0e',0.0,0.9), cover=M('#1b1e25',0.6,0.35,true), nut=M('#d9a020',0.85,0.28);
     const halo=M('#0a0b0e',0.35,0.55), helm=M('#eef1f5',0.25,0.42), visor=M('#0a0a0e',0.7,0.18), soft=M('#7d848d',0.2,0.55,true);
   
-    // ---- ДНИЩЕ ----
-    add(g, box(1.5,0.08,3.85), carbon2, 0,0.16,-0.425);                                            // днище: -2.35 .. +1.50
-    if(!S) for(const s of[-1,1]){ add(g, box(0.5,0.05,1.15), carbon, s*0.7,0.20,0.88, 0,0,s*0.03); // пол перед кокпитом
-      add(g, box(0.14,0.16,1.05), carbon, s*0.80,0.24,0.88, 0,0,s*0.16); }                         // заборчик кромки
-  
-    // ---- ДИФФУЗОР (полый: изогнутая пластина-потолок + боковины + перегородки) ----
-    add(g, box(1.24,0.035,0.42), carbon,  0,0.195,-1.75, 0.18,0,0);      // потолок, сегмент 1
-    add(g, box(1.21,0.035,0.34), carbon,  0,0.286,-2.10, 0.45,0,0);      // сегмент 2 (изгиб)
-    add(g, box(1.17,0.035,0.26), carbon,  0,0.438,-2.38, 0.75,0,0);      // сегмент 3 (kick-up)
-    if(!S){
-      add(g, box(1.13,0.028,0.10), carbon2, 0,0.532,-2.49, 0.85,0,0);      // отбортовка
-      for(const s of[-1,1]){
-        add(g, box(0.045,0.095,0.47), carbon2, s*0.55,0.1825,-1.815);      // боковина тоннеля, перед
-        add(g, box(0.045,0.285,0.46), carbon2, s*0.55,0.2775,-2.28);       // боковина тоннеля, зад
-      }
-      for(const x of[-0.34,0,0.34]) add(g, box(0.03,0.145,0.62), carbon, x,0.2075,-2.15);  // перегородки
+    // Размеры — регламент FIA 2026 (game.md, «Наш болид и настоящий 2026»), пропорции и высоты сверены с готовой
+    // моделью SF-26 (замер В, img/sf26-zamer.jpg; её детали не копируются). Оси z +1.80 / −1.60 (база 3.40), нос +3.10,
+    // хвост −2.35 (длина 5.45), колёса снаружи ±0.945 (ширина 1.90), колесо ⌀ 0.71. Блок РАЗМЕРЫ БОЛИДА — те же числа.
+    // ---- ДНИЩЕ (от XF 350 до XR 300; у задних колёс сужается) ----
+    add(g, box(1.40,0.04,1.40), carbon2, 0,0.08, 0.75);
+    add(g, box(1.30,0.04,1.30), carbon2, 0,0.08,-0.60);
+    add(g, box(1.04,0.04,0.66), carbon2, 0,0.08,-1.58);
+    if(!S) for(const s of[-1,1]){
+      add(g, box(0.06,0.10,1.30), carbon, s*0.69,0.12, 0.80, 0,0,s*0.12);       // кромка днища спереди
+      add(g, box(0.06,0.08,1.20), carbon, s*0.64,0.11,-0.60, 0,s*0.04,0);      // кромка вдоль борта
     }
-  
-    // ---- ШАССИ + НОС: одна непрерывная цепочка призм (коробка передач -> кончик носа).
-    //      Низ каждой станции до z=1.10 равен 0.20 — уровню верха днища.
+
+    // ---- ДИФФУЗОР (потолок поднимается к хвосту, боковины, перегородки) ----
+    add(g, box(1.00,0.03,0.36), carbon, 0,0.13,-1.48, 0.20,0,0);
+    add(g, box(1.00,0.03,0.30), carbon, 0,0.22,-1.78, 0.45,0,0);
+    add(g, box(0.98,0.03,0.24), carbon, 0,0.33,-2.00, 0.70,0,0);
+    if(!S){
+      for(const s of[-1,1]) add(g, box(0.035,0.26,0.66), carbon2, s*0.49,0.20,-1.74);
+      for(const x of[-0.24,0.24]) add(g, box(0.025,0.16,0.50), carbon, x,0.17,-1.80);
+    }
+
+    // ---- ШАССИ + НОС: одна цепочка призм (коробка передач -> кончик носа) ----
     const CH=[
-      {z:-2.14,x:0,w:0.24,h:0.34,y:0.37}, {z:-1.92,x:0,w:0.32,h:0.42,y:0.41},
-      {z:-1.58,x:0,w:0.44,h:0.50,y:0.45}, {z:-1.20,x:0,w:0.58,h:0.56,y:0.48},
-      {z:-0.80,x:0,w:0.72,h:0.60,y:0.50}, {z:-0.35,x:0,w:0.84,h:0.62,y:0.51},
-      {z: 0.10,x:0,w:0.88,h:0.60,y:0.50}, {z: 0.60,x:0,w:0.80,h:0.56,y:0.48},
-      {z: 1.10,x:0,w:0.62,h:0.50,y:0.45},
-      {z: 1.30,x:0,w:0.52,h:0.40,y:0.50}, {z: 1.66,x:0,w:0.46,h:0.38,y:0.495},
-      {z: 2.00,x:0,w:0.40,h:0.35,y:0.485},{z: 2.32,x:0,w:0.34,h:0.32,y:0.465},
-      {z: 2.60,x:0,w:0.29,h:0.28,y:0.435},{z: 2.84,x:0,w:0.23,h:0.24,y:0.385},
-      {z: 3.04,x:0,w:0.17,h:0.20,y:0.305},
+      {z:-2.10,x:0,w:0.20,h:0.26,y:0.40}, {z:-1.75,x:0,w:0.28,h:0.34,y:0.41},
+      {z:-1.30,x:0,w:0.42,h:0.44,y:0.43}, {z:-0.90,x:0,w:0.56,h:0.50,y:0.45},
+      {z:-0.45,x:0,w:0.66,h:0.54,y:0.46}, {z: 0.05,x:0,w:0.70,h:0.56,y:0.47},
+      {z: 0.55,x:0,w:0.64,h:0.58,y:0.49}, {z: 1.00,x:0,w:0.52,h:0.52,y:0.51},
+      {z: 1.40,x:0,w:0.40,h:0.38,y:0.53}, {z: 1.80,x:0,w:0.34,h:0.32,y:0.52},
+      {z: 2.20,x:0,w:0.28,h:0.26,y:0.47}, {z: 2.60,x:0,w:0.22,h:0.20,y:0.40},
+      {z: 2.90,x:0,w:0.16,h:0.15,y:0.32}, {z: 3.10,x:0,w:0.10,h:0.10,y:0.26},
     ];
-    add(g, chain(S? pick(CH,[0,2,4,6,8,9,11,13,15]) : CH), body, 0,0,0);
-    if(!S) for(let i=10;i<=13;i++){ const a0=CH[i], b0=CH[i+1];                // полоса ливреи по верху носа
+    add(g, chain(S? pick(CH,[0,2,4,6,8,10,12,13]) : CH), body, 0,0,0);
+    if(!S) for(let i=8;i<=11;i++){ const a0=CH[i], b0=CH[i+1];                 // полоса ливреи по верху носа
       const ta=a0.y+a0.h/2, tb=b0.y+b0.h/2, dz=b0.z-a0.z, dy=tb-ta, L=Math.hypot(dz,dy);
-      add(g, box((a0.w+b0.w)*0.25, 0.03, L), c2, 0, (ta+tb)/2+0.006, (a0.z+b0.z)/2, Math.asin(-dy/L),0,0); }
-  
-    // ---- ВОЗДУХОЗАБОРНИК + МОТОРНАЯ КРЫШКА: одна цепочка, пологий спад (уклон ~0.21) ----
+      add(g, box((a0.w+b0.w)*0.25, 0.025, L), c2, 0, (ta+tb)/2+0.005, (a0.z+b0.z)/2, Math.asin(-dy/L),0,0); }
+
+    // ---- ВОЗДУХОЗАБОРНИК + МОТОРНАЯ КРЫШКА: за головой пилота, спад к коробке передач ----
     const CV=[
-      {z:-2.04,x:0,w:0.13,h:0.328,y:0.694}, {z:-1.80,x:0,w:0.15,h:0.310,y:0.755},
-      {z:-1.58,x:0,w:0.18,h:0.305,y:0.803}, {z:-1.34,x:0,w:0.21,h:0.315,y:0.848},
-      {z:-1.10,x:0,w:0.24,h:0.330,y:0.890}, {z:-0.90,x:0,w:0.27,h:0.360,y:0.920},
-      {z:-0.72,x:0,w:0.29,h:0.395,y:0.948}, {z:-0.56,x:0,w:0.29,h:0.395,y:0.958},
-      {z:-0.44,x:0,w:0.25,h:0.350,y:0.945},
+      {z:-1.95,x:0,w:0.12,h:0.20,y:0.58}, {z:-1.60,x:0,w:0.16,h:0.24,y:0.64},
+      {z:-1.20,x:0,w:0.22,h:0.28,y:0.72}, {z:-0.80,x:0,w:0.28,h:0.32,y:0.80},
+      {z:-0.45,x:0,w:0.30,h:0.36,y:0.86}, {z:-0.20,x:0,w:0.28,h:0.39,y:0.895},
+      {z:-0.02,x:0,w:0.24,h:0.37,y:0.905},
     ];
-    add(g, chain(S? pick(CV,[0,2,4,6,8]) : CV), body, 0,0,0);
-    add(g, box(0.17,0.20,0.10), carbon, 0,0.99,-0.40);        // зев воздухозаборника
-  
+    add(g, chain(S? pick(CV,[0,2,4,6]) : CV), body, 0,0,0);
+    add(g, box(0.15,0.16,0.06), carbon, 0,1.00,0.00);           // зев воздухозаборника над головой
+    if(!S) add(g, box(0.02,0.14,1.10), c3, 0,0.97,-1.00, -0.24,0,0);   // плавник по хребту крышки
+
     // ---- КОКПИТ ----
-    add(g, box(0.42,0.02,0.852), carbon2, 0,0.794,0.15, 0.0643,0,0);   // тёмный пол кокпита, по наклону верха
+    add(g, box(0.40,0.02,0.80), carbon2, 0,0.755,0.55, 0.03,0,0);   // тёмный пол кокпита
     if(!S){
-      for(const s of[-1,1]) add(g, box(0.09,0.14,1.08), carbon, s*0.255,0.79,0.25);  // боковины обода
-      add(g, box(0.56,0.08,0.14), carbon,  0,0.80,0.70);        // передняя перемычка обода (впереди руля)
-      for(const s of[-1,1]){ add(g, box(0.16,0.03,0.05), carbon, s*0.42,0.84,0.34, 0,0,s*0.10);   // стойка зеркала
-        add(g, box(0.09,0.07,0.05), carbon, s*0.50,0.855,0.34); }                                  // корпус зеркала
+      for(const s of[-1,1]) add(g, box(0.07,0.10,0.86), carbon, s*0.225,0.77,0.52);   // боковины обода
+      add(g, box(0.48,0.07,0.10), carbon,  0,0.78,0.97);         // передняя перемычка обода
+      for(const s of[-1,1]){ add(g, box(0.20,0.025,0.04), carbon, s*0.42,0.74,0.95, 0,0,s*0.12);   // стойка зеркала
+        add(g, box(0.13,0.055,0.04), carbon, s*0.55,0.76,0.95); }                                 // корпус зеркала
     }
-  
-    // ---- ПЕРЕДНЕЕ КРЫЛО ----
-    // основной профиль — нижний и самый передний, закрылки уходят назад и вверх;
-    // «чайка»: центральная секция ниже, законцовки подняты к бортам
-    const wz=[3.14,2.99,2.89,2.81], wy=[0.185,0.255,0.325,0.385], wd=[0.44,0.34,0.28,0.22], wt=[0.050,0.045,0.040,0.035];
-    const wsw=[0.26,0.19,0.12,0.05];   // стреловидность: законцовка уходит НАЗАД, к колёсам
-    const wcw=[1.02,0.98,0.95,0.92];   // центр шире законцовки: её торец скошен стреловидностью
-    for(let k=0;k<4;k++){ const m=(k===3? c3 : body), back=0.29*Math.sin(wsw[k]);
-      add(g, box(S? 2.00 : wcw[k], wt[k], wd[k]), m, 0,wy[k]+(S?0.026:0),wz[k]-(S?back*0.5:0));    // у ИИ — одна прямая секция
-      if(!S) for(const s of[-1,1]) add(g, box(0.58,wt[k],wd[k]), m, s*0.71,wy[k]+0.052,wz[k]-back, 0,s*wsw[k],s*0.18);
+
+    // ---- ПЕРЕДНЕЕ КРЫЛО (2026: между колёс, профили до ±0.675, борта у ±0.66) ----
+    // основной профиль — нижний и самый передний, закрылки назад и вверх; центр ниже, законцовки подняты
+    const wz=[2.95,2.75,2.58,2.44], wy=[0.10,0.16,0.22,0.27], wd=[0.32,0.24,0.20,0.16], wt=[0.040,0.035,0.030,0.028];
+    const wsw=[0.20,0.14,0.08,0.03];
+    for(let k=0;k<4;k++){ const m=(k===3? c3 : body), back=0.22*Math.sin(wsw[k]);
+      add(g, box(S? 1.32 : 0.70, wt[k], wd[k]), m, 0,wy[k]+(S?0.02:0),wz[k]-(S?back*0.5:0));
+      if(!S) for(const s of[-1,1]) add(g, box(0.32,wt[k],wd[k]), m, s*0.50,wy[k]+0.035,wz[k]-back, 0,s*wsw[k],s*0.14);
     }
     for(const s of[-1,1]){
-      add(g, box(0.05,0.40,0.70), body,   s*1.00,0.44,2.96, 0,-s*0.09,0);     // борт: носок подобран внутрь
+      add(g, box(0.04,0.22,0.58), body,   s*0.665,0.19,2.72, 0,-s*0.06,0);     // борт крыла
       if(!S){
-        add(g, box(0.05,0.22,0.34), c2,     s*1.03,0.60,2.82, 0,-s*0.10,s*0.20);// отогнутая наружу верхушка борта
-        add(g, box(0.05,0.16,0.30), body,   s*1.01,0.30,3.12, 0,-s*0.12,0);     // передний нижний плавник
-        add(g, box(0.03,0.09,0.14), carbon, s*0.55,0.258,3.02);                 // перегородки на профиле
-        add(g, box(0.03,0.09,0.14), carbon, s*0.80,0.304,2.96);
+        add(g, box(0.04,0.10,0.24), c2,     s*0.675,0.33,2.58, 0,-s*0.06,s*0.18); // отогнутая верхушка борта
+        add(g, box(0.025,0.07,0.12), carbon, s*0.30,0.15,2.86);                   // перегородки на профиле
       } }
-  
-    // ---- ПОНТОНЫ (цепочка призм на борт) ----
-    const PZ=[-1.38,-1.06,-0.72,-0.34, 0.02, 0.38, 0.70, 0.94, 1.12];
-    const PX=[ 0.32, 0.40, 0.48, 0.55, 0.60, 0.62, 0.58, 0.48, 0.42];
-    const PW=[ 0.22, 0.30, 0.38, 0.46, 0.52, 0.54, 0.46, 0.36, 0.24];
-    const PT=[ 0.56, 0.60, 0.64, 0.68, 0.71, 0.72, 0.70, 0.66, 0.62];   // верх
-    const PB=[ 0.30, 0.28, 0.26, 0.24, 0.23, 0.22, 0.22, 0.23, 0.24];   // низ (над днищем 0.20)
+    for(const s of[-1,1]) add(g, box(0.04,0.16,0.22), carbon, s*0.10,0.20,2.82);   // пилоны носа к крылу
+
+    // ---- ПОНТОНЫ (до ±0.715, вход у кокпита, к хвосту сужаются «бутылкой») ----
+    const PZ=[ 0.95, 0.75, 0.45, 0.10,-0.25,-0.60,-0.95,-1.25];
+    const PO=[ 0.56, 0.69,0.715,0.715, 0.68, 0.58, 0.45, 0.34];   // внешний край
+    const PT=[ 0.58, 0.66, 0.68, 0.66, 0.62, 0.56, 0.50, 0.45];   // верх
+    const PB=0.12;                                                // низ — на днище
     for(const s of[-1,1]){
-      const st=PZ.map((z,i)=>({z, x:s*PX[i], w:PW[i], h:PT[i]-PB[i], y:(PT[i]+PB[i])/2}));
-      const stU = S? pick(st,[0,2,4,6,8]) : st;
+      const st=PZ.map((z,i)=>({z, x:s*(PO[i]+0.24)/2, w:PO[i]-0.24, h:PT[i]-PB, y:(PT[i]+PB)/2}));
+      const stU = S? pick(st,[0,2,4,6,7]) : st;
       add(g, chain(stU), body, 0,0,0);
-      // Боковая ливрея. Считается от ФАКТИЧЕСКИ использованных станций, иначе на прореженном
-      // LOD полоса отойдёт от поверхности — грань между станциями идёт по другой прямой.
-      for(let i=(S?1:3); i<=(S?3:7); i++){ const a0=stU[i], b0=stU[i+1];
+      // Боковая ливрея — от ФАКТИЧЕСКИ использованных станций (на прореженном LOD грань идёт по другой прямой)
+      for(let i=(S?1:2); i<=(S?2:5); i++){ const a0=stU[i], b0=stU[i+1];
         const oa=Math.abs(a0.x)+a0.w/2, ob=Math.abs(b0.x)+b0.w/2, dz=b0.z-a0.z, dx=ob-oa, L=Math.hypot(dz,dx);
-        const ya=a0.y+a0.h*0.20, yb=b0.y+b0.h*0.20;
-        add(g, box(0.04,0.07,L), c2, s*(oa+ob)/2, (ya+yb)/2, (a0.z+b0.z)/2, 0, s*Math.asin(dx/L), 0); }
+        const ya=a0.y+a0.h*0.15, yb=b0.y+b0.h*0.15;
+        add(g, box(0.03,0.06,L+0.05), c2, s*(oa+ob)/2, (ya+yb)/2, (a0.z+b0.z)/2, 0, s*Math.asin(dx/L), 0); }   // +5 см — стык без щели
       if(S) continue;
-      add(g, box(0.20,0.16,0.16), carbon, s*0.42,0.44,1.10);                              // зев воздухозаборника
-      add(g, box(0.34,0.05,0.22), body, s*0.52,0.580,1.00, 0,s*0.10,0);                    // дефлектор у входа
-      add(g, box(0.09,0.13,2.04), carbon, s*0.76,0.215,-0.68, 0,0,s*0.10);                // кромка днища вдоль борта
+      add(g, box(0.18,0.14,0.10), carbon, s*0.46,0.44,0.98);                              // зев воздухозаборника
+      add(g, box(0.30,0.035,0.20), body, s*0.58,0.60,0.90, 0,s*0.10,0);                    // дефлектор над входом
     }
-  
-    // ---- ГАЛО ----
-    add(g, new THREE.TorusGeometry(0.37,0.055,S?4:5,S?8:10,Math.PI), halo, 0,1.0,0.0, Math.PI/2,0,Math.PI);
-    if(!S){
-      add(g, box(0.09,0.37,0.09), halo, 0,0.86,0.54, -0.71,0,0);                                    // передняя стойка над рулём
-      for(const s of[-1,1]) add(g, box(0.06,0.06,0.62), halo, s*0.34,0.99,0.02, 0.12,0,0);          // боковые опоры
-    }
-  
+
+    // ---- ГАЛО: дуга вокруг головы, стойка вперёд к шасси, опоры назад к дуге безопасности ----
+    add(g, new THREE.TorusGeometry(0.33,0.04,S?4:6,S?8:12,Math.PI), halo, 0,0.94,0.20, Math.PI/2,0,Math.PI);
+    add(g, box(0.07,0.30,0.07), halo, 0,0.82,0.63, -0.75,0,0);                                       // передняя стойка
+    if(!S) for(const s of[-1,1]) add(g, box(0.05,0.05,0.42), halo, s*0.31,0.88,0.02, 0.32,0,0);     // задние опоры
+
     // ---- ШЛЕМ ----
-    add(g, new THREE.SphereGeometry(0.19,S?8:10,S?6:7), helm, 0,0.92,-0.05);
-    if(!S) add(g, new THREE.SphereGeometry(0.196,8,4,0,Math.PI*2,Math.PI*0.44,Math.PI*0.28), visor, 0,0.92,-0.05);
-  
-    // ---- ЗАДНЕЕ КРЫЛО (бим-винга по регламенту-2026 нет; вместо него нейтральная распорка) ----
-    add(g, box(1.42,0.055,0.46), body, 0,1.00,-2.22);                    // основной профиль
-    add(g, box(1.42,0.050,0.32), body, 0,1.10,-2.36, 0.16,0,0);          // верхний закрылок
-    if(!S) add(g, box(1.38,0.028,0.16), c3,   0,1.145,-2.44, 0.16,0,0);  // акцентная кромка
+    add(g, new THREE.SphereGeometry(0.145,S?8:12,S?6:8), helm, 0,0.82,0.24);
+    if(!S) add(g, new THREE.SphereGeometry(0.15,10,4,0,Math.PI*2,Math.PI*0.44,Math.PI*0.28), visor, 0,0.82,0.24);
+
+    // ---- ЗАДНЕЕ КРЫЛО (2026: профили до ±0.575, верх ≈0.98, XR 150–750; бим-винга нет) ----
+    add(g, box(1.10,0.045,0.36), body, 0,0.86,-2.02, 0.05,0,0);          // основной профиль
+    add(g, box(1.10,0.040,0.24), body, 0,0.94,-2.22, 0.22,0,0);          // верхний закрылок
+    if(!S) add(g, box(1.08,0.022,0.10), c3,   0,0.975,-2.30, 0.22,0,0);  // акцентная кромка
     for(const s of[-1,1]){
-      add(g, box(0.050,0.40,0.80), c2,     s*0.72,1.02,-2.28, 0,0,s*0.05);   // борт (верх)
-      add(g, box(0.050,0.36,0.34), body,   s*0.735,0.72,-2.03, 0,0,s*0.10);  // нога стойки вниз к кузову
-      if(!S){
-        add(g, box(0.065,0.14,0.30), carbon, s*0.75,0.53,-1.94, 0,0,s*0.12);   // пятка крепления
-        add(g, box(0.060,0.26,0.46), body,   s*0.755,0.86,-2.44, 0,0,s*0.16);  // отогнутый наружу задний угол
-      } }
-    for(const s of[-1,1]) add(g, box(0.055,0.34,0.12), carbon, s*0.16,0.84,-2.08, 0.30,0,0);         // swan-neck подкосы
-    add(g, box(0.42,0.05,0.20), carbon, 0,0.74,-2.12, 0.10,0,0);                                     // распорка
-    add(g, box(0.17,0.26,0.52), carbon, 0,0.54,-2.02);                                               // задняя силовая структура
-    add(g, new THREE.PlaneGeometry(0.10,0.08),
-      new THREE.MeshBasicMaterial({color:'#e02424'}), 0,0.62,-2.29, 0,Math.PI,0);                     // фонарь (и у ИИ)
-  
-    // ---- КОЛЁСА (18", крышка-кольцо с открытым центром) ----
+      add(g, box(0.035,0.40,0.62), c2,     s*0.565,0.80,-2.06);              // борт
+      if(!S) add(g, box(0.04,0.18,0.30), body, s*0.57,0.55,-1.92, 0,0,s*0.05);   // низ борта к днищу
+    }
+    for(const s of[-1,1]) add(g, box(0.04,0.30,0.10), carbon, s*0.12,0.70,-1.96, 0.30,0,0);   // подкосы «лебединая шея»
+    add(g, box(0.14,0.20,0.34), carbon, 0,0.42,-2.18);                                         // задняя силовая структура
+    add(g, new THREE.PlaneGeometry(0.09,0.07),
+      new THREE.MeshBasicMaterial({color:'#e02424'}), 0,0.48,-2.355, 0,Math.PI,0);              // фонарь (и у ИИ)
+
+    // ---- КОЛЁСА: шина вращением профиля (скруглённое плечо), диск 18″ со спицами, полоса маркировки
+    //      с разрывами — по ней видно вращение. Колесо = группа руля (rotation.y) > группа вращения (rotation.x).
+    const R=0.355, RIM=0.231;
     function wheel(x,z,rW){
-      const w=new THREE.Group(), sg=x>0?1:-1, hw=rW/2;
-      add(w, new THREE.CylinderGeometry(0.5,0.5,rW,S?12:16), tyre, 0,0,0, 0,0,Math.PI/2);
-      add(w, new THREE.RingGeometry(0.415,0.475,S?12:14), soft, sg*(hw+0.005),0,0, 0, sg*Math.PI/2, 0); // маркировка боковины
+      const w=new THREE.Group(), sp=new THREE.Group(), sg=x>0?1:-1, hw=rW/2, seg=S?14:24;
+      const prof=[[RIM,-hw],[R-0.035,-hw],[R-0.010,-hw+0.012],[R,-hw+0.040],[R,hw-0.040],[R-0.010,hw-0.012],[R-0.035,hw],[RIM,hw]]
+        .map(p=>new THREE.Vector2(p[0],p[1]));
+      add(sp, new THREE.LatheGeometry(prof,seg), tyre, 0,0,0, 0,0,Math.PI/2);
+      add(sp, new THREE.CircleGeometry(RIM,seg), tyre, sg*(S?hw+0.001:hw-0.05),0,0, 0,sg*Math.PI/2,0);   // глухой диск: сквозь обод не видно
+      for(const a of[0,Math.PI])                                                      // маркировка — две дуги с разрывами
+        add(sp, new THREE.RingGeometry(0.285,0.315,S?6:10,1,a+0.25,Math.PI-0.5), soft, sg*(hw+0.004),0,0, 0, sg*Math.PI/2, 0);
       if(!S){
-        add(w, new THREE.RingGeometry(0.19,0.36,14),   cover, sg*(hw+0.005),0,0, 0, sg*Math.PI/2, 0);  // крышка, центр открыт
-        add(w, new THREE.CylinderGeometry(0.17,0.17,0.06,10), carbon, sg*(hw-0.07),0,0, 0,0,Math.PI/2);  // ступица — утоплена
-        add(w, new THREE.CylinderGeometry(0.055,0.055,0.05,8), nut, sg*(hw-0.05),0,0, 0,0,Math.PI/2);  // гайка — утоплена
+        add(sp, new THREE.RingGeometry(0.10,RIM,seg), cover, sg*(hw-0.02),0,0, 0, sg*Math.PI/2, 0);   // обод
+        for(let k=0;k<5;k++){ const a=k*Math.PI*2/5;                                                   // спицы
+          add(sp, box(0.016,0.13,0.035), cover, sg*(hw-0.012),Math.cos(a)*0.165,Math.sin(a)*0.165, a,0,0); }
+        add(sp, new THREE.CylinderGeometry(0.045,0.045,0.04,8), nut, sg*(hw-0.01),0,0, 0,0,Math.PI/2);  // гайка
       }
-      w.position.set(x,0.5,z); g.add(w); return w;
+      w.add(sp); w.userData.spin=sp; w.position.set(x,R,z); g.add(w); return w;
     }
-    const wheels=[ wheel(-1.05,2.0,0.42), wheel(1.05,2.0,0.42), wheel(-1.05,-1.70,0.46), wheel(1.05,-1.70,0.46) ];
+    const wheels=[ wheel(-0.785,1.80,0.32), wheel(0.785,1.80,0.32), wheel(-0.745,-1.60,0.40), wheel(0.745,-1.60,0.40) ];
     const frontWheels=[wheels[0], wheels[1]];
-  
-    // ---- ПОДВЕСКА (у обоих LOD) ----
-    for(const s of[-1,1]) for(const z of[2.0,-1.70]){
-      add(g, new THREE.CylinderGeometry(0.028,0.028,0.92,6), carbon, s*0.5,0.42,z+0.14, 0,s*0.22,Math.PI/2);
-      add(g, new THREE.CylinderGeometry(0.028,0.028,0.92,6), carbon, s*0.5,0.42,z-0.14, 0,-s*0.22,Math.PI/2);
+
+    // ---- ПОДВЕСКА (у обоих LOD): рычаги от шасси к ступице ----
+    for(const s of[-1,1]) for(const [z,x0,xw] of [[1.80,0.20,0.785],[-1.60,0.14,0.745]]){
+      const L=xw-x0-0.10, xm=s*(x0+L/2);
+      add(g, new THREE.CylinderGeometry(0.02,0.02,L,6), carbon, xm,0.44,z+0.10, 0,s*0.20,Math.PI/2);
+      add(g, new THREE.CylinderGeometry(0.02,0.02,L,6), carbon, xm,0.26,z-0.10, 0,-s*0.20,Math.PI/2);
     }
-  
+
     // ---- РУЛЕВОЕ КОЛЕСО (отдельная группа: игра крутит sw.rotation.z) ----
     let sw=null;
     if(!S){
       sw=new THREE.Group();
-      add(sw, box(0.26,0.045,0.035), carbon,  0, 0.100, 0);        // верхняя перекладина
-      add(sw, box(0.17,0.045,0.035), carbon,  0,-0.100, 0);        // нижняя перекладина
-      for(const s of[-1,1]) add(sw, box(0.045,0.155,0.055), carbon, s*0.108, 0, 0);   // рукоятки
-      add(sw, box(0.15,0.09,0.02), carbon2,   0, 0.005, 0.028);    // дисплей
-      sw.position.set(0,0.80,0.50); sw.rotation.x=-0.62; g.add(sw);
+      add(sw, box(0.24,0.040,0.032), carbon,  0, 0.090, 0);
+      add(sw, box(0.15,0.040,0.032), carbon,  0,-0.090, 0);
+      for(const s of[-1,1]) add(sw, box(0.040,0.14,0.05), carbon, s*0.100, 0, 0);
+      add(sw, box(0.13,0.08,0.02), carbon2,   0, 0.005, 0.026);
+      sw.position.set(0,0.74,0.80); sw.rotation.x=-0.62; g.add(sw);
     }
-  
+
     // ---- ТЕНЬ: создаётся, только если игра предоставила общую текстуру ENVSHADOW ----
     if(typeof ENVSHADOW!=='undefined' && ENVSHADOW){
-      const sh=new THREE.Mesh(new THREE.PlaneGeometry(3.6,4.9),
+      const sh=new THREE.Mesh(new THREE.PlaneGeometry(2.7,4.6),
         new THREE.MeshBasicMaterial({map:ENVSHADOW, transparent:true, depthWrite:false}));
-      sh.rotation.x=-Math.PI/2; sh.position.y=0.06; sh.renderOrder=2; g.add(sh);
+      sh.rotation.x=-Math.PI/2; sh.position.set(0,0.06,0.35); sh.renderOrder=2; g.add(sh);
     }
   
-    g.userData={ frontWheels, wheels, sw };
+    g.userData={ frontWheels, wheels, sw, spin:wheels.map(w=>w.userData.spin) };
     return g;
   }
   return buildCar;
@@ -9654,7 +9651,8 @@ function makeState(name,num,color,skill,isPlayer){
     meshObj=new THREE.Group();meshObj.add(low,high);
     meshObj.userData={lodLow:low,lodHigh:high,sw:null,
       frontWheels:(low.userData.frontWheels||[]).concat(high.userData.frontWheels||[]),
-      wheels:(low.userData.wheels||[]).concat(high.userData.wheels||[])};
+      wheels:(low.userData.wheels||[]).concat(high.userData.wheels||[]),
+      spin:(low.userData.spin||[]).concat(high.userData.spin||[])};
   }
   return {mesh:meshObj,name:name.toUpperCase(),code:code3(name),num,color,skill,isPlayer:!!isPlayer,
     x:0,z:0,hdg:0,speed:0,u:0,lane:0,lap:0,dist:0,lapT:0,best:Infinity,last:0,started:false,prevIdx:0,hint:0,base:0,steerVis:0,steerAmt:0,yawLag:0,lapLock:0,revArm:0,revLeft:0,lapMark:0,
@@ -9663,7 +9661,14 @@ function makeState(name,num,color,skill,isPlayer){
 
 // place player from x,z,hdg ; place AI from u,lane
 function placePlayer(c){c.mesh.position.set(c.x,0,c.z);c.mesh.rotation.set(0,c.hdg+(c.yawLag||0),0);reliefSit(c);   // yawLag — доворот носа после стены, только картинка
-  const fw=c.mesh.userData.frontWheels;if(fw)for(const w of fw)w.rotation.y=c.steerVis;}
+  const fw=c.mesh.userData.frontWheels;if(fw)for(const w of fw)w.rotation.y=c.steerVis;wheelSpin(c);}
+/* Вращение колёс (v1.17.24) — только картинка: угол от пройденного кузовом пути (не от физики), за кадр не больше
+   WHEEL_SPIN_MAX — меньше половины шага спиц (72°), иначе на скорости колесо «крутится назад» (стробоскоп). */
+const WHEEL_R=0.355, WHEEL_SPIN_MAX=0.5;
+function wheelSpin(c){const sp=c.mesh.userData.spin;if(!sp)return;
+  const d=c.wsx===undefined?0:Math.hypot(c.x-c.wsx,c.z-c.wsz);c.wsx=c.x;c.wsz=c.z;
+  c.wspin=((c.wspin||0)+(c.speed<0?-1:1)*Math.min(d/WHEEL_R,WHEEL_SPIN_MAX))%(Math.PI*2);
+  for(const w of sp)w.rotation.x=c.wspin;}
 function placeAI(c,dt){if(c.retired)return;const u=((c.u%1)+1)%1;const fi=u*track.M;const i=Math.floor(fi)%track.M;const i2=(i+1)%track.M;const t=fi-Math.floor(fi);
   const p=track.P[i].clone().lerp(track.P[i2],t);
   const f=track.F[i].clone().lerp(track.F[i2],t);if(f.lengthSq()<1e-6)f.copy(track.F[i]);f.normalize();
@@ -9688,7 +9693,8 @@ function placeAI(c,dt){if(c.retired)return;const u=((c.u%1)+1)%1;const fi=u*trac
   if(fw){const turn=1.7*Math.max(0.32,Math.min(1,12/(c.speed+4)));         // K[i] is exactly the heading change over 24 m
     const tgt=Math.max(-0.35,Math.min(0.35,(track.K[i]/24)*c.speed/turn*0.35-c.crab));   // ...plus the line change: the wheels point where the car is actually going
     c.steerVis+=(tgt-c.steerVis)*Math.min(1,(dt||0.016)*10);
-    for(const w of fw)w.rotation.y=c.steerVis;}}
+    for(const w of fw)w.rotation.y=c.steerVis;}
+  wheelSpin(c);}
 
 /* ---------- QUALI ---------- */
 function beginQuali(){phase='quali';raceOver=false;cars=[player];towerOrd=null;field=[];wallTouch=false;AUDIO.stopScrape();tlReset();
@@ -10661,9 +10667,21 @@ function failStep(c,iu,dt){const f=c.fail,hw=halfAt(iu),nz=neutralAt(iu);f.t+=dt
   else if(K){}
   else if(ds>0.02){f.dlr=Math.max(-0.7,Math.min(0.7,(nl-c.lane)/ds));f.thR+=(Math.atan2(nl-c.lane,ds)-f.thR)*Math.min(1,dt*8);}   // курс движения — по НАСТОЯЩЕМУ ходу (после удара — вдоль стены, плавно)
   else f.thR*=Math.max(0,1-dt*4);
-  const push=K?0:failWall(c,nl);                                                 // после остановки стену уже проверил spinMove
+  /* Стена — там, где болид БУДЕТ после шага (v1.17.24; до неё — в прежней точке с новой полосой: удар о косую стену кармана Баку
+     замечался кадром позже, и болид выталкивало вбок на 0.7–2 м за кадр). В кадре удара — доля шага до касания; скорость после
+     удара — по углу хода к САМОЙ стене (глубина за остаток шага), а не к дороге. */
+  let push=0;
+  if(!K){const u0=c.u,at=t=>{c.u=(((u0+t*ds/track.length)%1)+1)%1;return failWall(c,c.lane+t*(nl-c.lane));};
+    push=at(1);
+    if(push&&!f.hit&&(f.kind==='crash'||f.kind==='spin'&&f.ph===undefined)){
+      let a=0,b=1;if(at(0))b=0;else for(let q=0;q<6;q++){const m=(a+b)/2;if(at(m))b=m;else a=m;}
+      const L=(1-a)*Math.hypot(ds,nl-c.lane),sn=L>1e-6?Math.min(1,Math.abs(push)/L):1;
+      f.hit=true;f.vImp=v*Math.sqrt(1-sn*sn)*RET_WALL_KEEP;retThud(c,f.kind==='spin'&&!f.ret?0.4:0.8);   // поперёк стены — гаснет, вдоль — доля
+      if(a>0){ds*=a;nl=c.lane+a*(nl-c.lane);push=0;}else{c.u=u0;push=failWall(c,nl);}
+      if(W)f.world=false;}
+    c.u=u0;}
   if(push){nl-=push;if(W)f.world=false;
-    if(!f.hit&&(f.kind==='crash'||f.kind==='spin'&&f.ph===undefined)){f.hit=true;f.vImp=v*Math.abs(Math.cos(f.thR))*RET_WALL_KEEP;retThud(c,f.kind==='spin'&&!f.ret?0.4:0.8);}}   // поперёк стены — гаснет, вдоль — доля
+    const tot=v*dt,d2=nl-c.lane;ds=Math.abs(d2)>=tot?0:Math.min(ds,Math.sqrt(tot*tot-d2*d2));}   // вытолкнуло вбок — за счёт хода вдоль: путь за кадр не больше скорости
   c.lane=nl;c.speed=v;c.spanX=carHalfWidth(c.crab);
   c.u=(c.u+ds/track.length)%1;c.dist+=ds;
   c.spdAvg+=(c.speed-c.spdAvg)*Math.min(1,dt/PACE_TAU);c.ahd=null;c.gp=1e9;
@@ -10743,13 +10761,16 @@ function retireCar(c,here){c.retired=true;c.speed=0;c.retireOrder=++retireCount;
    the wreck stays there to the chequered flag, which is both what really happens and
    what the owner asked for — a child wants to drive past the crash every lap.
    С v1.16.79 — не на глазах: VSC кончился, а камера смотрит на болид — ждём (retireClearTick, retSeen). */
+/* Своя дорога — не «другая нога» (v1.17.24): до неё пропускались ±3 точки (~12 м), и в изгибе (Монца, Роджа, S 940) тот же
+   поворот в 12 м по ходу ложился ближе halfAt+3.5 к месту за отбойником — болид после VSC оставался на месте. */
+const RET_CLEAR_LEG=30;   // м вдоль трассы
 function clearCarToBarrier(c){
   if(!c||!c.retired||!(c.blocking||track.spec.vscAlways))return;   // vscAlways — убирают и вставшего вне полотна (v1.16.57)
   if(track.spec.clearAway){carRemove(c);return;}
   const i=c.retiredIdx,P=track.P[i],R=track.R[i];
   const off=wallAt(i,c.retiredSide)+carHalfWidth(c.retiredAng)+0.4;   // hard against the far side of the barrier: pushed further out it can reach a grandstand
   const x=P.x+R.x*c.retiredSide*off, z=P.z+R.z*c.retiredSide*off;
-  for(let j=0;j<track.M;j++){let ij=Math.abs(j-i);ij=Math.min(ij,track.M-ij);if(ij<=3)continue;
+  for(let j=0;j<track.M;j++){let ds=Math.abs(track.S[j]-track.S[i]);ds=Math.min(ds,track.length-ds);if(ds<=RET_CLEAR_LEG)continue;
     if(Math.hypot(track.P[j].x-x,track.P[j].z-z)<halfAt(j)+3.5)return;}   // behind the barrier sits another leg of the track: leave it be
   c.x=x;c.z=z;c.mesh.position.set(x,0,z);reliefSit(c);c.blocking=false;c.cleared=true;if(c.ghost)c.ghost.retired=true;}
 /* clearAway у трассы (v1.16.92, Монако, решение владельца 20.10.2026): болид не ставят за отбойник, а увозят совсем — за стеной

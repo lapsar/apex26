@@ -77,7 +77,7 @@ function run() {
           if(c.err!==h.eo){h.eo=c.err;h.e={side:c.err.side,out:-99,dec:0,wheels:0,deep:0,deepStr:0};ev.push(h.e);}
           var e=h.e,iu=Math.floor(((c.u%1)+1)%1*track.M)%track.M,hw=halfAt(iu),o=c.lane*e.side;
           if(o-hw>e.out)e.out=o-hw;
-          if(o+1.05>hw)e.wheels=1;
+          if(o+(typeof CAR_TRK!=='undefined'?CAR_TRK:1.05)>hw)e.wheels=1;   // середина внешнего колеса за белой линией
           if(c.dist-c.err.d0>c.err.toAp+15&&d>e.dec)e.dec=d;
           if(c.errPh>0.8){e.deep++;if(Math.abs(track.K[iu])<0.096)e.deepStr++;}
           if(o>hw*0.5){var sg=e.side,V=sg>0?track.VR:track.VL,gap=false;for(var gg=-3;gg<=3;gg++)if(V&&!V[(iu+gg+track.M)%track.M])gap=true;

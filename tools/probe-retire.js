@@ -33,7 +33,7 @@ const R = require('./report');
 
 const SEEDS = [3, 11], MAX_SECS = { tech: 40, crash: 14, spin: 14 }, JUMP = 1.0, YAWJ = 12, OVERLAP = 0.3, DEEP_MIN = 0.5;
 const MAX_DEC = { tech: 60, crash: 160, spin: 160 };
-const PARK_NEED = 2 * 1.86 + 0.6;   // ширина вставшего под углом 0.2 рад + зазор до стены (RET_PARK_YAW, RET_PARK_WALL)
+const PARK_NEED = 2 * 1.86 + 0.6;   // ширина вставшего под углом 0.2 рад + зазор до стены (RET_PARK_YAW, RET_PARK_WALL); у сборок с ними — из игры (v1.17.24)
 
 function run(opt) {
   const r = R.result('Сход соперника — ездой: без скачков, у стены не в борту, флаг при остановке, соперники объезжают');
@@ -101,7 +101,7 @@ function run(opt) {
           for(var k2=0;k2<field.length;k2++){var c2=field[k2];if(c2===v||c2.retired)continue;
             if(Math.hypot(c2.x-v.x,c2.z-v.z)>7)continue;var pp=pen(me,rect(c2));if(pp>ov){ov=pp;ovWho=c2.code+' '+(c2.speed*3.6).toFixed(0)+' км/ч';}}}}
         return {kind:v.retKind,secs:+secs.toFixed(1),jump:+jump.toFixed(2),yawJ:+(yawJ*57.3).toFixed(1),dec:+dec.toFixed(0),
-          blocking:v.blocking,flag:flag,near:+(near-hw).toFixed(2),wall:+wall.toFixed(2),room:+room.toFixed(1),
+          blocking:v.blocking,flag:flag,near:+(near-hw).toFixed(2),wall:+wall.toFixed(2),room:+room.toFixed(1),parkNeed:(typeof RET_PARK_YAW!=='undefined'?2*carHalfWidth(RET_PARK_YAW)+RET_PARK_WALL:null),
           ang:+((v.crab||0)*57.3).toFixed(0),vscA:!!track.spec.vscAlways,ov:+ov.toFixed(2),ovWho:ovWho,eng:__eng,rear:__rear,smoke:__pn};})()`);
       const tag = `${T.name} ${kind} (зерно ${seed})`;
       if (o.skip) { r.note(`${tag}: ${o.skip}`); continue; }
@@ -115,8 +115,8 @@ function run(opt) {
       const geo = o.near < -0.05;
       if (geo !== o.blocking && Math.abs(o.near + 0.05) > 0.15) r.fail(`${tag}: «на полотне» = ${o.blocking}, а ближний край кузова в ${o.near} м от линии`);
       if (o.flag !== (o.blocking || o.vscA ? 'vsc' : 'yellow')) r.fail(`${tag}: при остановке флаг «${o.flag || 'нет'}» (на полотне: ${o.blocking})`);
-      if (kind === 'tech' && o.room >= PARK_NEED + 0.2 && o.blocking) r.fail(`${tag}: место за кромкой ${o.room} м, а встал частью на полотне`);
-      if (kind === 'tech' && o.room >= PARK_NEED + DEEP_MIN + 0.5 && o.near < DEEP_MIN) r.fail(`${tag}: место за кромкой ${o.room} м, а встал в ${o.near} м от линии`);
+      if (kind === 'tech' && o.room >= (o.parkNeed || PARK_NEED) + 0.2 && o.blocking) r.fail(`${tag}: место за кромкой ${o.room} м, а встал частью на полотне`);
+      if (kind === 'tech' && o.room >= (o.parkNeed || PARK_NEED) + DEEP_MIN + 0.5 && o.near < DEEP_MIN) r.fail(`${tag}: место за кромкой ${o.room} м, а встал в ${o.near} м от линии`);
       if (kind === 'tech' && !o.eng) r.fail(`${tag}: нет дыма мотора`);
       if (kind === 'spin' && o.kind === 'spin' && !o.rear) r.fail(`${tag}: нет дыма передних колёс`);
       if (kind === 'spin' && o.kind !== 'spin') r.note(`${tag}: места разворота без соседа на пути не нашлось за 1500 м — ${o.kind}`);
