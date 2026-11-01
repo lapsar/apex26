@@ -2,6 +2,7 @@
 // node tools/baku-scan/camcmp.js OUT '[{"t":"now"},{"t":"B","h":1.28,"tilt":17.8,"z":-0.05},{"t":"C","h":1.28,"tilt":17.8,"hf":80,"z":-0.05}]' 40,300,420
 // OUT/povs.json — позы (povcmp.py); h — высота камеры над асфальтом, tilt — вниз, градусы; z — вдоль болида от центра; hf — угол по горизонтали
 // helm — сдвиг шлема вперёд, м (вершины склеенного меша в сфере шлема); VW/VH — размер кадра (iPad: VW=1024 VH=768)
+// x — сдвиг камеры вбок (к +x модели), helmY — шлем вверх/вниз, visor:1 — визор только спереди (задняя часть кольца убрана в шлем)
 const path=require('path'),fs=require('fs');
 const {chromium}=require('playwright');
 const HTML=process.env.APEX_INDEX?path.resolve(process.env.APEX_INDEX):path.resolve(__dirname,'../../index.html'),OUT=process.argv[2];
@@ -22,7 +23,7 @@ const VAR=JSON.parse(process.argv[3]);
     const orig=updateCamera;window.__ov=null;
     updateCamera=function(dt){orig(dt);const v=window.__ov;cam.fov=64;
       if(v&&v.h){const gy=player.gy||0,sl=player.slope||0,vh=player.hdg+(player.yawLag||0),f=[Math.sin(vh),Math.cos(vh)];
-        const ca=1/Math.sqrt(1+sl*sl),sa=sl*ca,zc=(v.z!==undefined?v.z:-0.62),hz=zc*ca-v.h*sa;cam.position.set(player.x+f[0]*hz,gy+v.h*ca+zc*sa,player.z+f[1]*hz);const pitch=Math.atan(sl)-v.tilt*Math.PI/180;
+        const ca=1/Math.sqrt(1+sl*sl),sa=sl*ca,zc=(v.z!==undefined?v.z:-0.62),hz=zc*ca-v.h*sa;const xo=v.x||0;cam.position.set(player.x+f[0]*hz+f[1]*xo,gy+v.h*ca+zc*sa,player.z+f[1]*hz-f[0]*xo);const pitch=Math.atan(sl)-v.tilt*Math.PI/180;
         cam.lookAt(cam.position.x+f[0]*14*Math.cos(pitch),cam.position.y+14*Math.sin(pitch),cam.position.z+f[1]*14*Math.cos(pitch));}
       if(v&&v.hf)cam.fov=2*Math.atan(Math.tan(v.hf*Math.PI/360)/cam.aspect)*180/Math.PI;
       cam.updateProjectionMatrix();};});
@@ -30,10 +31,13 @@ const VAR=JSON.parse(process.argv[3]);
   for(const p of POVS)for(const v of VAR){
     const r=await page.evaluate(([p,v])=>{player.x=p.x;player.z=p.z;player.hdg=p.hdg;player.speed=0;player.steerVis=0;player.yawLag=0;
       let best=1e18,bi=0;for(let i=0;i<track.M;i++){const d=(track.P[i].x-p.x)**2+(track.P[i].z-p.z)**2;if(d<best){best=d;bi=i;}}
-      window.__ov=v;player.mesh.visible=!v.hide;if(v.helm&&!player.mesh.userData.helmMoved){player.mesh.userData.helmMoved=1;let n=0;player.mesh.updateMatrixWorld(true);
+      window.__ov=v;player.mesh.visible=!v.hide;if((v.helm||v.helmY||v.visor)&&!player.mesh.userData.helmMoved){player.mesh.userData.helmMoved=1;let n=0;player.mesh.updateMatrixWorld(true);
         player.mesh.traverse(o=>{if(!o.isMesh||!o.geometry||o.userData.shared)return;const a=o.geometry.attributes.position;
           const inv=new THREE.Matrix4().copy(player.mesh.matrixWorld).invert().multiply(o.matrixWorld),inv2=new THREE.Matrix4().copy(inv).invert(),q=new THREE.Vector3();
-          for(let i=0;i<a.count;i++){q.fromBufferAttribute(a,i).applyMatrix4(inv);if(Math.hypot(q.x,q.y-0.82,q.z-0.24)<=0.156){q.z+=v.helm;q.applyMatrix4(inv2);a.setXYZ(i,q.x,q.y,q.z);n++;}}
+          const dark=o.material&&o.material.color&&o.material.color.getHexString()==='0a0a0e';
+          for(let i=0;i<a.count;i++){q.fromBufferAttribute(a,i).applyMatrix4(inv);if(Math.hypot(q.x,q.y-0.82,q.z-0.24)<=0.156){
+            if(v.visor&&dark){const ang=Math.atan2(q.x,q.z-0.24);if(Math.abs(ang)>1.15){q.x=(q.x)*0.85;q.z=0.24+(q.z-0.24)*0.85;q.y=0.82+(q.y-0.82)*0.85;}}
+            q.z+=(v.helm||0);q.y+=(v.helmY||0);q.applyMatrix4(inv2);a.setXYZ(i,q.x,q.y,q.z);n++;}}
           a.needsUpdate=true;o.geometry.computeBoundingSphere();});window.__hn=n;}
       player.hint=bi;placePlayer(player);updateCamera(0.016);
       const y0=cam.position.y,gy=player.gy||0;
