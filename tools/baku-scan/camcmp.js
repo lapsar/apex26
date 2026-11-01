@@ -3,6 +3,7 @@
 // OUT/povs.json — позы (povcmp.py); h — высота камеры над асфальтом, tilt — вниз, градусы; z — вдоль болида от центра; hf — угол по горизонтали
 // helm — сдвиг шлема вперёд, м (вершины склеенного меша в сфере шлема); VW/VH — размер кадра (iPad: VW=1024 VH=768)
 // x — сдвиг камеры вбок (к +x модели), helmY — шлем вверх/вниз, visor:1 — визор только спереди (задняя часть кольца убрана в шлем)
+// shiftTop:1 — низ кадра как у онбоарда (16:9), лишняя высота экрана — только вверх (сдвиг кадра setViewOffset, не наклон)
 const path=require('path'),fs=require('fs');
 const {chromium}=require('playwright');
 const HTML=process.env.APEX_INDEX?path.resolve(process.env.APEX_INDEX):path.resolve(__dirname,'../../index.html'),OUT=process.argv[2];
@@ -25,7 +26,10 @@ const VAR=JSON.parse(process.argv[3]);
       if(v&&v.h){const gy=player.gy||0,sl=player.slope||0,vh=player.hdg+(player.yawLag||0),f=[Math.sin(vh),Math.cos(vh)];
         const ca=1/Math.sqrt(1+sl*sl),sa=sl*ca,zc=(v.z!==undefined?v.z:-0.62),hz=zc*ca-v.h*sa;const xo=v.x||0;cam.position.set(player.x+f[0]*hz+f[1]*xo,gy+v.h*ca+zc*sa,player.z+f[1]*hz-f[0]*xo);const pitch=Math.atan(sl)-v.tilt*Math.PI/180;
         cam.lookAt(cam.position.x+f[0]*14*Math.cos(pitch),cam.position.y+14*Math.sin(pitch),cam.position.z+f[1]*14*Math.cos(pitch));}
+      cam.aspect=innerWidth/innerHeight;cam.clearViewOffset();
       if(v&&v.hf)cam.fov=2*Math.atan(Math.tan(v.hf*Math.PI/360)/cam.aspect)*180/Math.PI;
+      if(v&&v.hf&&v.shiftTop){const W=innerWidth,H=innerHeight,thw=Math.tan(v.hf*Math.PI/360),tb=thw*0.5625,tot=2*thw*H/W,top=tot-tb,fullH=H*2*top/tot;
+        cam.aspect=W/fullH;cam.fov=2*Math.atan(top)*180/Math.PI;cam.setViewOffset(W,fullH,0,0,W,H);}
       cam.updateProjectionMatrix();};});
   const info=await page.evaluate(()=>({fov:cam.fov,near:cam.near,pm:!!(player.mesh&&player.mesh.visible)}));console.log(info);
   for(const p of POVS)for(const v of VAR){
