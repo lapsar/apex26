@@ -39,7 +39,7 @@ function run() {
     H.lightsOut(env);
     H.noRetirements(env);
     const o = env.evalIn(`(function(){
-      var M=track.M,BODY=[[1.05,2.0],[-1.05,2.0],[1.05,-1.7],[-1.05,-1.7],[1.0,3.25],[-1.0,3.25],[0.78,-2.55],[-0.78,-2.55]];
+      var M=track.M,BODY=(typeof CAR_PTS!=='undefined'?CAR_PTS:[[1.05,2.0],[-1.05,2.0],[1.05,-1.7],[-1.05,-1.7],[1.0,3.25],[-1.0,3.25],[0.78,-2.55],[-0.78,-2.55]]);
       /* видимая стена — та же мерка, что у пробника wallvis: лента по показанным точкам, разрыв — перемычкой (spanPath).
          До v1.16.66 здесь стояла стена по данным (W поперёк осевой) — она дальше видимой, и углы кузова заходили в отбойник. */
       function beyond(x,z,sg,i){var W=sg>0?track.WR:track.WL,V=sg>0?track.VR:track.VL,best=3,bs=-9,segs=[];
@@ -77,7 +77,7 @@ function run() {
           if(c.err!==h.eo){h.eo=c.err;h.e={side:c.err.side,out:-99,dec:0,wheels:0,deep:0,deepStr:0};ev.push(h.e);}
           var e=h.e,iu=Math.floor(((c.u%1)+1)%1*track.M)%track.M,hw=halfAt(iu),o=c.lane*e.side;
           if(o-hw>e.out)e.out=o-hw;
-          if(o+1.05>hw)e.wheels=1;
+          if(o+(typeof CAR_TRK!=='undefined'?CAR_TRK:1.05)>hw)e.wheels=1;   // середина внешнего колеса за белой линией
           if(c.dist-c.err.d0>c.err.toAp+15&&d>e.dec)e.dec=d;
           if(c.errPh>0.8){e.deep++;if(Math.abs(track.K[iu])<0.096)e.deepStr++;}
           if(o>hw*0.5){var sg=e.side,V=sg>0?track.VR:track.VL,gap=false;for(var gg=-3;gg<=3;gg++)if(V&&!V[(iu+gg+track.M)%track.M])gap=true;

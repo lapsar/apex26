@@ -27,7 +27,7 @@ function run() {
     const env = H.loadGame({ seed: 7 });
     H.setupWeekend(env, { trackIdx: T.idx });
     const m = env.evalIn(`(function(){const M=track.M;
-      var pts=[[1.05,2.0],[-1.05,2.0],[1.05,-1.7],[-1.05,-1.7],[1.0,3.25],[-1.0,3.25],[0.78,-2.55],[-0.78,-2.55]];
+      var pts=(typeof CAR_PTS!=='undefined'?CAR_PTS:[[1.05,2.0],[-1.05,2.0],[1.05,-1.7],[-1.05,-1.7],[1.0,3.25],[-1.0,3.25],[0.78,-2.55],[-0.78,-2.55]]);
       // видимая стена: лента по показанным точкам, разрыв ленты — перемычкой, как её строит wallBridges (spanPath)
       function beyond(x,z,sg,i){var W=sg>0?track.WR:track.WL,V=sg>0?track.VR:track.VL,best=3,bs=-9,segs=[];
         var pt=function(j){return [track.P[j].x+track.R[j].x*sg*W[j],track.P[j].z+track.R[j].z*sg*W[j]];};

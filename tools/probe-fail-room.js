@@ -43,9 +43,10 @@ function run(opt) {
           /* отказ — по расписанию, сценарий задан (жребий RET_MIX не тянется); дальше — как в игре */
           failBegin=function(c,iu){c.retireAt=0;c.err=null;c.errPh=0;c.spinPend=null;c.duel=null;c.ovLock=null;
             if(KIND==='tech')techStart(c,iu);else c.fail={wait:true,until:c.dist+RET_CRASH_WAIT};};
+          var __HL=typeof CAR_HL!=='undefined'?CAR_HL:3.02,__HW=typeof CAR_HW!=='undefined'?CAR_HW:1.285;   // размер болида — из игры (v1.17.24), у старых сборок прежний
           var rc=retireCar;retireCar=function(c,here){rc(c,here);if(!here)return;
             var m=c.mesh,h=m.rotation.y,s=Math.sin(h),co=Math.cos(h),i=carIdx(c),P=track.P[i],R=track.R[i],hw=halfAt(i),lo=1e9,hi=-1e9;
-            [[1.285,3.02],[-1.285,3.02],[1.285,-3.02],[-1.285,-3.02]].forEach(function(b){
+            [[__HW,__HL],[-__HW,__HL],[__HW,-__HL],[-__HW,-__HL]].forEach(function(b){
               var x=m.position.x+b[0]*co+b[1]*s,z=m.position.z-b[0]*s+b[1]*co,l=(x-P.x)*R.x+(z-P.z)*R.z;lo=Math.min(lo,l);hi=Math.max(hi,l);});
             out.push([Math.round(track.S[i]),Math.max(Math.min(lo,hw)+hw,hw-Math.max(hi,-hw)),2*hw]);};
           field.filter(function(c){return c!==player;}).forEach(function(c,k){c.retireAt=c.dist+150+((k*283+off)%Math.round(track.length));});

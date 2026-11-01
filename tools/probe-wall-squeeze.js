@@ -33,7 +33,8 @@ var VIS=(function(){var M=track.M,out=[];
    var len=0;while(len<M&&!V[(j2+len)%M])len++;var path=spanPath(sg,W,j2,len);for(var q=0;q+1<path.length;q++)seg(path[q],path[q+1]);}}
  return out;})();
 var VG={};VIS.forEach(function(p){var k=Math.floor(p[0]/4)+','+Math.floor(p[1]/4);(VG[k]=VG[k]||[]).push(p);});
-var HULLE=(function(){var h=[[1.285,-2.2],[1.285,2.5],[1.05,3.2],[0.51,3.36],[-0.51,3.36],[-1.05,3.2],[-1.285,2.5],[-1.285,-2.2],[-0.78,-2.68],[0.78,-2.68]];
+var __HL=typeof CAR_HL!=='undefined'?CAR_HL:3.02,__HW=typeof CAR_HW!=='undefined'?CAR_HW:1.285;   // размер болида — из игры (v1.17.24), у старых сборок прежний
+var HULLE=(function(){var h=typeof CAR_HULL!=='undefined'?CAR_HULL:[[1.285,-2.2],[1.285,2.5],[1.05,3.2],[0.51,3.36],[-0.51,3.36],[-1.05,3.2],[-1.285,2.5],[-1.285,-2.2],[-0.78,-2.68],[0.78,-2.68]];
  return h.map(function(p,k){var q=h[(k+1)%h.length],ex=q[0]-p[0],ez=q[1]-p[1],l=Math.hypot(ex,ez),nx=ez/l,nz=-ex/l;return [nx,nz,nx*p[0]+nz*p[1]];});})();
 function inHull(x,z){var m=1e9;for(var k=0;k<HULLE.length;k++){var e=HULLE[k],d=e[2]-(e[0]*x+e[1]*z);if(d<=0)return 0;if(d<m)m=d;}return m;}
 function wallIn(){var s=Math.sin(player.hdg),c=Math.cos(player.hdg),best=0,gx=Math.floor(player.x/4),gz=Math.floor(player.z/4);
@@ -43,7 +44,7 @@ function wallIn(){var s=Math.sin(player.hdg),c=Math.cos(player.hdg),best=0,gx=Ma
 function overlap(o){var dx=player.x-o.x,dz=player.z-o.z;if(dx*dx+dz*dz>45)return 0;var a=player.hdg,b=o.mesh.rotation.y,
   ax=[[Math.sin(a),Math.cos(a)],[Math.cos(a),-Math.sin(a)],[Math.sin(b),Math.cos(b)],[Math.cos(b),-Math.sin(b)]],m=1e9;
  for(var k=0;k<4;k++){var ux=ax[k][0],uz=ax[k][1],d=Math.abs(dx*ux+dz*uz);
-  var r=3.02*(Math.abs(ax[0][0]*ux+ax[0][1]*uz)+Math.abs(ax[2][0]*ux+ax[2][1]*uz))+1.285*(Math.abs(ax[1][0]*ux+ax[1][1]*uz)+Math.abs(ax[3][0]*ux+ax[3][1]*uz));
+  var r=__HL*(Math.abs(ax[0][0]*ux+ax[0][1]*uz)+Math.abs(ax[2][0]*ux+ax[2][1]*uz))+__HW*(Math.abs(ax[1][0]*ux+ax[1][1]*uz)+Math.abs(ax[3][0]*ux+ax[3][1]*uz));
   var q=r-d;if(q<=0)return 0;if(q<m)m=q;}return m;}
 var rv=field[0];field.forEach(function(c){if(c!==rv){c.retired=true;c.x=c.z=9999;c.mesh.position.set(9999,0,9999);}});
 function setRival(i0,lane,v,lon){rv.retired=false;rv.u=(track.S[i0]+lon)/track.length;rv.lane=lane;rv.lanePrev=lane;rv.speed=v;rv.dist=player.dist+lon;

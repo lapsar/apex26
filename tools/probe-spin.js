@@ -41,7 +41,8 @@ function run(opt) {
     H.lightsOut(env);
     H.noRetirements(env);
     const o = env.evalIn(`(function(){var dt=1/60,M=track.M,sc=spinCorners(),seg=track.length/M;
-      var BODY=[[1.05,2.0],[-1.05,2.0],[1.05,-1.7],[-1.05,-1.7],[1.0,3.25],[-1.0,3.25],[0.78,-2.55],[-0.78,-2.55]];
+      var __HL=typeof CAR_HL!=='undefined'?CAR_HL:3.02,__HW=typeof CAR_HW!=='undefined'?CAR_HW:1.285;   // размер болида — из игры (v1.17.24), у старых сборок прежний
+      var BODY=(typeof CAR_PTS!=='undefined'?CAR_PTS:[[1.05,2.0],[-1.05,2.0],[1.05,-1.7],[-1.05,-1.7],[1.0,3.25],[-1.0,3.25],[0.78,-2.55],[-0.78,-2.55]]);
       function beyond(x,z,sg,i){var W=sg>0?track.WR:track.WL,V=sg>0?track.VR:track.VL,best=3,bs=-9,segs=[];   // мерка видимой стены — как у wallvis/retire
         var pt=function(j){return [track.P[j].x+track.R[j].x*sg*W[j],track.P[j].z+track.R[j].z*sg*W[j]];};
         for(var k=-12;k<=12;k++){var j=(i+k+M)%M,j2=(j+1)%M;if(V&&!V[j])continue;
@@ -55,7 +56,7 @@ function run(opt) {
       function rect(c){var m=c.mesh,h=m.rotation.y;return {x:m.position.x,z:m.position.z,fx:Math.sin(h),fz:Math.cos(h)};}
       function pen(a,b){var best=1e9,ax=[[a.fx,a.fz],[a.fz,-a.fx],[b.fx,b.fz],[b.fz,-b.fx]],dx=b.x-a.x,dz=b.z-a.z;
         for(var k=0;k<4;k++){var ux=ax[k][0],uz=ax[k][1],d=Math.abs(dx*ux+dz*uz);
-          var ra=3.02*Math.abs(a.fx*ux+a.fz*uz)+1.285*Math.abs(a.fz*ux-a.fx*uz),rb=3.02*Math.abs(b.fx*ux+b.fz*uz)+1.285*Math.abs(b.fz*ux-b.fx*uz);
+          var ra=__HL*Math.abs(a.fx*ux+a.fz*uz)+__HW*Math.abs(a.fz*ux-a.fx*uz),rb=__HL*Math.abs(b.fx*ux+b.fz*uz)+__HW*Math.abs(b.fz*ux-b.fx*uz);
           var oo=ra+rb-d;if(oo<=0)return 0;if(oo<best)best=oo;}return best;}
       /* места: сторона и правило 8 м — своей меркой (медиана места снаружи от апекса до выхода +120 м) */
       var sites=sc.list.map(function(C,ci){var rooms=[];for(var d=0;d<=C.toEx-C.toAp+120;d+=seg){var j=(C.ap+Math.round(d/seg))%M;rooms.push(wallAt(j,C.side)-halfAt(j));}
@@ -74,12 +75,12 @@ function run(opt) {
             var m=c.mesh.position,mx=m.x-px,mz=m.z-pz,hm=Math.atan2(mx,mz),jj=qx===null?0:Math.hypot(mx-qx,mz-qz),wh=(c.fail?(c.fail.ph===undefined?(c.fail.world?'скольжение':'скольжение по полосе'):'возврат '+c.fail.ph):'езда')+' '+(c.speed*3.6).toFixed(0)+' км/ч';if(jj>jump){jump=jj;e.jumpAt=wh;}
             if(f.ph===undefined&&c.speed>5&&Math.hypot(mx,mz)>0.01){var dv=Math.atan2(Math.sin(hm-e.h0),Math.cos(hm-e.h0))*57.3;if(-f.side*dv>e.tanOut)e.tanOut=-f.side*dv;   // увод наружу от касательной (курс хода против курса в момент срыва)
               if(f.drift){var bd=Math.abs(Math.atan2(Math.sin(c.mesh.rotation.y-hm),Math.cos(c.mesh.rotation.y-hm)))*57.3;if(bd>e.bodyDev)e.bodyDev=bd;}}   // «унесло»: кузов против хода
-            if(f.ph===1){var hh=c.mesh.rotation.y,fx=m.x+2.0*Math.sin(hh),fz=m.z+2.0*Math.cos(hh);if(e.pfx===undefined){e.pfx=fx;e.pfz=fz;e.pivF=0;e.pivA=0;e.pivC=0;e.pcx=m.x;e.pcz=m.z;e.ph0=hh;}   // доворот: передняя ось — на месте, середина — по дуге
+            if(f.ph===1){var AXF=(typeof CAR_AXF!=='undefined'?CAR_AXF:2.0),hh=c.mesh.rotation.y,fx=m.x+AXF*Math.sin(hh),fz=m.z+AXF*Math.cos(hh);if(e.pfx===undefined){e.pfx=fx;e.pfz=fz;e.pivF=0;e.pivA=0;e.pivC=0;e.pcx=m.x;e.pcz=m.z;e.ph0=hh;}   // доворот: передняя ось — на месте, середина — по дуге
               e.pivF=Math.max(e.pivF,Math.hypot(fx-e.pfx,fz-e.pfz));e.pivC=Math.max(e.pivC,Math.hypot(m.x-e.pcx,m.z-e.pcz));e.pivA=Math.max(e.pivA,Math.abs(Math.atan2(Math.sin(hh-e.ph0),Math.cos(hh-e.ph0)))*57.3);}qx=mx;qz=mz;px=m.x;pz=m.z;
             var dy=Math.abs(((c.mesh.rotation.y-py+Math.PI*3)%(2*Math.PI))-Math.PI);if(dy>yawJ){yawJ=dy;e.yawAt=wh;}if(dy/dt>yawMax)yawMax=dy/dt;py=c.mesh.rotation.y;
             for(var k2=0;k2<field.length;k2++){var c2=field[k2];if(c2===c||c2.retired||Math.hypot(c2.x-c.x,c2.z-c.z)>7)continue;var pp=pen(rect(c),rect(c2));if(pp>ov){ov=pp;ovWho=c2.code;e.ovAt=wh;}}
             if(!stopped&&f.ph!==undefined){stopped=true;var iu=carIdx(c),hw=halfAt(iu),Pp=track.P[iu],Rr=track.R[iu],h=c.mesh.rotation.y,s=Math.sin(h),co=Math.cos(h),near=1e9,w=-9;
-              [[1.285,3.02],[-1.285,3.02],[1.285,-3.02],[-1.285,-3.02]].forEach(function(b){var x=m.x+b[0]*co+b[1]*s,z=m.z-b[0]*s+b[1]*co,lat=((x-Pp.x)*Rr.x+(z-Pp.z)*Rr.z)*f.side;if(lat<near)near=lat;});
+              [[__HW,__HL],[-__HW,__HL],[__HW,-__HL],[-__HW,-__HL]].forEach(function(b){var x=m.x+b[0]*co+b[1]*s,z=m.z-b[0]*s+b[1]*co,lat=((x-Pp.x)*Rr.x+(z-Pp.z)*Rr.z)*f.side;if(lat<near)near=lat;});
               BODY.forEach(function(b){var bq=beyond(m.x+b[0]*co+b[1]*s,m.z-b[0]*s+b[1]*co,f.side,iu);if(bq>w)w=bq;});
               e.stopT=+(raceTime-T).toFixed(2);e.why=(f.blk?'сосед придержал':'')+(f.hit?' стена':'')+(f.blk||f.hit?'':'');e.path=+(c.dist-d0).toFixed(0);e.edge=+(near-hw).toFixed(2);e.wall=+w.toFixed(2);e.ang=+(c.crab*57.3).toFixed(0);}
             if(!c.fail){e.back=+(raceTime-T).toFixed(1);e.laneOut=+(Math.abs(c.lane)/halfAt(carIdx(c))).toFixed(3);
