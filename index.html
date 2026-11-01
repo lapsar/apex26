@@ -9672,8 +9672,8 @@ const buildCar=(function(){        // self-contained model block; only THREE and
       for(const k in G){let mk=mat[k];
         if(G[k].attributes.steerW){mk=mk.clone();mk.userData.steerU=steerU;mk.onBeforeCompile=w17SteerCompile;}   // передний угол — с колесом (свой материал: руль тоже карбон)
         const m=new THREE.Mesh(G[k],mk);m.userData.shared=true;m.castShadow=true;g.add(m);}
-      add(g, new THREE.SphereGeometry(0.145,S?8:12,S?6:8), helm, 0,0.72,0.24);                          // шлем: v1.17.29 — на 10 см ниже (по онбоарду; было 0.82)
-      if(!S) add(g, new THREE.SphereGeometry(0.15,6,4,Math.PI/2-1.15,2.3,Math.PI*0.44,Math.PI*0.28), visor, 0,0.72,0.24);}   // визор только спереди (до v1.17.29 — кольцом вокруг, сзади виден)
+      add(g, new THREE.SphereGeometry(0.145,S?8:12,S?6:8), helm, 0,0.82,0.24);                          // шлем (на 0.72 глаза пилота ниже носа — дороги не видно; game.md)
+      if(!S) add(g, new THREE.SphereGeometry(0.15,6,4,Math.PI/2-1.15,2.3,Math.PI*0.44,Math.PI*0.28), visor, 0,0.82,0.24);}   // визор только спереди (до v1.17.29 — кольцом вокруг, сзади виден)
     if(!W17){
     const SECb=roundSec(S?10:16,2.6), SECp=roundSec(S?10:16,3.2);   // кузов и понтоны (у понтона углы острее)
 
