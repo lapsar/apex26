@@ -9496,7 +9496,7 @@ const W17GEO=(function(){const cache={},B64='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi
     for(let i=0;i<o.v;i++)for(let j=0;j<3;j++){pos[i*3+j]=P[i*4+j]/10000;nor[i*3+j]=N[i*4+j]/127;}
     const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));g.setAttribute('normal',new THREE.BufferAttribute(nor,3));
     g.setIndex(new THREE.BufferAttribute(o.v<65536?new Uint16Array(I):I,1));g.computeBoundingSphere();g.userData.shared=true;return g;}
-  return lod=>cache[lod]||(cache[lod]=steerMark(plateToBody(Object.fromEntries(Object.entries(CAR_W17[lod]).map(([k,o])=>[k,geo(o)])))));})();
+  return lod=>cache[lod]||(cache[lod]=steerMark(w17Lower(plateToBody(Object.fromEntries(Object.entries(CAR_W17[lod]).map(([k,o])=>[k,geo(o)]))))));})();
 /* Табличка номера пилота на воздухозаборнике (класс team3, v1.17.28) — в цвет кузова. Из кокпита она прямо под взглядом:
    без цифр это тёмный прямоугольник с рваным краем (упрощение контура цифр), владелец принял его за «прорыв» другой
    части болида. Треугольники выше 1.0 м между z −0.6 и 0.3 переходят из team3 в team (вершины дописываются в конец). */
@@ -9522,6 +9522,30 @@ function plateToBody(G){const A=G.team3,B=G.team;if(!A||!B)return G;
    двигаются — их концы на этой оси; рулевая тяга (лёгкий рычаг впереди оси, конец 0.720 / 1.882) ходит вбок за кулаком: её внешний
    конец — точно за поворотом, внутренний — только поперёк (рейка). Атрибут steerW со знаком стороны: 1 — кулак, 2…3 — тяга (доля
    длины от рейки); поворот — в вершинном шейдере (w17SteerCompile): ни меша, ни вызова. Колесо игры поворачивается вокруг той же оси. */
+/* Кузов W17 на 5 см ниже (v1.17.29, замер владельцу 01.11.2026, game.md «Замер (б)»): по фото W17 на трассе сбоку (колёса — круги, масштаб
+   по базе и шине) шасси перед кокпитом, гало, воздухозаборник и камера на дуге у модели выше на 2.5–6 см, а регламент (передняя опора гало
+   на Z 660 над днищем) ставит днище настоящей машины на ходу ~3–4 см над асфальтом против 9.6 у модели — сама модель в пропорциях верна,
+   она сидит выше. Колёса не двигаются; то, что крепится к колесу (кулак, ступица, воздуховоды: куски у колеса с |x| ≥ 0.45 не дальше
+   0.45 м от оси), — тоже; рычаги, тяги и толкатели (тонкие куски от кузова к колесу) наклоняются: внутренний конец вниз на всю величину,
+   у колеса — ноль. Остальное — вниз целиком. Днище после — 0.046, переднее крыло — 0.116 над асфальтом. */
+const W17_LOWER=0.05;
+function w17Lower(G){if(!W17_LOWER)return G;
+  for(const k in G){const g=G[k],P=g.attributes.position,I=g.index.array,n=P.count,par=new Int32Array(n);
+    for(let i=0;i<n;i++)par[i]=i;const f=a=>{while(par[a]!==a){par[a]=par[par[a]];a=par[a];}return a;};
+    const pk=new Map();for(let i=0;i<n;i++){const key=Math.round(P.getX(i)*1e4)+','+Math.round(P.getY(i)*1e4)+','+Math.round(P.getZ(i)*1e4),o=pk.get(key);
+      if(o===undefined)pk.set(key,i);else par[f(i)]=f(o);}
+    for(let t=0;t<I.length;t+=3){par[f(I[t+1])]=f(I[t]);par[f(I[t+2])]=f(I[t]);}
+    const C=new Map();for(let i=0;i<n;i++){const r=f(i),x=Math.abs(P.getX(i)),y=P.getY(i),z=P.getZ(i);let c=C.get(r);
+      if(!c)C.set(r,c={a0:9,a1:0,y0:9,y1:-9,z0:9,z1:-9,rf:0,rr:0});
+      c.a0=Math.min(c.a0,x);c.a1=Math.max(c.a1,x);c.y0=Math.min(c.y0,y);c.y1=Math.max(c.y1,y);c.z0=Math.min(c.z0,z);c.z1=Math.max(c.z1,z);
+      c.rf=Math.max(c.rf,Math.hypot(y-0.355,z-CAR_AXF));c.rr=Math.max(c.rr,Math.hypot(y-0.355,z-CAR_AXR));}
+    for(let i=0;i<n;i++){const c=C.get(f(i)),x=Math.abs(P.getX(i));let d=W17_LOWER;
+      if(c.a0>=0.45&&Math.min(c.rf,c.rr)<=0.45)d=0;                                                  // у колеса: кулак, ступица, воздуховод
+      else if(c.a1>0.6&&c.z1-c.z0<0.4&&c.y1-c.y0<0.35&&c.y1<0.65&&(Math.abs((c.z0+c.z1)/2-CAR_AXF)<0.45||Math.abs((c.z0+c.z1)/2-CAR_AXR)<0.45))
+        d=W17_LOWER*Math.min(1,Math.max(0,(0.66-x)/(0.66-c.a0||1)));                                // рычаг: от кузова к колесу
+      if(d)P.setY(i,P.getY(i)-d);}
+    P.needsUpdate=true;g.computeBoundingSphere();}
+  return G;}
 const W17_KP=[0.665,1.735], W17_ROD=[0.720,1.882];   // ось шаровых опор и конец рулевой тяги (x, z) — замер по модели
 function steerMark(G){for(const k in G){const g=G[k],P=g.attributes.position,I=g.index.array,n=P.count,par=new Int32Array(n);
     for(let i=0;i<n;i++)par[i]=i;const f=a=>{while(par[a]!==a){par[a]=par[par[a]];a=par[a];}return a;};
@@ -9672,8 +9696,8 @@ const buildCar=(function(){        // self-contained model block; only THREE and
       for(const k in G){let mk=mat[k];
         if(G[k].attributes.steerW){mk=mk.clone();mk.userData.steerU=steerU;mk.onBeforeCompile=w17SteerCompile;}   // передний угол — с колесом (свой материал: руль тоже карбон)
         const m=new THREE.Mesh(G[k],mk);m.userData.shared=true;m.castShadow=true;g.add(m);}
-      add(g, new THREE.SphereGeometry(0.145,S?8:12,S?6:8), helm, 0,0.82,0.24);                          // шлем (на 0.72 глаза пилота ниже носа — дороги не видно; game.md)
-      if(!S) add(g, new THREE.SphereGeometry(0.15,6,4,Math.PI/2-1.15,2.3,Math.PI*0.44,Math.PI*0.28), visor, 0,0.82,0.24);}   // визор только спереди (до v1.17.29 — кольцом вокруг, сзади виден)
+      add(g, new THREE.SphereGeometry(0.145,S?8:12,S?6:8), helm, 0,0.82-W17_LOWER,0.29);                // шлем: v1.17.29 — на 5 см вперёд и вместе с кузовом ниже (зад шлема XC −70, регламент C12.5.2: −50…−125); на 0.72 пилот не видит дороги
+      if(!S) add(g, new THREE.SphereGeometry(0.15,6,4,Math.PI/2-1.15,2.3,Math.PI*0.44,Math.PI*0.28), visor, 0,0.82-W17_LOWER,0.29);}   // визор только спереди (до v1.17.29 — кольцом вокруг, сзади виден)
     if(!W17){
     const SECb=roundSec(S?10:16,2.6), SECp=roundSec(S?10:16,3.2);   // кузов и понтоны (у понтона углы острее)
 
@@ -9879,7 +9903,7 @@ const buildCar=(function(){        // self-contained model block; only THREE and
       add(sw, box(0.15,0.040,0.032), carbon,  0,-0.090, 0);
       for(const s of[-1,1]) add(sw, box(0.040,0.14,0.05), carbon, s*0.100, 0, 0);
       add(sw, box(0.13,0.08,0.02), carbon2,   0, 0.005, 0.026);
-      sw.position.set(0,W17?0.60:0.74,0.80); sw.rotation.x=-0.62; g.add(sw);   // у W17 — на месте руля модели (её руль снят)
+      sw.position.set(0,W17?0.60-W17_LOWER:0.74,0.80); sw.rotation.x=-0.62; g.add(sw);   // у W17 — на месте руля модели (её руль снят)
     }
 
     // ---- ТЕНЬ: создаётся, только если игра предоставила общую текстуру ENVSHADOW ----
