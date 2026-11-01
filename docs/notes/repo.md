@@ -215,7 +215,8 @@ apex26/
 │   ├── v1.17.23.html
 │   ├── v1.17.24.html
 │   ├── v1.17.25.html
-│   └── v1.17.26.html
+│   ├── v1.17.26.html
+│   └── v1.17.27.html
 ├── docs/
 │   ├── BRIEF-model-bolida.md           задание на доводку 3D-модели болида:
 │   │                                   контракт, ограничения r128, бюджет
@@ -548,6 +549,9 @@ apex26/
     ├── model-trial/                    замер Г (31.10.2026): Mercedes W17 и McLaren MCL40 — размеры и колёса
     │                                   (measure3.js), упрощение 8/4 тыс. и перекраска в наши материалы (trial.js)
     │                                   → docs/notes/img/zamer-g-mercedes-mclaren.jpg; архивы моделей — в ветке models
+    ├── car-w17/                        болид v1.17.27 из модели Mercedes W17: build.js (невидимое прочь, упрощение по классу,
+    │                                   дыры против целой, наклейки в цвет поверхности) → encode.mjs (meshoptimizer, base64 →
+    │                                   CAR_W17 в index.html) → render.js (листы); модель — из ветки models, распакованная
     ├── hungaroring-scan/               замер Хунгароринга: контур в метры со СВЕРКОЙ
     │                                   метода на всех вшитых трассах (convert.py --check),
     │                                   направление обхода и радиусы (geom.py),

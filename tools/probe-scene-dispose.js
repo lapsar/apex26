@@ -33,7 +33,7 @@ const COLLECT = `(function(){
   var keep=new Set(); if(ENVSHADOW)keep.add(ENVSHADOW); if(scene.environment)keep.add(scene.environment);
   scene.traverse(function(o){
     var add=function(x,kind){ if(!x||seen.has(x))return; seen.add(x);
-      var rec={kind:kind, shared:keep.has(x), gone:false};
+      var rec={kind:kind, shared:keep.has(x)||!!(x.userData&&x.userData.shared), gone:false};   // общая геометрия болида W17 (v1.17.27) — тоже общее
       if(x.addEventListener)x.addEventListener('dispose',function(){rec.gone=true;});
       res.push(rec); };
     add(o.geometry,'геометрия');
