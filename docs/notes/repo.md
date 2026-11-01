@@ -645,6 +645,8 @@ apex26/
     │                                   ширина (edges.py, edges_fix.tsv), середина
     │                                   (recenter.py → az-center*), игра (mkgame.py),
     │                                   замок в физике (castle-trials.js), карта (lapmap.py);
+    │                                   camcmp.js — кокпит игры в позе онбоарда с другой
+    │                                   высотой/наклоном/местом/углом камеры (01.11.2026);
     │                                   Старый город (v1.17.3): dump-wall.js — построенная
     │                                   стена в wall.json, city.py — крепостная стена и дома
     │                                   OSM в SCENERY_BAKU (повторный запуск заменяет блок);
