@@ -9488,11 +9488,6 @@ const W17GEO=(function(){const cache={},B64='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi
     const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));g.setAttribute('normal',new THREE.BufferAttribute(nor,3));
     g.setIndex(new THREE.BufferAttribute(o.v<65536?new Uint16Array(I):I,1));g.computeBoundingSphere();g.userData.shared=true;return g;}
   return lod=>cache[lod]||(cache[lod]=steerMark(plateToBody(Object.fromEntries(Object.entries(CAR_W17[lod]).map(([k,o])=>[k,geo(o)])))));})();
-/* Передний угол модели поворачивается с колесом (v1.17.28, владелец 01.11.2026: «поворачивают покрышки, а не колесо»).
-   Барабан тормозного воздуховода со ступицей и рёбрами у W17 — часть кузова и стоял неподвижно, а наша шина поворачивалась
-   сквозь него. Связные куски модели: целиком у колеса (|x| ≥ 0.45, не дальше 0.45 м от оси) — вес 1, рычаги подвески от
-   кузова к ступице — вес от 0 у кузова до 1 у ступицы (рычаг «качается», не отрывается). Вес — атрибут steerW со знаком
-   стороны; поворот — в шейдере (w17SteerCompile) вокруг оси колеса, тот же угол, что у группы колеса: ни меша, ни вызова. */
 /* Табличка номера пилота на воздухозаборнике (класс team3, v1.17.28) — в цвет кузова. Из кокпита она прямо под взглядом:
    без цифр это тёмный прямоугольник с рваным краем (упрощение контура цифр), владелец принял его за «прорыв» другой
    части болида. Треугольники выше 1.0 м между z −0.6 и 0.3 переходят из team3 в team (вершины дописываются в конец). */
@@ -9510,6 +9505,15 @@ function plateToBody(G){const A=G.team3,B=G.team;if(!A||!B)return G;
   B.setAttribute('position',new THREE.BufferAttribute(new Float32Array(pos),3));B.setAttribute('normal',new THREE.BufferAttribute(new Float32Array(nor),3));
   B.setIndex(new THREE.BufferAttribute(ix(idx),1));B.computeBoundingSphere();A.setIndex(new THREE.BufferAttribute(ix(keep),1));A.computeBoundingSphere();
   return G;}
+/* Передний угол модели поворачивается с колесом — как у настоящего болида (v1.17.28, владелец 01.11.2026: «поворачивают
+   покрышки, а не колесо»; «стойки шасси не должны двигаться от поворота руля»). У W17 барабан тормозного воздуховода со ступицей —
+   часть кузова и стоял, а наша шина поворачивалась сквозь него. Теперь: поворотный кулак (связные куски целиком у колеса: |x| ≥ 0.45,
+   не дальше 0.45 м от оси) поворачивается вместе с колесом вокруг ОСИ ШАРОВЫХ ОПОР (концы рычагов модели: нижние 0.66–0.68,
+   верхний 0.664 при z 1.72–1.78 → ось x ±0.665, z 1.735 — на 6.5 см позади оси колеса, кастер); рычаги подвески и толкатель НЕ
+   двигаются — их концы на этой оси; рулевая тяга (лёгкий рычаг впереди оси, конец 0.720 / 1.882) ходит вбок за кулаком: её внешний
+   конец — точно за поворотом, внутренний — только поперёк (рейка). Атрибут steerW со знаком стороны: 1 — кулак, 2…3 — тяга (доля
+   длины от рейки); поворот — в вершинном шейдере (w17SteerCompile): ни меша, ни вызова. Колесо игры поворачивается вокруг той же оси. */
+const W17_KP=[0.665,1.735], W17_ROD=[0.720,1.882];   // ось шаровых опор и конец рулевой тяги (x, z) — замер по модели
 function steerMark(G){for(const k in G){const g=G[k],P=g.attributes.position,I=g.index.array,n=P.count,par=new Int32Array(n);
     for(let i=0;i<n;i++)par[i]=i;const f=a=>{while(par[a]!==a){par[a]=par[par[a]];a=par[a];}return a;};
     const pk=new Map();for(let i=0;i<n;i++){const key=Math.round(P.getX(i)*1e4)+','+Math.round(P.getY(i)*1e4)+','+Math.round(P.getZ(i)*1e4),o=pk.get(key);
@@ -9521,17 +9525,17 @@ function steerMark(G){for(const k in G){const g=G[k],P=g.attributes.position,I=g
       c.rmax=Math.max(c.rmax,Math.hypot(P.getY(i)-0.355,z-CAR_AXF));c.z0=Math.min(c.z0,z);c.z1=Math.max(c.z1,z);}
     const W=new Float32Array(n);let any=0;
     for(let i=0;i<n;i++){const c=C.get(f(i)),x=P.getX(i);if(c.neg&&c.pos)continue;let w=0;
-      if(c.a0>=0.45&&c.rmax<=0.45)w=1;                                                                   // воздуховод, ступица
-      else if(c.a0<0.45&&c.a1>=0.55&&c.rmax<=0.55&&c.z0>=CAR_AXF-0.6&&c.z1<=CAR_AXF+0.2)w=(Math.abs(x)-c.a0)/(c.a1-c.a0);   // рычаг
+      if(c.a0>=0.45&&c.rmax<=0.45)w=1;                                                                   // поворотный кулак: воздуховод, ступица
+      else if(c.a0<0.45&&Math.abs(c.a1-W17_ROD[0])<0.02&&c.z0>CAR_AXF&&c.z1-c.z0<0.15)w=2+(Math.abs(x)-c.a0)/(c.a1-c.a0);   // рулевая тяга
       if(w>0){W[i]=Math.sign(x)*w;any++;}}
     if(any)g.setAttribute('steerW',new THREE.BufferAttribute(W,1));}
   return G;}
 function w17SteerCompile(sh){sh.uniforms.uSteer=this.userData.steerU;    // this — материал (так зовёт three.js r128); программа общая
-  const rot='float stA=uSteer*abs(steerW),stC=cos(stA),stS=sin(stA);';
+  const f=v=>v.toFixed(3),hd='float stW=abs(steerW),stG=sign(steerW),stC=cos(uSteer),stS=sin(uSteer);vec2 stK=vec2(stG*'+f(W17_KP[0])+','+f(W17_KP[1])+');';
   sh.vertexShader='attribute float steerW;\nuniform float uSteer;\n'+sh.vertexShader
-    .replace('#include <beginnormal_vertex>','#include <beginnormal_vertex>\n{'+rot+'objectNormal.xz=vec2(stC*objectNormal.x+stS*objectNormal.z,-stS*objectNormal.x+stC*objectNormal.z);}')
-    .replace('#include <begin_vertex>','#include <begin_vertex>\n{'+rot+'vec2 stP=vec2(sign(steerW)*'+CAR_TRK.toFixed(3)+','+CAR_AXF.toFixed(3)+'),stD=transformed.xz-stP;'
-      +'transformed.xz=stP+vec2(stC*stD.x+stS*stD.y,-stS*stD.x+stC*stD.y);}');}
+    .replace('#include <beginnormal_vertex>','#include <beginnormal_vertex>\n{'+hd+'if(stW>0.5&&stW<1.5)objectNormal.xz=vec2(stC*objectNormal.x+stS*objectNormal.z,-stS*objectNormal.x+stC*objectNormal.z);}')
+    .replace('#include <begin_vertex>','#include <begin_vertex>\n{'+hd+'if(stW>0.5&&stW<1.5){vec2 d=transformed.xz-stK;transformed.xz=stK+vec2(stC*d.x+stS*d.y,-stS*d.x+stC*d.y);}'
+      +'else if(stW>1.5){vec2 q=vec2(stG*'+f(W17_ROD[0])+','+f(W17_ROD[1])+'),d=q-stK,m=stK+vec2(stC*d.x+stS*d.y,-stS*d.x+stC*d.y)-q;transformed.x+=m.x;transformed.z+=m.y*(stW-2.0);}}');}
 const W17=true;   // false — прежний процедурный болид (v1.17.26), код оставлен для отката
 const buildCar=(function(){        // self-contained model block; only THREE and ENVSHADOW come from outside
   const PAL={
@@ -9835,7 +9839,9 @@ const buildCar=(function(){        // self-contained model block; only THREE and
         add(sp, new THREE.RingGeometry(0.042,0.056,16), nut, sg*(hw-0.049),0,0, 0, sg*Math.PI/2, 0);          // цветное кольцо
         add(sp, new THREE.CylinderGeometry(0.035,0.035,0.035,8), nut, sg*(hw-0.0575),0,0, 0,0,Math.PI/2);    // гайка — утоплена
       }
-      w.add(sp); w.userData.spin=sp; w.position.set(x,R,z); g.add(w); return w;
+      w.add(sp); w.userData.spin=sp; w.position.set(x,R,z);
+      if(W17&&z>0){w.position.set(sg*W17_KP[0],R,W17_KP[1]);sp.position.set(x-sg*W17_KP[0],0,z-W17_KP[1]);}   // переднее — вокруг оси шаровых опор
+      g.add(w); return w;
     }
     const wheels=[ wheel(-0.785,1.80,0.32), wheel(0.785,1.80,0.32), wheel(-0.745,-1.60,0.40), wheel(0.745,-1.60,0.40) ];
     const frontWheels=[wheels[0], wheels[1]];
