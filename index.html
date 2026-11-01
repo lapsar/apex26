@@ -235,7 +235,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.17.28</div>
+    <div class="verstamp">v1.17.29</div>
     <div class="verstamp">Болид — по модели «2026 Mercedes W17», Dave Love (sketchfab.com/Tyler_Dave), CC BY 4.0; упрощена и перекрашена</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
@@ -6623,6 +6623,15 @@ const RELIEF_SMOOTH=8;                     // м: σ сглаживания пр
    и «дыра» за гало, на подъёме — тёмная внутренность кузова). Ближе всего к камере кокпита видимый кузов — 0.40 м; 0.3 — с запасом
    на кивок взгляда (замер — все уклоны ±15 %, взгляд ±6 % от кузова: кадр как при 0.02). У камеры «за болидом» — прежние 0.5. */
 const CAM_NEAR=0.5, CAM_NEAR_COCKPIT=0.3;
+/* Камера кокпита — как онбоард 2026 (v1.17.29, решение владельца 01.11.2026; game.md «Камера кокпита против онбоарда»). Место и наклон —
+   подгонкой по точкам модели W17 к кадрам онбоарда Расселла (колёса, гало, зеркала, горизонт; tools/baku-scan/camfit.py): на дуге безопасности
+   над шлемом, верх гало закрывает нос. До неё — 1.42 м, 0.62 м за центром, взгляд почти прямо (1°), 64° по вертикали.
+   Объектив — по кадру онбоарда 16:9 (80° по горизонтали): экран всегда вмещает этот кадр целиком. Экран выше 16:9 (iPad, MacBook) — ширина
+   и НИЗ как у онбоарда, лишняя высота уходит только вверх (небо; вариант 3 владельца) — сдвигом кадра setViewOffset, не наклоном; экран шире 16:9
+   (iPhone) — верх и низ как у онбоарда, лишнее по бокам (иначе горизонт уходил за верх экрана). «За болидом» — прежние 64° по вертикали. */
+const CAM_EYE_Y=1.15, CAM_EYE_Z=-0.17;      // м: камера кокпита над асфальтом и вдоль кузова от центра (по наклонённому кузову)
+const CAM_TILT=18.7*Math.PI/180;           // рад: взгляд вниз от кузова (горизонт — на 16 % высоты кадра онбоарда)
+const CAM_HFOV=80, CAM_TV=9/16, CAM_FOV_CHASE=64;   // °: кадр онбоарда по горизонтали; его высота к ширине; камера «за болидом» — по вертикали
 const CAM_HEAD=0.15;                       // с: камера-голова — наклон камеры догоняет наклон болида (глаза гасят кивки кузова), v1.16.29
 const CAM_CHASE=0.1,CHASE_PULL=0.1-1/60;   // с; с: камера «за болидом» — сглаживание поворота и отъезда; отъезд v·0.083 — как было на 60 кадрах (v1.16.55)
 function reliefSetup(){track.relief=null;const rl=RELIEF_BY_KEY[track.spec.key];if(!rl)return;
@@ -9663,8 +9672,8 @@ const buildCar=(function(){        // self-contained model block; only THREE and
       for(const k in G){let mk=mat[k];
         if(G[k].attributes.steerW){mk=mk.clone();mk.userData.steerU=steerU;mk.onBeforeCompile=w17SteerCompile;}   // передний угол — с колесом (свой материал: руль тоже карбон)
         const m=new THREE.Mesh(G[k],mk);m.userData.shared=true;m.castShadow=true;g.add(m);}
-      add(g, new THREE.SphereGeometry(0.145,S?8:12,S?6:8), helm, 0,0.82,0.24);                          // шлем
-      if(!S) add(g, new THREE.SphereGeometry(0.15,10,4,0,Math.PI*2,Math.PI*0.44,Math.PI*0.28), visor, 0,0.82,0.24);}
+      add(g, new THREE.SphereGeometry(0.145,S?8:12,S?6:8), helm, 0,0.72,0.24);                          // шлем: v1.17.29 — на 10 см ниже (по онбоарду; было 0.82)
+      if(!S) add(g, new THREE.SphereGeometry(0.15,6,4,Math.PI/2-1.15,2.3,Math.PI*0.44,Math.PI*0.28), visor, 0,0.72,0.24);}   // визор только спереди (до v1.17.29 — кольцом вокруг, сзади виден)
     if(!W17){
     const SECb=roundSec(S?10:16,2.6), SECp=roundSec(S?10:16,3.2);   // кузов и понтоны (у понтона углы острее)
 
@@ -9895,7 +9904,7 @@ function initThree(){if(renderer)return;const canvas=document.getElementById('cv
   scene=new THREE.Scene();scene.background=new THREE.Color('#bfe0ff');scene.fog=new THREE.Fog('#cfe6f5',260,1300);
   scene.environment=makeEnvMap();                       // subtle reflections on glossy bodywork
   ENVSHADOW=ENVSHADOW||radialShadowTex();
-  cam=new THREE.PerspectiveCamera(64,1,CAM_NEAR,2600);
+  cam=new THREE.PerspectiveCamera(CAM_FOV_CHASE,1,CAM_NEAR,2600);
   const hemi=new THREE.HemisphereLight('#eaf3ff','#5b6b4a',1.05);scene.add(hemi);
   const sun=new THREE.DirectionalLight('#fff4e2',1.15);sun.position.set(320,520,200);scene.add(sun);
   const fill=new THREE.DirectionalLight('#cfe0ff',0.25);fill.translateX(-200).translateY(180);scene.add(fill);  // cool fill
@@ -9903,7 +9912,14 @@ function initThree(){if(renderer)return;const canvas=document.getElementById('cv
   clock=new THREE.Clock();fit();}
 function fit(){resize();checkOrient();}
 function resize(){if(!renderer)return;const w=window.innerWidth,h=window.innerHeight;
-  renderer.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix();}
+  renderer.setSize(w,h,false);camLens(true);}
+function camLens(force){if(!cam)return;const w=window.innerWidth||1,h=window.innerHeight||1,mode=camMode==='cockpit'?'cockpit':'chase';   // объектив по режиму камеры (v1.17.29)
+  const key=mode+w+'x'+h;if(!force&&cam.userData.lens===key)return;cam.userData.lens=key;
+  if(mode==='cockpit'){const t=Math.tan(CAM_HFOV*Math.PI/360),b=t*CAM_TV,tot=2*t*h/w;   // tan-доли: полуширина, низ кадра онбоарда, высота экрана
+    if(tot>2*b){const top=tot-b,fullH=h*2*top/tot;cam.aspect=w/fullH;cam.fov=2*Math.atan(top)*180/Math.PI;cam.setViewOffset(w,fullH,0,0,w,h);}   // выше 16:9: низ как у онбоарда, лишнее — вверх
+    else{cam.clearViewOffset();cam.aspect=w/h;cam.fov=2*Math.atan(b)*180/Math.PI;}}                                                            // шире 16:9: верх и низ как у онбоарда, лишнее — по бокам
+  else{cam.clearViewOffset();cam.aspect=w/h;cam.fov=CAM_FOV_CHASE;}
+  cam.updateProjectionMatrix();}
 function resetZoom(){const vp=document.querySelector('meta[name="viewport"]');if(!vp)return;const c=vp.getAttribute('content');
   vp.setAttribute('content',c+',maximum-scale=1');vp.setAttribute('content',c);}
 function onVV(){const vv=window.visualViewport;if(!vv)return;const app=document.getElementById('app');
@@ -11746,11 +11762,13 @@ function updateCamera(dt){const c=player,vh=c.hdg+(c.yawLag||0);const fx=Math.si
   else c.camSl+=(raw-c.camSl)*Math.min(1,dt/CAM_HEAD);
   c.camX=c.x;c.camZ=c.z;const sl=c.camSl;
   const near=camMode==='cockpit'?CAM_NEAR_COCKPIT:CAM_NEAR;if(cam.near!==near){cam.near=near;cam.updateProjectionMatrix();}
+  camLens(false);
   if(camMode==='cockpit'){/* Точка камеры — на САМОМ кузове, наклонённом рельефом (v1.17.28): до неё она стояла на 0.62 м за центром
      по горизонтали и на подъёме 8.8 % въезжала в воздухозаборник на 12.5 см (Баку, подъём к Старому городу: полоска, растущая
-     с уклоном). Взгляд — по-прежнему по догоняющему кивку sl (камера-голова). */
-    const back=-0.62,ca=1/Math.sqrt(1+raw*raw),sa=raw*ca,hz=back*ca-1.42*sa;
-    ey=1.42*ca+back*sa+gy;ex=c.x+fx*hz;ez=c.z+fz*hz;lx=c.x+fx*14;ly=1.18+gy+sl*14;lz=c.z+fz*14;
+     с уклоном). Взгляд — по-прежнему по догоняющему кивку sl (камера-голова). С v1.17.29 — место и наклон онбоарда (CAM_EYE_*, CAM_TILT). */
+    const back=CAM_EYE_Z,eh=CAM_EYE_Y,ca=1/Math.sqrt(1+raw*raw),sa=raw*ca,hz=back*ca-eh*sa;
+    ey=eh*ca+back*sa+gy;ex=c.x+fx*hz;ez=c.z+fz*hz;
+    const pt=Math.atan(sl)-CAM_TILT,lc=14*Math.cos(pt);lx=ex+fx*lc;ly=ey+14*Math.sin(pt);lz=ez+fz*lc;
     cam.position.set(ex,ey,ez);}
   else{/* «За болидом» (v1.16.55): камера — от САМОГО болида на сглаженном направлении и отъезде. До v1.16.55 она догоняла
      точку за болидом долей dt*10 за кадр: отставание v·(0.1−dt) зависело от длины кадра, и на iPad пропущенный кадр
