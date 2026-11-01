@@ -10582,6 +10582,10 @@ const RET_ROOM_K=0.3, RET_ROOM_KRUN=30;
 const RET_ROOM_SEP=20;                   // м: ближе к вставшему другое место отказа техники не годится
 const RET_CREEP_V=6, RET_CREEP_ACC=2;    // м/с, м/с²: шаг наката до далёкого места (без него придержанный соседом полз 0.2 м/с — время до места 2·rem/v)
 const RET_ROOM_POLL=10;                  // м: отложенный отказ техники ищет место с таким шагом
+/* v1.17.26: отказ техники, которого сосед бок о бок не пустил к краю (Баку S 3224: справа 20 с шёл соседний болид в 2 м), вставал на
+   месте посреди улицы — мимо 5.9 м при пороге 8. Если за RET_BOX_RUN м до места болид дальше RET_BOX_MISS м от своей линии стоянки,
+   место переносится вперёд (techPlan с нынешнего места), не больше RET_BOX_MAX раз. Только на трассах с failRoom. */
+const RET_BOX_RUN=12, RET_BOX_MISS=2.5, RET_BOX_MAX=4;
 function failFree(i,sd,hp,room){const M=track.M;let w=1e9;for(let k=-2;k<=2;k++)w=Math.min(w,2*halfAt((i+k+M)%M));   // свободная дорога мимо вставшего у стены стороны sd (полуширина кузова hp, до стены за линией room)
   return w-Math.max(0,2*hp+0.15-room);}
 function failRoomOk(ap,sd){const FR=track.spec.failRoom;if(!FR)return true;
@@ -10702,6 +10706,7 @@ function failStep(c,iu,dt){const f=c.fail,hw=halfAt(iu),nz=neutralAt(iu);f.t+=dt
   if(f.kind==='tech'){let rem=f.ds-x;const lim=aiTarget(iu,v,c.base,c.cornerK||34)*(nz?neutShare(nz):1);   // поворот впереди и флаг — как у всех
     if(!f.re&&rem>RET_TECH_MIN&&v*v/(2*rem)<RET_TECH_DEC*0.35){f.re=1;const o=[f.ds,f.side,f.park,f.roomOk];techPlan(c,iu);   // поворот съел скорость — место ближе
       if(o[3]&&!f.roomOk){f.ds=o[0];f.side=o[1];f.park=o[2];f.roomOk=o[3];}rem=f.ds-x;}   // но не на узкой улице (failRoom), если прежнее было с проездом
+    if(track.spec.failRoom&&rem<RET_BOX_RUN&&(f.box||0)<RET_BOX_MAX&&Math.abs(c.lane-f.side*(hw+f.park))>RET_BOX_MISS){f.box=(f.box||0)+1;techPlan(c,iu);rem=f.ds-x;}   // к краю не пустил сосед (failRoom) — не вставать посреди улицы, катиться к следующему месту
     v=Math.max(0,v-Math.min(rem>0.05?v*v/(2*rem):1e9,RET_TECH_DEC*2)*dt);     // ровно столько, сколько нужно, чтобы встать на месте
     if(track.spec.failRoom&&rem>1)v=Math.max(v,Math.min(c.speed+RET_CREEP_ACC*dt,RET_CREEP_V,Math.sqrt(RET_TECH_DEC*rem)));   // место с проездом далеко (failRoom): придержанный соседом докатывается шагом, а не ползёт минуту
     if(v>lim)v=Math.max(lim,c.speed-AIBRAKE*dt);
