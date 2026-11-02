@@ -235,7 +235,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.17.30</div>
+    <div class="verstamp">v1.17.31</div>
     <div class="verstamp">Болид — по модели «2026 Mercedes W17», Dave Love (sketchfab.com/Tyler_Dave), CC BY 4.0; упрощена и перекрашена</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
@@ -562,6 +562,12 @@ const CAR_PASS=r3(CAR_HW+0.25);                         // 1.2: объезд в�
 const CAR_PEN_L=r3(CAR_HL+0.05), CAR_PEN_W=r3(CAR_HW+0.05);   // корпус соперника с запасом 5 см — против вставшего (ghostPen)
 const LANE_SAME=r3(CAR_WID-0.27);                       // 1.63: «в моей полосе» — корпуса перекрыты поперёк
 const LANE_SAME_P=r3(LANE_SAME-CAR_HW);                 // 0.68: то же против игрока и сходящего — к его полуразмаху
+/* Запасы против «дрожи» соперника вбок (v1.17.31, вариант А владельца; open-tasks/race-ai.md п.34). Пороги без запаса мигали на
+   границе каждый кадр, и полоса скакала туда-обратно на 1.5–3.4 см десятки кадров подряд (Монца: 123 зигзага за 180 с гонки,
+   справка ai-zigzag-audit). LANE_HYST — передний остаётся «в моей полосе» для ЦЕЛИ ВБОК, пока не ушёл за окно ещё на 0.5 м;
+   дистанция и скорость — по прежнему окну без запаса (запас и там держал атакующего за спиной того, кого он объезжает: быстрый
+   болид отыгрывал до 6 мест меньше). PACE_HYST — объезд начинается при перевесе в темпе +1.0 м/с, бросается при +0.5. */
+const LANE_HYST=0.5, PACE_HYST=0.5;
 const LANE_OV=r3(CAR_WID+0.03);                         // 1.93: обгон — сбоку от переднего на ширину машины
 const LANE_PASS=r3(CAR_WID+0.83);                       // 2.73: объезд стоящего — шире, с запасом
 const CAR_WALL_HW=r3(CAR_HW+0.165);                     // 1.115: середина объезжающего не ближе этого к стене (ghostLim)
@@ -10705,18 +10711,20 @@ function update(dt){
     }
     let free=aiTarget(iu,c.speed,c.base*em*(1+(tf?TOW_GAIN*tf.tow:0)),(c.cornerK||34)*em*(1-(tf?DIRTY_LOSS*tf.dirty:0)));   // pace if the road were clear
     if(em<1&&free<ERR_FLOOR)free=Math.min(ERR_FLOOR,aiTarget(iu,c.speed,c.base,c.cornerK||34));   // в шпильке доля от малого темпа уходит под порог вставшего — там ошибка не действует
-    let ahd=null,gp=1e9;                                             // nearest car ahead IN MY LANE, player included
+    let ahd=null,gp=1e9,ahdL=null,gpL=1e9;                           // nearest car ahead IN MY LANE, player included; ahdL — то же с запасом LANE_HYST, для цели вбок
     {const k=__oidx.get(c);
-     for(let j=(k===undefined?0:k)-1;j>=0;j--){const o=__order[j];
-       if(Math.abs(o.lane-c.lane)<(o.spanX!==undefined?LANE_SAME_P+o.spanX:LANE_SAME)){ahd=o;gp=o.dist-c.dist;break;}}   // игрок и сходящий — по ширине (spanX): вдоль дороги те же 2.3 м, поперёк до 4.0
+     for(let j=(k===undefined?0:k)-1;j>=0;j--){const o=__order[j],dl=Math.abs(o.lane-c.lane),win=o.spanX!==undefined?LANE_SAME_P+o.spanX:LANE_SAME;
+       if(!ahdL&&dl<win+(o===c.ahd?LANE_HYST:0)){ahdL=o;gpL=o.dist-c.dist;}   // прежний передний держится в окне на LANE_HYST дольше
+       if(dl<win){ahd=o;gp=o.dist-c.dist;break;}}   // игрок и сходящий — по ширине (spanX): вдоль дороги те же 2.3 м, поперёк до 4.0
      /* Вставший — в мерках ЭТОГО болида: dist и lane у каждого свои. Вблизи — по земле (вдоль и поперёк дороги у вставшего):
         в тугом повороте далеко вбок от осевой разность u врёт на десятки процентов, и соперник въезжал в корпус (Монца, шикана). */
      for(const r of __ghosts){const g=r.ghost,gu=((((r.u-c.u)%1)+1.5)%1-0.5)*track.length;
        if(Math.abs(gu)>60){g.dist=c.dist+gu;g.lane=1e3;continue;}               // далеко (и другая нога трассы рядом) — не мешает
        const F=track.F[g.i],R=track.R[g.i],dx=c.x-g.x,dz=c.z-g.z,ga=-(dx*F.x+dz*F.z);
        g.dist=c.dist+ga;g.lane=c.lane-(dx*R.x+dz*R.z);
-       if(ga>0&&ga<gp&&Math.abs(g.lane-c.lane)<g.spanX+1.415){ahd=g;gp=ga;}}}   // окно — то же, что у упора ниже: иначе болид в щели между ними вставал навсегда   // игрок — по ширине: вдоль дороги те же 2.3 м, поперёк 4.0 (v1.16.21)
-    c.ahd=ahd;c.gp=gp;c.free=free;
+       if(ga>0&&ga<gp&&Math.abs(g.lane-c.lane)<g.spanX+1.415){ahd=g;gp=ga;}
+       if(ga>0&&ga<gpL&&Math.abs(g.lane-c.lane)<g.spanX+1.415+(g===c.ahd?LANE_HYST:0)){ahdL=g;gpL=ga;}}}   // окно — то же, что у упора ниже: иначе болид в щели между ними вставал навсегда   // игрок — по ширине: вдоль дороги те же 2.3 м, поперёк 4.0 (v1.16.21)
+    c.ahd=ahdL;c.gp=gpL;c.free=free;                                 // c.ahd/c.gp — для цели вбок (с запасом); скорость ниже — по ahd/gp без запаса
     c.paceAvg+=(free-c.paceAvg)*Math.min(1,dt/PACE_TAU);             // мой потенциал, сглаженный по кругу
     c.spdAvg+=(c.speed-c.spdAvg)*Math.min(1,dt/PACE_TAU);            // и то, что я реально еду — им судят обо мне сзади
     let kA=0;for(let a=0;a<10;a++)kA+=track.K[(iu+a)%track.M];kA/=10;
@@ -10878,7 +10886,8 @@ function update(dt){
       c.duel=c.ahd;c.duelT=DUEL_TIME;c.duelDir=freeSide(c,c.ahd.lane,entSide||c.ovSide,hw);}   // сторона — внутренняя для поворота впереди; freeSide оставлен сторожем: занятую внутреннюю он по-прежнему обходит снаружи
     else if(c.duel&&entSide&&Math.abs(c.lane-line)<1.0)c.duelDir=freeSide(c,c.duel.lane,entSide,hw);   // защёлка жива, а болид ещё не тронулся вбок — можно перецелиться на следующий поворот, не мечась на полпути
     const gLock=!!c.ovLock&&c.ovLock.isGhost&&c.ovLock!==c.ahd;              // объезжаем вставшего, а ближе — стоящий сосед: цель не перебивать (v1.16.88)
-    if(c.ahd&&c.gp<20&&c.pace>c.ahd.speed+1.0&&(!na||slowAhd)&&(!afterApex||crawler||c.ovLock||c.duel===c.ahd)&&!gLock){              // faster potential -> go around. Under yellow/VSC only a car that cannot hold the pace may be passed — that is the rule, and without it a queue would crawl behind a stopped car for ever (v1.15.26)
+    const goAr=!!c.ahd&&c.gp<20&&c.pace>c.ahd.speed+(c.goAr===c.ahd?PACE_HYST:1.0)&&(!na||slowAhd)&&(!afterApex||crawler||c.ovLock||c.duel===c.ahd)&&!gLock;c.goAr=goAr?c.ahd:null;   // запас PACE_HYST: объезд начат — бросается при +0.5, а не мигает на +1.0
+    if(goAr){              // faster potential -> go around. Under yellow/VSC only a car that cannot hold the pace may be passed — that is the rule, and without it a queue would crawl behind a stopped car for ever (v1.15.26)
       let ov=c.ovSide, off=LANE_OV;
       if(crawler){                                                           // ahead much slower/stopped: take the open side (toward centre) and clear fully
         ov=c.ahd.lane>0.3?-1:(c.ahd.lane<-0.3?1:c.ovSide);
