@@ -235,7 +235,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.17.29</div>
+    <div class="verstamp">v1.17.30</div>
     <div class="verstamp">Болид — по модели «2026 Mercedes W17», Dave Love (sketchfab.com/Tyler_Dave), CC BY 4.0; упрощена и перекрашена</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
@@ -11794,8 +11794,13 @@ function updateCamera(dt){const c=player,vh=c.hdg+(c.yawLag||0);const fx=Math.si
   camLens(false);
   if(camMode==='cockpit'){/* Точка камеры — на САМОМ кузове, наклонённом рельефом (v1.17.28): до неё она стояла на 0.62 м за центром
      по горизонтали и на подъёме 8.8 % въезжала в воздухозаборник на 12.5 см (Баку, подъём к Старому городу: полоска, растущая
-     с уклоном). Взгляд — по-прежнему по догоняющему кивку sl (камера-голова). С v1.17.29 — место и наклон онбоарда (CAM_EYE_*, CAM_TILT). */
-    const back=CAM_EYE_Z,eh=CAM_EYE_Y,ca=1/Math.sqrt(1+raw*raw),sa=raw*ca,hz=back*ca-eh*sa;
+     с уклоном). Взгляд — по-прежнему по догоняющему кивку sl (камера-голова). С v1.17.29 — место и наклон онбоарда (CAM_EYE_*, CAM_TILT).
+     v1.17.30: в кокпите и кузов, и место камеры — по тому же сглаженному sl, что и взгляд (камера жёстко на шасси, как настоящая
+     Т-камера). До неё кузов кивал по сырому уклону, а взгляд догонял за CAM_HEAD: на подъёме взгляд на кузов сдвигался каждый кадр,
+     и сложенные слои модели W17 (краска и наклейка, двойной карбон) мигали — «рябь» по бокам от шлема (Баку, замок: 1122 → 93 искры
+     за кадр). Мир виден как прежде; кузов отстаёт от дороги на CAM_HEAD — из кокпита пятна колёс не видны. «За болидом» — прежнее. */
+    if(track.relief)c.mesh.rotation.x=-Math.atan(sl);
+    const back=CAM_EYE_Z,eh=CAM_EYE_Y,ca=1/Math.sqrt(1+sl*sl),sa=sl*ca,hz=back*ca-eh*sa;
     ey=eh*ca+back*sa+gy;ex=c.x+fx*hz;ez=c.z+fz*hz;
     const pt=Math.atan(sl)-CAM_TILT,lc=14*Math.cos(pt);lx=ex+fx*lc;ly=ey+14*Math.sin(pt);lz=ez+fz*lc;
     cam.position.set(ex,ey,ez);}
