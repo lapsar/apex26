@@ -9502,7 +9502,33 @@ const W17GEO=(function(){const cache={},B64='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi
     for(let i=0;i<o.v;i++)for(let j=0;j<3;j++){pos[i*3+j]=P[i*4+j]/10000;nor[i*3+j]=N[i*4+j]/127;}
     const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));g.setAttribute('normal',new THREE.BufferAttribute(nor,3));
     g.setIndex(new THREE.BufferAttribute(o.v<65536?new Uint16Array(I):I,1));g.computeBoundingSphere();g.userData.shared=true;return g;}
-  return lod=>cache[lod]||(cache[lod]=steerMark(w17Lower(plateToBody(Object.fromEntries(Object.entries(CAR_W17[lod]).map(([k,o])=>[k,geo(o)]))))));})();
+  return lod=>cache[lod]||(cache[lod]=steerMark(w17Lower(decalStrip(plateToBody(Object.fromEntries(Object.entries(CAR_W17[lod]).map(([k,o])=>[k,geo(o)])))))));})();
+/* Остатки наклеек модели (v1.17.32, «клякса на носу» — скриншот владельца): снятые наклейки W17 лежат отдельным слоем в
+   0.3–3 мм над краской и смотрят туда же — тёмная наклейка стала карбоном (чёрное пятно, слои на одной высоте мигают),
+   светлая — плоским слоем краски с другой нормалью (пятно другого оттенка). Треугольник любого класса, под которым в этих
+   пределах лежит краска (team) той же ориентации, — остаток: убирается (только индекс; вершины общие). Тонкие панели
+   (две стороны смотрят врозь), совпадающие слои (ближе 0.3 мм) и табличка номера (team3: снималась бы рвано) не трогаются.
+   Убрано: игрок — краска 2120 из 14278, карбон 35; соперник — 203 и 10. */
+function decalStrip(G){const T=G.team;if(!T)return G;
+  const TP=T.attributes.position.array,TI=T.index.array,C=0.05,H=new Map(),key=(x,y,z)=>((x+512)*1024+(y+512))*1024+(z+512);
+  for(let t=0;t<TI.length;t+=3){let x0=1e9,y0=1e9,z0=1e9,x1=-1e9,y1=-1e9,z1=-1e9;
+    for(let j=0;j<3;j++){const v=TI[t+j]*3;x0=Math.min(x0,TP[v]);x1=Math.max(x1,TP[v]);y0=Math.min(y0,TP[v+1]);y1=Math.max(y1,TP[v+1]);z0=Math.min(z0,TP[v+2]);z1=Math.max(z1,TP[v+2]);}
+    for(let a=Math.floor(x0/C);a<=Math.floor(x1/C);a++)for(let b=Math.floor(y0/C);b<=Math.floor(y1/C);b++)for(let c=Math.floor(z0/C);c<=Math.floor(z1/C);c++){
+      const k=key(a,b,c);let L=H.get(k);if(!L)H.set(k,L=[]);L.push(t);}}
+  const nrm=(P,I,t)=>{const a=I[t]*3,b=I[t+1]*3,c=I[t+2]*3,ux=P[b]-P[a],uy=P[b+1]-P[a+1],uz=P[b+2]-P[a+2],vx=P[c]-P[a],vy=P[c+1]-P[a+1],vz=P[c+2]-P[a+2];
+    const nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx,l=Math.hypot(nx,ny,nz)||1;return [nx/l,ny/l,nz/l];};
+  for(const k in G){if(k==='team3')continue;const g=G[k],P=g.attributes.position.array,I=g.index.array,keep=[];let cut=0;   // табличка номера — целиком, как была
+    for(let t=0;t<I.length;t+=3){const n=nrm(P,I,t);let ox=0,oy=0,oz=0;for(let j=0;j<3;j++){const v=I[t+j]*3;ox+=P[v]/3;oy+=P[v+1]/3;oz+=P[v+2]/3;}
+      const L=H.get(key(Math.floor(ox/C),Math.floor(oy/C),Math.floor(oz/C)));let hit=false;
+      if(L)for(const u of L){if(g===T&&u===t)continue;const m=nrm(TP,TI,u);if(m[0]*n[0]+m[1]*n[1]+m[2]*n[2]<0.95)continue;
+        const a=TI[u]*3,b=TI[u+1]*3,c=TI[u+2]*3,e1x=TP[b]-TP[a],e1y=TP[b+1]-TP[a+1],e1z=TP[b+2]-TP[a+2],e2x=TP[c]-TP[a],e2y=TP[c+1]-TP[a+1],e2z=TP[c+2]-TP[a+2];
+        const px=-n[1]*e2z+n[2]*e2y,py=-n[2]*e2x+n[0]*e2z,pz=-n[0]*e2y+n[1]*e2x,det=e1x*px+e1y*py+e1z*pz;if(Math.abs(det)<1e-12)continue;   // луч из центра вниз по −n
+        const sx=ox-TP[a],sy=oy-TP[a+1],sz=oz-TP[a+2],uu=(sx*px+sy*py+sz*pz)/det;if(uu<0||uu>1)continue;
+        const qx=sy*e1z-sz*e1y,qy=sz*e1x-sx*e1z,qz=sx*e1y-sy*e1x,vv=(-n[0]*qx-n[1]*qy-n[2]*qz)/det;if(vv<0||uu+vv>1)continue;
+        const d=(e2x*qx+e2y*qy+e2z*qz)/det;if(d>0.0003&&d<0.003){hit=true;break;}}
+      if(hit)cut++;else keep.push(I[t],I[t+1],I[t+2]);}
+    if(cut){g.setIndex(new THREE.BufferAttribute(I instanceof Uint16Array?new Uint16Array(keep):new Uint32Array(keep),1));g.userData.decalCut=cut;}}
+  return G;}
 /* Табличка номера пилота на воздухозаборнике (класс team3, v1.17.28) — в цвет кузова. Из кокпита она прямо под взглядом:
    без цифр это тёмный прямоугольник с рваным краем (упрощение контура цифр), владелец принял его за «прорыв» другой
    части болида. Треугольники выше 1.0 м между z −0.6 и 0.3 переходят из team3 в team (вершины дописываются в конец). */
