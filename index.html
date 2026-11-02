@@ -235,7 +235,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.17.28</div>
+    <div class="verstamp">v1.17.29</div>
     <div class="verstamp">Болид — по модели «2026 Mercedes W17», Dave Love (sketchfab.com/Tyler_Dave), CC BY 4.0; упрощена и перекрашена</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
@@ -6622,7 +6622,16 @@ const RELIEF_SMOOTH=8;                     // м: σ сглаживания пр
 /* Ближняя плоскость отсечения (v1.17.28): 0.5 м срезала верх воздухозаборника W17 уже на ровном (в кадре — красная полоска
    и «дыра» за гало, на подъёме — тёмная внутренность кузова). Ближе всего к камере кокпита видимый кузов — 0.40 м; 0.3 — с запасом
    на кивок взгляда (замер — все уклоны ±15 %, взгляд ±6 % от кузова: кадр как при 0.02). У камеры «за болидом» — прежние 0.5. */
-const CAM_NEAR=0.5, CAM_NEAR_COCKPIT=0.3;
+const CAM_NEAR=0.5, CAM_NEAR_COCKPIT=0.2;   // кокпит: v1.17.29 — 0.2 (камера в стойке над затылком, шлем ближе 0.3 м)
+/* Камера кокпита — как онбоард 2026 (v1.17.29, решение владельца 01.11.2026; game.md «Камера кокпита против онбоарда»). Место — Т-стойка камеры на дуге модели W17, где стоит настоящая (вариант В владельца 02.11.2026); наклон и угол —
+   подгонкой по точкам модели W17 к кадрам онбоарда Расселла (колёса, гало, зеркала, горизонт; tools/baku-scan/camfit.py): на дуге безопасности
+   над шлемом, верх гало закрывает нос. До неё — 1.42 м, 0.62 м за центром, взгляд почти прямо (1°), 64° по вертикали.
+   Объектив — по кадру онбоарда 16:9 (86° по горизонтали): экран всегда вмещает этот кадр целиком. Экран выше 16:9 (iPad, MacBook) — ширина
+   и НИЗ как у онбоарда, лишняя высота уходит только вверх (небо; вариант 3 владельца) — сдвигом кадра setViewOffset, не наклоном; экран шире 16:9
+   (iPhone) — верх и низ как у онбоарда, лишнее по бокам (иначе горизонт уходил за верх экрана). «За болидом» — прежние 64° по вертикали. */
+const CAM_EYE_Y=1.10, CAM_EYE_Z=-0.05;      // м: камера кокпита над асфальтом и вдоль кузова от центра (по наклонённому кузову) — в Т-стойке камеры модели W17 (кузов на W17_LOWER ниже)
+const CAM_TILT=20.2*Math.PI/180;           // рад: взгляд вниз от кузова (подгонка по онбоарду при камере в стойке; горизонт — на 16 % высоты кадра)
+const CAM_HFOV=86, CAM_TV=9/16, CAM_FOV_CHASE=64;   // °: кадр онбоарда по горизонтали; его высота к ширине; камера «за болидом» — по вертикали
 const CAM_HEAD=0.15;                       // с: камера-голова — наклон камеры догоняет наклон болида (глаза гасят кивки кузова), v1.16.29
 const CAM_CHASE=0.1,CHASE_PULL=0.1-1/60;   // с; с: камера «за болидом» — сглаживание поворота и отъезда; отъезд v·0.083 — как было на 60 кадрах (v1.16.55)
 function reliefSetup(){track.relief=null;const rl=RELIEF_BY_KEY[track.spec.key];if(!rl)return;
@@ -9487,7 +9496,7 @@ const W17GEO=(function(){const cache={},B64='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi
     for(let i=0;i<o.v;i++)for(let j=0;j<3;j++){pos[i*3+j]=P[i*4+j]/10000;nor[i*3+j]=N[i*4+j]/127;}
     const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));g.setAttribute('normal',new THREE.BufferAttribute(nor,3));
     g.setIndex(new THREE.BufferAttribute(o.v<65536?new Uint16Array(I):I,1));g.computeBoundingSphere();g.userData.shared=true;return g;}
-  return lod=>cache[lod]||(cache[lod]=steerMark(plateToBody(Object.fromEntries(Object.entries(CAR_W17[lod]).map(([k,o])=>[k,geo(o)])))));})();
+  return lod=>cache[lod]||(cache[lod]=steerMark(w17Lower(plateToBody(Object.fromEntries(Object.entries(CAR_W17[lod]).map(([k,o])=>[k,geo(o)]))))));})();
 /* Табличка номера пилота на воздухозаборнике (класс team3, v1.17.28) — в цвет кузова. Из кокпита она прямо под взглядом:
    без цифр это тёмный прямоугольник с рваным краем (упрощение контура цифр), владелец принял его за «прорыв» другой
    части болида. Треугольники выше 1.0 м между z −0.6 и 0.3 переходят из team3 в team (вершины дописываются в конец). */
@@ -9513,6 +9522,35 @@ function plateToBody(G){const A=G.team3,B=G.team;if(!A||!B)return G;
    двигаются — их концы на этой оси; рулевая тяга (лёгкий рычаг впереди оси, конец 0.720 / 1.882) ходит вбок за кулаком: её внешний
    конец — точно за поворотом, внутренний — только поперёк (рейка). Атрибут steerW со знаком стороны: 1 — кулак, 2…3 — тяга (доля
    длины от рейки); поворот — в вершинном шейдере (w17SteerCompile): ни меша, ни вызова. Колесо игры поворачивается вокруг той же оси. */
+/* Кузов W17 на 5 см ниже (v1.17.29, замер владельцу 01.11.2026, game.md «Замер (б)»): по фото W17 на трассе сбоку (колёса — круги, масштаб
+   по базе и шине) шасси перед кокпитом, гало, воздухозаборник и камера на дуге у модели выше на 2.5–6 см, а регламент (передняя опора гало
+   на Z 660 над днищем) ставит днище настоящей машины на ходу ~3–4 см над асфальтом против 9.6 у модели — сама модель в пропорциях верна,
+   она сидит выше. Колёса не двигаются; то, что крепится к колесу (кулак, ступица, воздуховоды: куски у колеса с |x| ≥ 0.45 не дальше
+   0.45 м от оси), — тоже; рычаги, тяги и толкатели (тонкие куски от кузова к колесу) наклоняются: внутренний конец вниз на всю величину,
+   у колеса — ноль. Остальное — вниз целиком. Днище после — 0.046, переднее крыло — 0.116 над асфальтом. */
+const W17_LOWER=0.05;
+/* Шлем (v1.17.29, фото W17 сбоку владельца 01–02.11.2026): центр z 0.24 — по двум фото шлем от 0.09 до 0.40 вдоль кузова (сдвиг «по регламенту»
+   на z 0.29 был ошибкой: XC=0 оценён по нижней точке опоры гало, а не по оси крепления, — на 4–11 см); форма — не шар 0.29, а настоящая:
+   0.25 в ширину, 0.26 в высоту, 0.31 в длину (верх 0.90 над асфальтом, как на фото; ширина в кадре онбоарда — как у настоящего). */
+const HELM_K=[0.125/0.145,0.13/0.145,0.155/0.145];
+const HELM_Y=0.78-W17_LOWER;   // м: центр шлема — 0.73, верх 0.86 (владелец 02.11.2026, «вариант 4 см»: как на крупном фото и онбоарде; фото с трассы — верх 0.90)
+function w17Lower(G){if(!W17_LOWER)return G;
+  for(const k in G){const g=G[k],P=g.attributes.position,I=g.index.array,n=P.count,par=new Int32Array(n);
+    for(let i=0;i<n;i++)par[i]=i;const f=a=>{while(par[a]!==a){par[a]=par[par[a]];a=par[a];}return a;};
+    const pk=new Map();for(let i=0;i<n;i++){const key=Math.round(P.getX(i)*1e4)+','+Math.round(P.getY(i)*1e4)+','+Math.round(P.getZ(i)*1e4),o=pk.get(key);
+      if(o===undefined)pk.set(key,i);else par[f(i)]=f(o);}
+    for(let t=0;t<I.length;t+=3){par[f(I[t+1])]=f(I[t]);par[f(I[t+2])]=f(I[t]);}
+    const C=new Map();for(let i=0;i<n;i++){const r=f(i),x=Math.abs(P.getX(i)),y=P.getY(i),z=P.getZ(i);let c=C.get(r);
+      if(!c)C.set(r,c={a0:9,a1:0,y0:9,y1:-9,z0:9,z1:-9,rf:0,rr:0});
+      c.a0=Math.min(c.a0,x);c.a1=Math.max(c.a1,x);c.y0=Math.min(c.y0,y);c.y1=Math.max(c.y1,y);c.z0=Math.min(c.z0,z);c.z1=Math.max(c.z1,z);
+      c.rf=Math.max(c.rf,Math.hypot(y-0.355,z-CAR_AXF));c.rr=Math.max(c.rr,Math.hypot(y-0.355,z-CAR_AXR));}
+    for(let i=0;i<n;i++){const c=C.get(f(i)),x=Math.abs(P.getX(i));let d=W17_LOWER;
+      if(c.a0>=0.45&&Math.min(c.rf,c.rr)<=0.45)d=0;                                                  // у колеса: кулак, ступица, воздуховод
+      else if(c.a1>0.6&&c.z1-c.z0<0.4&&c.y1-c.y0<0.35&&c.y1<0.65&&(Math.abs((c.z0+c.z1)/2-CAR_AXF)<0.45||Math.abs((c.z0+c.z1)/2-CAR_AXR)<0.45))
+        d=W17_LOWER*Math.min(1,Math.max(0,(0.66-x)/(0.66-c.a0||1)));                                // рычаг: от кузова к колесу
+      if(d)P.setY(i,P.getY(i)-d);}
+    P.needsUpdate=true;g.computeBoundingSphere();}
+  return G;}
 const W17_KP=[0.665,1.735], W17_ROD=[0.720,1.882];   // ось шаровых опор и конец рулевой тяги (x, z) — замер по модели
 function steerMark(G){for(const k in G){const g=G[k],P=g.attributes.position,I=g.index.array,n=P.count,par=new Int32Array(n);
     for(let i=0;i<n;i++)par[i]=i;const f=a=>{while(par[a]!==a){par[a]=par[par[a]];a=par[a];}return a;};
@@ -9663,8 +9701,8 @@ const buildCar=(function(){        // self-contained model block; only THREE and
       for(const k in G){let mk=mat[k];
         if(G[k].attributes.steerW){mk=mk.clone();mk.userData.steerU=steerU;mk.onBeforeCompile=w17SteerCompile;}   // передний угол — с колесом (свой материал: руль тоже карбон)
         const m=new THREE.Mesh(G[k],mk);m.userData.shared=true;m.castShadow=true;g.add(m);}
-      add(g, new THREE.SphereGeometry(0.145,S?8:12,S?6:8), helm, 0,0.82,0.24);                          // шлем
-      if(!S) add(g, new THREE.SphereGeometry(0.15,10,4,0,Math.PI*2,Math.PI*0.44,Math.PI*0.28), visor, 0,0.82,0.24);}
+      add(g, new THREE.SphereGeometry(0.145,S?8:12,S?6:8), helm, 0,HELM_Y,0.24).scale.set(...HELM_K);   // шлем: v1.17.29 — с кузовом ниже, на 4 см ниже по фото и онбоарду, форма настоящего (HELM_K) (зад шлема XC −70, регламент C12.5.2: −50…−125); на 0.72 пилот не видит дороги
+      if(!S) add(g, new THREE.SphereGeometry(0.15,6,4,Math.PI/2-1.15,2.3,Math.PI*0.44,Math.PI*0.28), visor, 0,HELM_Y,0.24).scale.set(...HELM_K);}   // визор только спереди (до v1.17.29 — кольцом вокруг, сзади виден)
     if(!W17){
     const SECb=roundSec(S?10:16,2.6), SECp=roundSec(S?10:16,3.2);   // кузов и понтоны (у понтона углы острее)
 
@@ -9870,7 +9908,7 @@ const buildCar=(function(){        // self-contained model block; only THREE and
       add(sw, box(0.15,0.040,0.032), carbon,  0,-0.090, 0);
       for(const s of[-1,1]) add(sw, box(0.040,0.14,0.05), carbon, s*0.100, 0, 0);
       add(sw, box(0.13,0.08,0.02), carbon2,   0, 0.005, 0.026);
-      sw.position.set(0,W17?0.60:0.74,0.80); sw.rotation.x=-0.62; g.add(sw);   // у W17 — на месте руля модели (её руль снят)
+      sw.position.set(0,W17?0.60-W17_LOWER:0.74,0.80); sw.rotation.x=-0.62; g.add(sw);   // у W17 — на месте руля модели (её руль снят)
     }
 
     // ---- ТЕНЬ: создаётся, только если игра предоставила общую текстуру ENVSHADOW ----
@@ -9895,7 +9933,7 @@ function initThree(){if(renderer)return;const canvas=document.getElementById('cv
   scene=new THREE.Scene();scene.background=new THREE.Color('#bfe0ff');scene.fog=new THREE.Fog('#cfe6f5',260,1300);
   scene.environment=makeEnvMap();                       // subtle reflections on glossy bodywork
   ENVSHADOW=ENVSHADOW||radialShadowTex();
-  cam=new THREE.PerspectiveCamera(64,1,CAM_NEAR,2600);
+  cam=new THREE.PerspectiveCamera(CAM_FOV_CHASE,1,CAM_NEAR,2600);
   const hemi=new THREE.HemisphereLight('#eaf3ff','#5b6b4a',1.05);scene.add(hemi);
   const sun=new THREE.DirectionalLight('#fff4e2',1.15);sun.position.set(320,520,200);scene.add(sun);
   const fill=new THREE.DirectionalLight('#cfe0ff',0.25);fill.translateX(-200).translateY(180);scene.add(fill);  // cool fill
@@ -9903,7 +9941,14 @@ function initThree(){if(renderer)return;const canvas=document.getElementById('cv
   clock=new THREE.Clock();fit();}
 function fit(){resize();checkOrient();}
 function resize(){if(!renderer)return;const w=window.innerWidth,h=window.innerHeight;
-  renderer.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix();}
+  renderer.setSize(w,h,false);camLens(true);}
+function camLens(force){if(!cam)return;const w=window.innerWidth||1,h=window.innerHeight||1,mode=camMode==='cockpit'?'cockpit':'chase';   // объектив по режиму камеры (v1.17.29)
+  const key=mode+w+'x'+h;if(!force&&cam.userData.lens===key)return;cam.userData.lens=key;
+  if(mode==='cockpit'){const t=Math.tan(CAM_HFOV*Math.PI/360),b=t*CAM_TV,tot=2*t*h/w;   // tan-доли: полуширина, низ кадра онбоарда, высота экрана
+    if(tot>2*b){const top=tot-b,fullH=h*2*top/tot;cam.aspect=w/fullH;cam.fov=2*Math.atan(top)*180/Math.PI;cam.setViewOffset(w,fullH,0,0,w,h);}   // выше 16:9: низ как у онбоарда, лишнее — вверх
+    else{cam.clearViewOffset();cam.aspect=w/h;cam.fov=2*Math.atan(b)*180/Math.PI;}}                                                            // шире 16:9: верх и низ как у онбоарда, лишнее — по бокам
+  else{cam.clearViewOffset();cam.aspect=w/h;cam.fov=CAM_FOV_CHASE;}
+  cam.updateProjectionMatrix();}
 function resetZoom(){const vp=document.querySelector('meta[name="viewport"]');if(!vp)return;const c=vp.getAttribute('content');
   vp.setAttribute('content',c+',maximum-scale=1');vp.setAttribute('content',c);}
 function onVV(){const vv=window.visualViewport;if(!vv)return;const app=document.getElementById('app');
@@ -11746,11 +11791,13 @@ function updateCamera(dt){const c=player,vh=c.hdg+(c.yawLag||0);const fx=Math.si
   else c.camSl+=(raw-c.camSl)*Math.min(1,dt/CAM_HEAD);
   c.camX=c.x;c.camZ=c.z;const sl=c.camSl;
   const near=camMode==='cockpit'?CAM_NEAR_COCKPIT:CAM_NEAR;if(cam.near!==near){cam.near=near;cam.updateProjectionMatrix();}
+  camLens(false);
   if(camMode==='cockpit'){/* Точка камеры — на САМОМ кузове, наклонённом рельефом (v1.17.28): до неё она стояла на 0.62 м за центром
      по горизонтали и на подъёме 8.8 % въезжала в воздухозаборник на 12.5 см (Баку, подъём к Старому городу: полоска, растущая
-     с уклоном). Взгляд — по-прежнему по догоняющему кивку sl (камера-голова). */
-    const back=-0.62,ca=1/Math.sqrt(1+raw*raw),sa=raw*ca,hz=back*ca-1.42*sa;
-    ey=1.42*ca+back*sa+gy;ex=c.x+fx*hz;ez=c.z+fz*hz;lx=c.x+fx*14;ly=1.18+gy+sl*14;lz=c.z+fz*14;
+     с уклоном). Взгляд — по-прежнему по догоняющему кивку sl (камера-голова). С v1.17.29 — место и наклон онбоарда (CAM_EYE_*, CAM_TILT). */
+    const back=CAM_EYE_Z,eh=CAM_EYE_Y,ca=1/Math.sqrt(1+raw*raw),sa=raw*ca,hz=back*ca-eh*sa;
+    ey=eh*ca+back*sa+gy;ex=c.x+fx*hz;ez=c.z+fz*hz;
+    const pt=Math.atan(sl)-CAM_TILT,lc=14*Math.cos(pt);lx=ex+fx*lc;ly=ey+14*Math.sin(pt);lz=ez+fz*lc;
     cam.position.set(ex,ey,ez);}
   else{/* «За болидом» (v1.16.55): камера — от САМОГО болида на сглаженном направлении и отъезде. До v1.16.55 она догоняла
      точку за болидом долей dt*10 за кадр: отставание v·(0.1−dt) зависело от длины кадра, и на iPad пропущенный кадр
