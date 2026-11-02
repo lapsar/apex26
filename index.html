@@ -9533,7 +9533,7 @@ const W17_LOWER=0.05;
    на z 0.29 был ошибкой: XC=0 оценён по нижней точке опоры гало, а не по оси крепления, — на 4–11 см); форма — не шар 0.29, а настоящая:
    0.25 в ширину, 0.26 в высоту, 0.31 в длину (верх 0.90 над асфальтом, как на фото; ширина в кадре онбоарда — как у настоящего). */
 const HELM_K=[0.125/0.145,0.13/0.145,0.155/0.145];
-const HELM_Y=0.80-W17_LOWER;   // м: центр шлема — 0.75 (вариант (в) владельца 02.11.2026: фото с трассы — верх 0.90, крупное фото и онбоард — на ~4 см ниже; середина, верх 0.88)
+const HELM_Y=0.78-W17_LOWER;   // м: центр шлема — 0.73, верх 0.86 (владелец 02.11.2026, «вариант 4 см»: как на крупном фото и онбоарде; фото с трассы — верх 0.90)
 function w17Lower(G){if(!W17_LOWER)return G;
   for(const k in G){const g=G[k],P=g.attributes.position,I=g.index.array,n=P.count,par=new Int32Array(n);
     for(let i=0;i<n;i++)par[i]=i;const f=a=>{while(par[a]!==a){par[a]=par[par[a]];a=par[a];}return a;};
@@ -9701,7 +9701,7 @@ const buildCar=(function(){        // self-contained model block; only THREE and
       for(const k in G){let mk=mat[k];
         if(G[k].attributes.steerW){mk=mk.clone();mk.userData.steerU=steerU;mk.onBeforeCompile=w17SteerCompile;}   // передний угол — с колесом (свой материал: руль тоже карбон)
         const m=new THREE.Mesh(G[k],mk);m.userData.shared=true;m.castShadow=true;g.add(m);}
-      add(g, new THREE.SphereGeometry(0.145,S?8:12,S?6:8), helm, 0,HELM_Y,0.24).scale.set(...HELM_K);   // шлем: v1.17.29 — с кузовом ниже, на 2 см ниже по фото и онбоарду, форма настоящего (HELM_K) (зад шлема XC −70, регламент C12.5.2: −50…−125); на 0.72 пилот не видит дороги
+      add(g, new THREE.SphereGeometry(0.145,S?8:12,S?6:8), helm, 0,HELM_Y,0.24).scale.set(...HELM_K);   // шлем: v1.17.29 — с кузовом ниже, на 4 см ниже по фото и онбоарду, форма настоящего (HELM_K) (зад шлема XC −70, регламент C12.5.2: −50…−125); на 0.72 пилот не видит дороги
       if(!S) add(g, new THREE.SphereGeometry(0.15,6,4,Math.PI/2-1.15,2.3,Math.PI*0.44,Math.PI*0.28), visor, 0,HELM_Y,0.24).scale.set(...HELM_K);}   // визор только спереди (до v1.17.29 — кольцом вокруг, сзади виден)
     if(!W17){
     const SECb=roundSec(S?10:16,2.6), SECp=roundSec(S?10:16,3.2);   // кузов и понтоны (у понтона углы острее)
