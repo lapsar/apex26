@@ -9625,8 +9625,8 @@ function liveryTex(L){if(L._tex)return L._tex;
    (фирменные шрифты команд не повторяем), стиль — у команды в LIVERY.num: w — полутолщина штриха, o — контур (0 — заливка),
    nose/side — цвет, hn/hs — высота цифр, м. Цифры — ломаные осевых в клетке 0.5×1 (y вверх); карта цифр одна на игру
    (512×64, поле расстояний до осевой, как у ливреи). Номер рисует шейдер краски по настоящему x (карта ливреи зеркальна):
-   на плавнике капота (x≈0, сторона — по нормали) читается слева направо с каждого борта; на носу «верх» цифр — к носу,
-   чтение — слева направо из кокпита (по фото W17 сверху; до правки владельца стоял боком — «верх» к −x). */
+   на плавнике капота (x≈0, сторона — по нормали) читается слева направо с каждого борта; на носу «верх» цифр — к кокпиту,
+   читается спереди, со стороны носа (решение владельца; сначала стоял боком, затем верхом к носу — оба раза неверно). */
 const NUM_FONT=[[[[.08,0],[.42,0],[.5,.08],[.5,.92],[.42,1],[.08,1],[0,.92],[0,.08],[.08,0]]],   // 0
   [[[.06,.8],[.28,1],[.28,0]]],                                                                   // 1
   [[[0,.9],[.08,1],[.42,1],[.5,.9],[.5,.62],[0,.18],[0,0],[.5,0]]],                               // 2
@@ -9671,7 +9671,7 @@ function w17PaintCompile(steerU,tex,num){return function(sh){
       +'float lU=(vLP.z-('+f(LIV_Z0)+'))/'+f(LIV_Z1-LIV_Z0)+';'
       +'vec4 livC=(livPaint(texture2D(uLivT,vec2(lU,clamp(abs(vLP.x)/'+f(LIV_X)+',0.0,1.0))))*lT+livPaint(texture2D(uLivS,vec2(lU,clamp(vLP.y/'+f(LIV_Y)+',0.0,1.0))))*lS)/(lT+lS+1e-5);'
       +'if(uNum.z>0.0){'   // номер пилота поверх ливреи: на носу (смотрит вверх) и по бортам капота (смотрит вбок)
-        +'if(lN.y>0.3&&vLP.y>'+f(NUM_NOSE.y)+'){float a=numA(vec2(-vLP.x/uNumS.z,(vLP.z-'+f(NUM_NOSE.z)+')/uNumS.z));livC.rgb=mix(livC.rgb,uNumC[0],a);}'
+        +'if(lN.y>0.3&&vLP.y>'+f(NUM_NOSE.y)+'){float a=numA(vec2(vLP.x/uNumS.z,('+f(NUM_NOSE.z)+'-vLP.z)/uNumS.z));livC.rgb=mix(livC.rgb,uNumC[0],a);}'
         +'if(abs(lN.x)>0.5&&abs(vLP.x)<0.03&&vLP.z>'+f(NUM_SIDE.z0)+'&&vLP.z<'+f(NUM_SIDE.z1)+'&&vLP.y>'+f(NUM_SIDE.y0)+'&&vLP.y<'+f(NUM_SIDE.y1)+'){'
         +'float a=numA(vec2(sign(lN.x)*('+f(NUM_SIDE.z)+'-vLP.z)/uNumS.w,(vLP.y-'+f(NUM_SIDE.y)+')/uNumS.w));livC.rgb=mix(livC.rgb,uNumC[1],a);}}'
       +'vec4 diffuseColor = vec4( livC.rgb, opacity );')
