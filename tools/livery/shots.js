@@ -4,7 +4,7 @@
 'use strict';const path=require('path'),fs=require('fs');
 const [HTML,OUT,TR,RO]=process.argv.slice(2);
 (async()=>{const {chromium}=require('playwright');
-const b=await chromium.launch({args:['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--no-sandbox']});
+const b=await chromium.launch({executablePath:require('fs').existsSync('/opt/pw-browsers/chromium')?'/opt/pw-browsers/chromium':undefined,args:['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader','--no-sandbox']});
 const p=await b.newPage({viewport:{width:1000,height:560}});p.on('pageerror',e=>console.log('ERR',e.message));
 await p.goto('file://'+path.resolve(HTML));await p.waitForTimeout(1000);
 await p.evaluate(({tr,ro})=>{sel.track=tr;sel.roster=ro;sel.diff='normal';sel.laps=1;sel.view='chase';selTeam=ROSTER[sel.roster].teamIdx;camMode='chase';startWeekend();},{tr:+(TR||0),ro:+(RO||4)});

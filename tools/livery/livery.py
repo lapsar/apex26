@@ -1,67 +1,70 @@
 #!/usr/bin/env python3
-"""Ливрея команды из фото -> карты «сверху» и «сбоку» для index.html (LIVERY, v1.17.32).
+"""Ливрея команды — стилизация фигурами по фото -> запись LIVERY для index.html (v1.17.32, вариант А владельца).
    python3 -I tools/livery/livery.py tools/livery/<команда>.json [--out DIR]
-Фото сверху и сбоку совмещаются с болидом по центрам колёс (калибровка вида в json: ppm — пикселей на метр,
-cx, cy — пиксель центра переднего колеса; модель W17: оси z +1.80 / −1.60, колесо R 0.355). Для каждого вида:
-  1) paint — многоугольники цветом RGB прямо по фото (закрасить надписи и логотипы цветом под ними);
-  2) classes — пиксель фото -> цвет палитры по правилам (по порядку, первое совпавшее; иначе default),
-     только внутри auto (если задан; вне — default);
-  3) shapes — фигуры цветом палитры поверх (чистые края там, где фото тёмное или в бликах): p — многоугольник,
-     line + w — линия толщиной w пикселей фото;
-  4) карта 512×128 — большинство по окну вокруг точки текселя.
-Пиксели всех фигур — пиксели исходного фото. Выход: <key>.livery.js — готовая строка для LIVERY в index.html (заменить строку команды целиком)
-и <key>_top/side.png — карты для проверки глазом.
-Сетка карт — как в игре: z от LIV_Z0 до LIV_Z1, сверху |x| до LIV_X, сбоку y до LIV_Y."""
+Фото сверху и сбоку совмещаются с болидом по центрам колёс (калибровка вида в json: ppm — пикселей на метр, cx, cy —
+пиксель центра переднего колеса; модель W17: ось z +1.80, колесо R 0.355). Фигуры обводятся В ПИКСЕЛЯХ ИСХОДНОГО ФОТО
+(сетка — grid.py) и переводятся в метры болида: сверху (z, |x|) — обводить нижнюю половину фото; сбоку (z, y).
+  shapes: {"c": слой, "p": [[x,y],…]} — многоугольник; {"c": слой, "line": [[x,y],…], "w": толщина в пикселях} — линия;
+          "smooth": true — точки сглаживаются кривой (Катмулл — Ром), для плавных краёв;
+          "wrap": true (вид сверху) — фигура переносится и на вид сбоку ЧЕРЕЗ МОДЕЛЬ: wrap.js бросает луч сверху на кузов
+          и берёт высоту точки (полосы на скате понтона: иначе две карты рисуют полосу в разных местах кузова, и она рвётся).
+          Порядок: livery.py → node tools/livery/wrap.js <key> → livery.py ещё раз (берёт <key>.wrap.json).
+  base — цвет кузова под всем; layers — до 4 слоёв поверх (порядок = порядок наложения); palette — [цвет, металличность].
+Выход: <key>.livery.js — строка для LIVERY в index.html (заменить строку команды целиком), фигуры в миллиметрах;
+<key>_top.png / <key>_side.png — карты для проверки глазом (без сглаживания краёв, его делает игра полем расстояний)."""
 import sys,json,os
-import numpy as np
 from PIL import Image,ImageDraw
 LIV_Z0,LIV_Z1,LIV_X,LIV_Y,W,H=-2.45,3.25,1.0,1.28,512,128
-A='ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-def build(cfg,view,base,names):
-  V=cfg[view];im=Image.open(os.path.join(base,V['photo'])).convert('RGB');dr=ImageDraw.Draw(im)
-  for p in V.get('paint',[]):dr.polygon([tuple(q) for q in p['p']],fill=tuple(p['rgb']))
-  a=np.asarray(im).astype(np.float32);r,g,b=a[...,0],a[...,1],a[...,2]
-  env=dict(r=r,g=g,b=b,L=(r+g+b)/3,sat=a.max(-1)-a.min(-1))
-  idx={n:i for i,n in enumerate(names)};C=np.full(r.shape,idx[cfg['default']],np.uint8);done=np.zeros(r.shape,bool)
-  for rule,name in V.get('classes',cfg.get('classes',[])):
-    m=eval(rule,{'__builtins__':{}},env)&~done;C[m]=idx[name];done|=m
-  if 'auto' in V:
-    mk=Image.new('L',im.size,0);d=ImageDraw.Draw(mk)
-    for p in V['auto']:d.polygon([tuple(q) for q in p],fill=1)
-    C[np.asarray(mk)==0]=idx[cfg['default']]
-  ci=Image.fromarray(C);d=ImageDraw.Draw(ci)
-  for s in V.get('shapes',[]):
-    if 'line' in s:d.line([tuple(q) for q in s['line']],fill=idx[s['c']],width=s.get('w',8),joint='curve')
-    else:d.polygon([tuple(q) for q in s['p']],fill=idx[s['c']])
-  C=np.asarray(ci);PH,PW=C.shape;ppm,cx,cy=V['ppm'],V['cx'],V['cy']
-  zz=LIV_Z0+(np.arange(W)+0.5)/W*(LIV_Z1-LIV_Z0);X=cx+(1.80-zz)*ppm
-  if view=='top':vv=(np.arange(H)+0.5)/H*LIV_X;Y=cy+vv*ppm
-  else:vv=(np.arange(H)+0.5)/H*LIV_Y;Y=cy-(vv-0.355)*ppm
-  XX,YY=np.meshgrid(X,Y);votes=np.zeros((len(names),H,W),np.int32);st=ppm*0.004
-  for dx in (-1,0,1):
-    for dy in (-1,0,1):
-      xi=np.clip((XX+dx*st).astype(int),0,PW-1);yi=np.clip((YY+dy*st).astype(int),0,PH-1);s=C[yi,xi]
-      for k in range(len(names)):votes[k]+=(s==k)
-  return votes.argmax(0)
-def rle(grid):
-  rows=[];prev=None
-  for row in grid:
-    s='';i=0
-    while i<W:
-      j=i
-      while j<W and row[j]==row[i]:j+=1
-      s+=A[row[i]]+(str(j-i) if j-i>1 else '');i=j
-    rows.append('=' if s==prev else s);prev=s
-  return '|'.join(rows)
+def cr(pts,closed,n=6):
+  """Кривая Катмулла — Рома через точки (n отрезков на промежуток); замкнутая — для многоугольника."""
+  if len(pts)<3:return pts
+  N=len(pts);g=(lambda k:pts[k%N]) if closed else (lambda k:pts[min(max(k,0),N-1)]);out=[]
+  for i in range(N if closed else N-1):
+    p0,p1,p2,p3=g(i-1),g(i),g(i+1),g(i+2)
+    for k in range(n):
+      t=k/n;t2=t*t;t3=t2*t
+      out.append(tuple(0.5*(2*p1[j]+(p2[j]-p0[j])*t+(2*p0[j]-5*p1[j]+4*p2[j]-p3[j])*t2+(3*p1[j]-p0[j]-3*p2[j]+p3[j])*t3) for j in (0,1)))
+  if not closed:out.append(tuple(pts[-1]))
+  return out
 def main():
   cfgp=sys.argv[1];out=sys.argv[sys.argv.index('--out')+1] if '--out' in sys.argv else os.path.dirname(cfgp)
-  cfg=json.load(open(cfgp));base=os.path.dirname(os.path.abspath(cfgp));pal=cfg['palette'];names=list(pal);res={}
-  rgb=np.array([[int(pal[n][0][i:i+2],16) for i in (1,3,5)] for n in names],np.uint8)
+  cfg=json.load(open(cfgp));pal=cfg['palette'];layers=cfg['layers'];assert len(layers)<=4
+  res={}
   for view in ('top','side'):
-    grid=build(cfg,view,base,names);res[view]=rle(grid)
-    Image.fromarray(rgb[grid]).resize((W*2,H*2),Image.NEAREST).save(os.path.join(out,cfg['key']+'_'+view+'.png'))
-  js=("  '%s':{team:'%s',halo:'%s',pal:["%(cfg['color'].upper(),cfg['team'],cfg['halo'])+",".join("['%s',%s]"%(pal[n][0],pal[n][1]) for n in names)
-      +"],top:'"+res['top']+"',side:'"+res['side']+"'},   // "+cfg.get('src',''))
+    V=cfg[view];ppm,cx,cy=V['ppm'],V['cx'],V['cy'];ext=LIV_X if view=='top' else LIV_Y
+    def m(q):
+      z=1.80-(q[0]-cx)/ppm;v=abs(q[1]-cy)/ppm if view=='top' else 0.355+(cy-q[1])/ppm;return (z,v)
+    img=Image.new('RGB',(W*2,H*2),tuple(int(pal[cfg['base']][0][i:i+2],16) for i in (1,3,5)));d=ImageDraw.Draw(img)
+    tx=lambda p:((p[0]-LIV_Z0)/(LIV_Z1-LIV_Z0)*W*2,p[1]/ext*H*2)
+    arr=[];wrap=[]
+    if view=='side':
+      wp=os.path.join(os.path.dirname(os.path.abspath(cfgp)),cfg['key']+'.wrap.json')
+      if os.path.exists(wp):
+        for s2 in json.load(open(wp)):
+          L=layers.index(s2['c'])+1;mp=[tuple(q) for q in s2['p']]
+          col=tuple(int(pal[s2['c']][0][i:i+2],16) for i in (1,3,5));d.polygon([tx(p) for p in mp],fill=col)
+          arr.append('['+','.join([str(L),'0']+[str(round(c*1000)) for p in mp for c in p])+']')
+    for s in V['shapes']:
+      L=layers.index(s['c'])+1;line='line' in s;pts=[tuple(q) for q in (s['line'] if line else s['p'])]
+      if s.get('smooth'):pts=cr(pts,not line)
+      mp=[m(q) for q in pts];w=s.get('w',0)/ppm if line else 0
+      if s.get('wrap'):   # линия — контуром толщины w (слева туда, справа обратно)
+        if line:
+          import math;Lf=[];Rt=[]
+          for i,p in enumerate(mp):
+            a_=mp[max(i-1,0)];b_=mp[min(i+1,len(mp)-1)];dx,dy=b_[0]-a_[0],b_[1]-a_[1];n=math.hypot(dx,dy) or 1;nx,ny=-dy/n*w/2,dx/n*w/2
+            Lf.append((p[0]+nx,p[1]+ny));Rt.append((p[0]-nx,p[1]-ny))
+          wrap.append({'c':s['c'],'p':Lf+Rt[::-1]})
+        else:wrap.append({'c':s['c'],'p':mp})
+      col=tuple(int(pal[s['c']][0][i:i+2],16) for i in (1,3,5))
+      if line:d.line([tx(p) for p in mp],fill=col,width=max(1,int(round(w/ext*H*2))),joint='curve')
+      else:d.polygon([tx(p) for p in mp],fill=col)
+      arr.append('['+','.join([str(L),str(round(w*1000))]+[str(round(c*1000)) for p in mp for c in p])+']')
+    img.save(os.path.join(out,cfg['key']+'_'+view+'.png'));res[view]='['+','.join(arr)+']'
+    if view=='top':json.dump(wrap,open(os.path.join(os.path.dirname(os.path.abspath(cfgp)),cfg['key']+'.towrap.json'),'w'))
+  P=lambda n:"['%s',%s]"%(pal[n][0],pal[n][1])
+  js=("  '%s':{team:'%s',halo:'%s',base:%s,layers:[%s],\n    top:%s,\n    side:%s},   // %s\n"%(cfg['color'].upper(),cfg['team'],cfg['halo'],P(cfg['base']),
+      ','.join(P(n) for n in layers),res['top'],res['side'],cfg.get('src','')))
   open(os.path.join(out,cfg['key']+'.livery.js'),'w').write(js)
-  print(cfg['key'],'top',len(res['top']),'side',len(res['side']),'chars')
+  print(cfg['key'],'знаков',len(js),'фигур сверху',len(cfg['top']['shapes']),'сбоку',len(cfg['side']['shapes']))
 main()

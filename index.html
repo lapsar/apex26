@@ -9580,40 +9580,60 @@ function w17SteerCompile(sh){sh.uniforms.uSteer=this.userData.steerU;    // this
     .replace('#include <beginnormal_vertex>','#include <beginnormal_vertex>\n{'+hd+'if(stW>0.5&&stW<1.5)objectNormal.xz=vec2(stC*objectNormal.x+stS*objectNormal.z,-stS*objectNormal.x+stC*objectNormal.z);}')
     .replace('#include <begin_vertex>','#include <begin_vertex>\n{'+hd+'if(stW>0.5&&stW<1.5){vec2 d=transformed.xz-stK;transformed.xz=stK+vec2(stC*d.x+stS*d.y,-stS*d.x+stC*d.y);}'
       +'else if(stW>1.5){vec2 q=vec2(stG*'+f(W17_ROD[0])+','+f(W17_ROD[1])+'),d=q-stK,m=stK+vec2(stC*d.x+stS*d.y,-stS*d.x+stC*d.y)-q;transformed.x+=m.x;transformed.z+=m.y*(stW-2.0);}}');}
-/* ЛИВРЕИ КОМАНД (v1.17.32, пилот — Mercedes; вариант А владельца 02.11.2026). У модели W17 нет развёртки под текстуру, поэтому рисунок ложится ПРОЕКЦИЕЙ:
-   карта «сверху» (z, |x|) и карта «сбоку» (z, y), обе симметричны по x; видеокарта берёт ту, на которую смотрит
-   поверхность (по нормали), и смешивает на скруглениях. Карты — DataTexture 512×128 (не холст: v1.16.73), рисуются
-   при первой постройке болида команды из строк LIVERY (палитра 2–6 цветов, ряды карты «буква + длина пробега»;
-   строку делает tools/livery/livery.py из фото команды) и живут всю игру (как W17GEO; в свойствах материала
-   их нет — disposeTree их не освобождает). Альфа карты — металличность. Щитки переднего крыла (z > LIV_FW_Z,
-   |x| > LIV_FW_X) берут только вид сверху: сбоку на той же высоте нос. Материалов и вызовов не прибавляется:
-   ливрея — это сама основная краска модели (классы team и team3 — табличка номера); гало (team2) — цветом halo.
-   Цвет в башне и таблицах — прежний TEAMS.c. Math.random не тянется. Ключ — цвет команды из TEAMS. */
-const LIV_Z0=-2.45,LIV_Z1=3.25,LIV_X=1.0,LIV_Y=1.28,LIV_W=512,LIV_H=128,LIV_FW_Z=2.15,LIV_FW_X=0.45;
+/* ЛИВРЕИ КОМАНД (v1.17.32, пилот — Mercedes; вариант А владельца 02.11.2026: стилизация близко к фото, края чёткие).
+   У модели W17 нет развёртки под текстуру, поэтому рисунок ложится ПРОЕКЦИЕЙ: карта «сверху» (z, |x|) и карта «сбоку»
+   (z, y), обе симметричны по x; поверхность берёт ту, на которую смотрит (по нормали), на скруглениях смешивает. Щитки
+   переднего крыла (z > LIV_FW_Z, |x| > LIV_FW_X) — только вид сверху: сбоку на той же высоте нос.
+   Ливрея — фигуры в миллиметрах болида (LIVERY: слой, толщина линии или 0 — многоугольник, точки z,v); строку делает
+   tools/livery/livery.py из обводки фото. Карта хранит не цвет, а ПОЛЕ РАССТОЯНИЙ до края фигур: канал = слой (до 4),
+   0.5 — край, ±LIV_BAND м — дальше; шейдер рисует по нему острый сглаженный край (fwidth) на любом расстоянии — так
+   рисуют чёткий шрифт маленькой текстурой (v1.17.32: прежний вариант «цвет в клетке 1.1 см» давал ступеньки у кабины).
+   Карты — DataTexture 512×128 (не холст: v1.16.73), считаются при первой постройке болида команды и живут всю игру
+   (как W17GEO; в свойствах материала их нет — disposeTree их не трогает). Материалов и вызовов не прибавляется: ливрея —
+   сама краска модели (классы team и team3 — табличка номера); гало (team2) — цветом halo. Цвет в башне и таблицах —
+   прежний TEAMS.c, ключ LIVERY — он же. Math.random не тянется. Команда без записи — прежние три цвета (palette). */
+const LIV_Z0=-2.45,LIV_Z1=3.25,LIV_X=1.0,LIV_Y=1.28,LIV_W=512,LIV_H=128,LIV_FW_Z=2.15,LIV_FW_X=0.45,LIV_BAND=0.04;
 const LIVERY={   // ключ — TEAMS.c; данные — tools/livery/<команда>.json → livery.py (строка копируется сюда целиком)
-  '#4E8F92':{team:'Mercedes',halo:'#101214',pal:[['#101214',0.15],['#b2b7bc',0.5],['#00a19c',0.3]],top:'A275B218A19|A274B219A19|=|=|=|=|=|=|=|A274B217A21|A274B214A24|A274B210A28|A274B187C23A28|A274B134C77A27|A274B112C98A28|A274B94C40A104|A274B89C24A125|A274B84C12A142|A274B78C13A147|A274B71C13A154|A274B66C13A159|A274B61C12A165|A274B57C11A170|A274B50C12A176|A274B46C11A181|A274B41C11A186|A274B37C10A191|A274B33C10A195|A274B27C11A200|A254B44C10A204|A253B42C8A209|A248B44C7A7BA205|A249B40C7A9B2A205|A248B39C6A2BA216|A246B41C4A3B2A216|A245B42A8BA216|A244B48A2B2A4BA5BA205|A244B43AB4A2B2A3BA3B4A205|A243B44AB4A2B2A2B2A2B5A205|A243B44AB4A2B2A2BA3B5A205|A242B45AB4A2B2A2BA2B6A205|A242B45A4BA2B2ABA3B6A205|A159B2A81B45A4BA2B2ABA2B7A205|A157B6A78B46AB3A3B2A4B7A205|A156B9A76B46AB3A3B2A3B8A205|A118C3A34B12A74B46A7B2A3B8A205|A118C5A31B13A73B47A7B2A3B8A205|A118C7A29B11A75B46A8B2A5B6A205|A119C8A26B11A11B4A61B46A8B2A8B3A205|A122C8A22B11A10B8A58B47A8B2A216|A113BA10C8A19B12A9B9A56BAB47A8B2A216|A126C7A18B11A9B15A9B7A35BA7B41A8B2A216|A128C7A15B11A9B14A9B10A3B4A7B21A6B40A10B2A216|A131C6A12B11A9B14A8B18A7B21A7B39A4BA6B2A216|A132C6A11B11A9B14A7B18A7B22A6B40A4B2A5B2A216|A134C6A8B11A9B14A8B17A7B22A7B39A5B2A5B2A216|A135C6A7B10A9B14A8B18A6B23A6B40A5B2A5B2A216|A137C6A5B10A9B13A8B18A6B23A7B39A6B2A5B2A216|A139C6A2B10A9B13A8B18A7B22A7B37A6C2A2BA5B2A216|A140C6A2B9A8B14A7B18A7B23A6B37A3C6A8B2A216|A142C5A3B6A9B13A8B18A6B23A7B36A2C8A8B2A216|A143C6A2B4A9B13A8B18A6B24A6B37A2C9A7B2A216|A145C5A14B13A8B17A7B23A7B36A2C10A7BA217|A20C8A118C6A11B13A8B18A6B24A6B37AC10A3B6A217|A19C13A116C6A9B13A8B17A6B24A7B36A2C9A4B6A217|A19C13A117C6A7B13A8B17A7B24A6B36A2C10A3C5BA218|A19C13A118C7A5B13A7B18A6B24A7B36A2C9A3C7BA217|A19C13A120C7A3B12A8B17A7B24A6B36A2C10A2BC7A218|A24C8A121C7A3B11A7B18A6B24A7B36A2C9A3BC7A218|A154C8A3B8A8B17A7B24A6B36A2C10A3C8A218|A156C8A4B4A8B17A7B24A7B36AC10A4C7A219|A157C9A14B17A7B23A7B36A2C10A3BC7A219|A158C9A12B17A7B24A6B37AC10B2A2BC7A219|A159C9A12B16A7B23A7B36A2C8B6C8A219|A161C7A17B10A7B24A6B37AC9A5BC8A219|A163C8A21B3A7B23A7B36A2C9A5BC7A220|A165C8A28B24A6B37AC10A5C8A220|A167C7A28B22A7B36A2C9A6C8A220|A169C7A31B17A6B37AC10A5BC7A221|A171C8A35B9A7B36AC10A7C7A221|A173C8A35B6A7B36A2C10A6C8A221|A175C8A33B6A7B36AC10A7C8A221|A177C8A31B5A7B36A2C10A7C7A222|A180C8A28B5A7B36AC10A8C7A222|A182C8A26B4A7B36A2C9A8C8A222|A184C9A23B3A8B36AC10A8C8A222|A186C10A20B3A7B36A2C9A9C7A223|A189C11A16B2A7B36A2C9A10C7A223|A191C11A14BA8B36AC10A3BA6C5A225|A194C11A19B36A2C9A241|A197C13A14B35A2C9A242|A200C14A9B29C4B2A2C9A243|A204C16A3B22C11BA2C9A244|A149BA58C48A2C8A246|A130BA5BA11B3A61C42A4C3A251|A217C32A263|A257BA254|A512|=|=|A279B4A3B2A224|A281B2A5BA223|A512|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=',side:'A512|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|A463C2A47|A461C5A46|A458C7A47|A456C6A50|A451C8A53|A448C8A56|A444C9A59|A440C9A63|A437C9A66|A433C8A71|A429C9A74|A425C9A78|A421C10A81|A417C10A85|A412C10A90|A127C73A209C9A94|A126C106A172C10A98|A171B3A5BA13B5AC46A155C10A102|A163B2A7B10A6B4AB7A4B6A11B5A5C18A48B87A12C10A106|A161B6A6B10A6B14A19B15A5C11A44B87A7C10A111|A161B7A7B9A6B14A20B19C14A40B87A3C10A115|A162B7A7B10A5B14A5B2A15B16C17A38B86C8A120|A163B7A6B10A6B15A5B3A14B15C20A34B86C4A124|A164B7A6B10A6B15A5B6A13B13C52AB86A128|A165B7A6B10A6B15A5B8A12B11AC81A4B53A128|A138B4A13B3A8B7A6B10A6B15A5B11A11B8A2C127A138|A139B2A15BA10B6A7B10A6B14A6B16A7B6A4C122A141|A140BA27B6A7B10A6B14A6B17A7B4A5C121A141|A147B2A33B9A7B14A6B17A16C120A141|A147B2A51B11A8B18A16C118A141|A148BA77B11A28C106A141|A512|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|='},   // W17 2026 по 4 фото владельца 02.11.2026; надписи и звёзды не переносятся
+  '#4E8F92':{team:'Mercedes',halo:'#101214',base:['#101214',0.15],layers:[['#b2b7bc',0.5],['#00a19c',0.3]],
+    top:[[1,0,3025,0,604,0,604,227,749,261,880,229,1129,191,1377,157,1691,118,2174,104,2899,97,2996,82,3025,48],[1,0,737,227,696,217,638,213,569,213,499,217,436,222,387,227,353,233,328,242,310,252,295,264,283,276,271,290,260,304,254,319,249,335,245,353,239,372,230,394,217,419,202,446,186,476,169,507,152,537,136,565,117,594,93,624,70,654,51,681,40,705,42,722,59,733,89,738,128,740,170,738,210,736,242,734,267,733,289,731,309,728,327,723,345,717,363,710,380,701,397,690,413,678,429,665,444,652,459,638,474,623,488,607,502,591,516,574,530,557,544,541,558,525,571,508,585,491,599,474,613,459,629,444,646,433,667,424,688,417,708,408,725,397,737,382,748,359,758,331,766,300,767,271,759,245],[1,0,196,386,-96,403,-241,643,-43,686],[1,0,-120,399,-367,401,-458,587,-314,623],[1,0,-388,382,-509,379,-640,514,-550,551],[1,0,-584,353,-669,333,-804,449,-731,490],[2,19,2996,97,2902,98,2770,100,2615,102,2454,104,2301,106,2174,109,2072,111,1982,112,1901,114,1827,116,1758,119,1691,123,1628,128,1572,134,1520,141,1471,148,1424,155,1377,162,1332,168,1290,173,1249,179,1209,184,1169,190,1129,196,1086,202,1041,208,997,215,954,222,914,228,880,234,850,240,823,246,799,252,779,258,762,262,749,266],[2,0,824,500,725,493,720,664,807,671],[2,0,715,466,677,466,667,681,706,686],[2,0,672,435,667,432,661,430,653,429,644,430,634,433,624,440,612,450,599,464,585,481,571,499,556,517,542,534,527,550,513,567,499,585,484,602,470,618,455,633,439,647,424,660,408,673,392,685,375,696,358,705,338,713,316,719,294,724,273,729,255,733,242,737,233,741,227,745,224,749,225,753,231,755,242,756,261,756,288,755,320,754,354,751,387,746,416,739,442,730,469,719,494,705,518,691,540,677,561,662,579,647,597,631,612,614,626,597,638,581,648,565,655,550,660,534,663,518,664,504,666,490,667,478,669,468,672,459,674,451,675,444,674,439],[2,24,266,744,248,743,221,742,191,741,158,739,126,737,97,734,72,732,49,729,26,726,3,722,-21,717,-48,710,-77,701,-107,690,-138,677,-171,664,-206,651,-241,638,-279,625,-318,612,-359,599,-400,586,-442,573,-483,560,-523,548,-565,535,-606,523,-647,511,-687,499,-724,488,-759,478,-792,468,-824,460,-855,451,-886,442,-917,432,-952,422,-989,410,-1026,397,-1061,386,-1090,376,-1111,370],[2,0,-2089,498,-2234,490,-2234,531,-2089,539]],
+    side:[[1,0,737,652,599,647,387,651,345,669,310,705,251,692,239,643,214,622,117,592,76,574,51,543,40,499,363,592,389,621,444,646,744,652],[1,0,196,634,128,628,-96,593,-143,525,-220,492,-241,474,-43,500,-25,532,0,553,147,606,190,629],[1,0,-120,594,-367,558,-375,550,-384,537,-406,468,-415,459,-458,444,-352,457,-314,463,-288,477,-198,509,-185,517,-146,569,-127,588],[1,0,-388,568,-509,547,-537,533,-557,515,-585,450,-605,437,-640,429,-550,436,-490,451,-469,470,-442,527,-429,540,-395,559],[1,0,-584,553,-669,547,-684,535,-736,509,-751,488,-774,440,-789,426,-804,419,-731,420,-689,436,-675,454,-647,512,-633,524,-591,546],[2,0,672,650,434,646,408,639,375,621,352,600,338,572,674,650],[2,0,5,454,-2,469,-10,456,-18,466,-44,478,-118,489,-175,490,-228,485,-388,458,-882,410,-1031,390,-1064,379,-1100,354,-1107,345,-1072,343,-1038,370,-965,390,-803,411,-254,468,-201,469,-151,462,-127,453,-111,430],[1,0,1824,570,946,563,869,555,855,503,1824,503],[2,24,2731,331,2723,334,2714,338,2703,343,2687,349,2665,356,2635,365,2595,375,2544,388,2487,402,2428,416,2372,429,2323,441,2281,451,2243,459,2208,467,2174,474,2139,481,2103,489,2066,496,2031,504,1995,511,1957,519,1916,527,1872,536,1818,547,1755,560,1690,573,1628,585,1575,596,1537,603],[2,0,1681,632,941,634,855,627,855,563,946,563,1681,570],[2,0,855,627,828,632,789,635,744,636,696,635,649,635,607,634,567,634,526,635,486,634,448,633,417,631,392,627,376,621,366,612,362,602,361,592,362,582,363,575,365,568,368,562,374,557,381,552,390,549,401,546,416,544,433,544,453,544,473,545,493,545,511,546,526,546,538,547,550,548,564,549,582,550,607,551,642,551,687,550,737,549,785,549,826,551,855,555,872,564,882,577,886,591,882,606,872,618]]},   // W17 2026 по 4 фото владельца 02.11.2026, стилизация; надписи и звёзды не переносятся
 };
-function liveryTex(L){if(L._tex)return L._tex;     // карта — строка рядов: буква палитры + длина пробега, «=» — как прошлый ряд
-  const pal=L.pal.map(q=>{const c=new THREE.Color(q[0]);return [c.r*255,c.g*255,c.b*255,(q[1]||0)*255];});
-  const mk=src=>{const D=new Uint8Array(LIV_W*LIV_H*4),R=src.split('|');let prev='';
-    for(let y=0;y<LIV_H;y++){const r=R[y]==='='?prev:R[y];prev=r;let x=0;
-      for(let i=0;i<r.length;){const k=r.charCodeAt(i)-65;i++;let n=0;while(i<r.length&&r[i]>='0'&&r[i]<='9')n=n*10+(r.charCodeAt(i++)-48);
-        for(let e=x+(n||1);x<e;x++){const o=(y*LIV_W+x)*4,c=pal[k];D[o]=c[0];D[o+1]=c[1];D[o+2]=c[2];D[o+3]=c[3];}}}
-    const t=new THREE.DataTexture(D,LIV_W,LIV_H,THREE.RGBAFormat);t.magFilter=THREE.LinearFilter;t.minFilter=THREE.LinearMipmapLinearFilter;
-    t.generateMipmaps=true;t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping;t.needsUpdate=true;return t;};
-  return L._tex={T:mk(L.top),S:mk(L.side)};}
+function liveryField(shapes,ext){   // поле расстояний: канал k — слой k+1, «внутри» > 0.5
+  const W=LIV_W,H=LIV_H,F=[0,1,2,3].map(()=>new Float32Array(W*H).fill(-LIV_BAND)),dz=(LIV_Z1-LIV_Z0)/W,dv=ext/H;
+  for(const s of shapes){const f=F[s[0]-1],w=s[1]/1000,n=(s.length-2)>>1,X=new Float32Array(n),Y=new Float32Array(n);
+    let z0=1e9,z1=-1e9,v0=1e9,v1=-1e9;
+    for(let i=0;i<n;i++){X[i]=s[2+2*i]/1000;Y[i]=s[3+2*i]/1000;z0=Math.min(z0,X[i]);z1=Math.max(z1,X[i]);v0=Math.min(v0,Y[i]);v1=Math.max(v1,Y[i]);}
+    const pad=LIV_BAND+w/2,ix0=Math.max(0,Math.floor((z0-pad-LIV_Z0)/dz)),ix1=Math.min(W-1,Math.ceil((z1+pad-LIV_Z0)/dz));
+    const iy0=Math.max(0,Math.floor((v0-pad)/dv)),iy1=Math.min(H-1,Math.ceil((v1+pad)/dv)),m=w>0?n-1:n;
+    for(let iy=iy0;iy<=iy1;iy++){const v=(iy+0.5)*dv;
+      for(let ix=ix0;ix<=ix1;ix++){const z=LIV_Z0+(ix+0.5)*dz;let d2=1e9,inn=false;
+        for(let a=0;a<m;a++){const b=(a+1)%n,ax=X[a],ay=Y[a],ex=X[b]-ax,ey=Y[b]-ay,L=ex*ex+ey*ey;
+          let t=L>0?((z-ax)*ex+(v-ay)*ey)/L:0;t=t<0?0:t>1?1:t;const qx=ax+ex*t-z,qy=ay+ey*t-v,q=qx*qx+qy*qy;if(q<d2)d2=q;
+          if(!w&&((ay>v)!==(Y[b]>v))&&z<ex*(v-ay)/ey+ax)inn=!inn;}
+        const d=Math.sqrt(d2),sd=w>0?w/2-d:(inn?d:-d),k=iy*W+ix;if(sd>f[k])f[k]=sd;}}}
+  const D=new Uint8Array(W*H*4);
+  for(let k=0;k<W*H;k++)for(let c=0;c<4;c++)D[k*4+c]=Math.round(127.5+127.5*Math.max(-1,Math.min(1,F[c][k]/LIV_BAND)));
+  const t=new THREE.DataTexture(D,W,H,THREE.RGBAFormat);t.magFilter=THREE.LinearFilter;t.minFilter=THREE.LinearMipmapLinearFilter;
+  t.generateMipmaps=true;t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping;t.needsUpdate=true;return t;}
+function liveryTex(L){if(L._tex)return L._tex;
+  const v4=q=>{const c=new THREE.Color(q[0]);return new THREE.Vector4(c.r,c.g,c.b,q[1]||0);},C=[v4(L.base)];
+  for(let i=0;i<4;i++)C.push(L.layers[i]?v4(L.layers[i]):v4(L.base));
+  return L._tex={T:liveryField(L.top,LIV_X),S:liveryField(L.side,LIV_Y),C};}
 /* Сборка шейдера краски W17: поворотный угол (steerU, v1.17.28) и/или ливрея (tex). Ключ программы — по составу. */
 function w17PaintCompile(steerU,tex){return function(sh){
   if(steerU)w17SteerCompile.call({userData:{steerU}},sh);
-  if(!tex)return;sh.uniforms.uLivT={value:tex.T};sh.uniforms.uLivS={value:tex.S};
+  if(!tex)return;sh.uniforms.uLivT={value:tex.T};sh.uniforms.uLivS={value:tex.S};sh.uniforms.uLivC={value:tex.C};
   sh.vertexShader='varying vec3 vLP;varying vec3 vLN;\n'+sh.vertexShader.replace('#include <project_vertex>','vLP=transformed;vLN=objectNormal;\n#include <project_vertex>');
   const f=v=>v.toFixed(4);
-  sh.fragmentShader='varying vec3 vLP;varying vec3 vLN;uniform sampler2D uLivT;uniform sampler2D uLivS;\n'+sh.fragmentShader
+  sh.fragmentShader='varying vec3 vLP;varying vec3 vLN;uniform sampler2D uLivT;uniform sampler2D uLivS;uniform vec4 uLivC[5];\n'
+    +'vec4 livPaint(vec4 s){vec4 c=uLivC[0];vec4 d=(s-0.5)*'+f(2*LIV_BAND)+',w=max(fwidth(d),vec4(1e-5))*0.75;'   // острый край по полю расстояний
+    +'vec4 a=clamp(d/(2.0*w)+0.5,0.0,1.0);c=mix(c,uLivC[1],a.x);c=mix(c,uLivC[2],a.y);c=mix(c,uLivC[3],a.z);return mix(c,uLivC[4],a.w);}\n'
+    +sh.fragmentShader
     .replace('vec4 diffuseColor = vec4( diffuse, opacity );',
       'vec3 lN=normalize(vLN);float lF=0.5*lN.z*lN.z,lT=pow(lN.y*lN.y+lF,5.0),lS=pow(lN.x*lN.x+lF,5.0);'
       +'if(vLP.z>'+f(LIV_FW_Z)+'&&abs(vLP.x)>'+f(LIV_FW_X)+')lS=0.0;'   // щитки переднего крыла — только вид сверху (сбоку на той же высоте нос)
       +'float lU=(vLP.z-('+f(LIV_Z0)+'))/'+f(LIV_Z1-LIV_Z0)+';'
-      +'vec4 livC=(texture2D(uLivT,vec2(lU,clamp(abs(vLP.x)/'+f(LIV_X)+',0.0,1.0)))*lT+texture2D(uLivS,vec2(lU,clamp(vLP.y/'+f(LIV_Y)+',0.0,1.0)))*lS)/(lT+lS+1e-5);'
+      +'vec4 livC=(livPaint(texture2D(uLivT,vec2(lU,clamp(abs(vLP.x)/'+f(LIV_X)+',0.0,1.0))))*lT+livPaint(texture2D(uLivS,vec2(lU,clamp(vLP.y/'+f(LIV_Y)+',0.0,1.0))))*lS)/(lT+lS+1e-5);'
       +'vec4 diffuseColor = vec4( livC.rgb, opacity );')
     .replace('#include <metalnessmap_fragment>','#include <metalnessmap_fragment>\nmetalnessFactor=livC.a;');};}
 const W17=true;   // false — прежний процедурный болид (v1.17.26), код оставлен для отката
@@ -9743,7 +9763,7 @@ const buildCar=(function(){        // self-contained model block; only THREE and
       const LV=LIVERY[String(colorHex).toUpperCase()];if(LV&&LV.halo)c2.color.set(LV.halo);   // ливрея команды: гало — её цветом, табличка номера (team3) — рисунком ливреи
       for(const k in G){let mk=mat[k];const st=!!G[k].attributes.steerW,lv=LV&&(k==='team'||k==='team3')?liveryTex(LV):null;
         if(st){mk=mk.clone();mk.userData.steerU=steerU;mk.onBeforeCompile=w17SteerCompile;}   // передний угол — с колесом (свой материал: руль тоже карбон)
-        if(lv){mk.onBeforeCompile=w17PaintCompile(st?steerU:null,lv);mk.customProgramCacheKey=()=>'w17liv'+(st?'s':'');}   // основная краска — рисунком ливреи
+        if(lv){mk.onBeforeCompile=w17PaintCompile(st?steerU:null,lv);mk.customProgramCacheKey=()=>'w17liv'+(st?'s':'');mk.extensions={derivatives:true};}   // основная краска — рисунком ливреи
         const m=new THREE.Mesh(G[k],mk);m.userData.shared=true;m.castShadow=true;g.add(m);}
       add(g, new THREE.SphereGeometry(0.145,S?8:12,S?6:8), helm, 0,HELM_Y,0.24).scale.set(...HELM_K);   // шлем: v1.17.29 — с кузовом ниже, на 4 см ниже по фото и онбоарду, форма настоящего (HELM_K) (зад шлема XC −70, регламент C12.5.2: −50…−125); на 0.72 пилот не видит дороги
       if(!S) add(g, new THREE.SphereGeometry(0.15,6,4,Math.PI/2-1.15,2.3,Math.PI*0.44,Math.PI*0.28), visor, 0,HELM_Y,0.24).scale.set(...HELM_K);}   // визор только спереди (до v1.17.29 — кольцом вокруг, сзади виден)

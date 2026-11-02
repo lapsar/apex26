@@ -4,7 +4,7 @@
 'use strict';const path=require('path'),fs=require('fs'),http=require('http');
 const [IDX,OUT,VIEW,W,H,PPM,CX,CY,ZC,VC,COL]=process.argv.slice(2);
 const srv=http.createServer((q,r)=>{fs.readFile(path.resolve(IDX),(e,d)=>{r.writeHead(200,{'Content-Type':'text/html'});r.end(d);});}).listen(0);
-(async()=>{const {chromium}=require('playwright');const b=await chromium.launch({args:['--use-gl=swiftshader','--enable-unsafe-swiftshader']});
+(async()=>{const {chromium}=require('playwright');const b=await chromium.launch({executablePath:require('fs').existsSync('/opt/pw-browsers/chromium')?'/opt/pw-browsers/chromium':undefined,args:['--use-gl=swiftshader','--enable-unsafe-swiftshader']});
 const p=await b.newPage();p.on('pageerror',e=>console.log('ERR',e.message));await p.goto('http://localhost:'+srv.address().port+'/');await p.waitForTimeout(1500);
 const r=await p.evaluate(a=>{const [VIEW,W,H,PPM,CX,CY,ZC,VC,COL]=a;const car=makeCar(COL||'#4E8F92',63,false);
  const R=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true,alpha:true});R.setSize(W,H);R.setClearColor(0x000000,0);
