@@ -9713,8 +9713,8 @@ function w17PaintCompile(steerU,tex,num){return function(sh){
   const f=v=>v.toFixed(4);
   sh.fragmentShader='varying vec3 vLP;varying vec3 vLN;uniform sampler2D uLivT;uniform sampler2D uLivS;uniform vec4 uLivC[5];\n'
     +'uniform sampler2D uNumT;uniform vec3 uNum;uniform vec4 uNumS;uniform vec3 uNumC[2];\n'
-    +'float numA(vec2 q){float n=uNum.z,tw=n*0.7-0.2,u=q.x+tw*0.5,k=floor(u/0.7),cx=u-k*0.7;'   // q — в высотах цифры от центра номера, y вверх
-    +'if(k<0.0||k>=n||cx>0.65||q.y<-0.65||q.y>0.65)return 0.0;float dg=k<0.5?uNum.x:uNum.y;'
+    +'float numA(vec2 q){float n=uNum.z,tw=n*0.7-0.2,u=q.x+tw*0.5,k=floor((u+0.1)/0.7),cx=u-k*0.7;'   // q — в высотах цифры от центра номера, y вверх; клетка цифры −0.1…0.6 (v1.17.33: с 0 срезала левый край штриха — «81» читалось «31»)
+    +'if(k<0.0||k>=n||cx>0.6||q.y<-0.65||q.y>0.65)return 0.0;float dg=k<0.5?uNum.x:uNum.y;'
     +'float d=texture2D(uNumT,vec2((dg*40.0+(cx+0.15)/0.8*40.0)/512.0,(q.y+0.65)/1.3)).r*0.25,w=max(fwidth(d),1e-4)*0.75;'
     +'float a=1.0-smoothstep(uNumS.x-w,uNumS.x+w,d);if(uNumS.y>0.0)a*=smoothstep(uNumS.x-uNumS.y-w,uNumS.x-uNumS.y+w,d);return a;}\n'
     +'vec4 livPaint(vec4 s){vec4 c=uLivC[0];vec4 d=(s-0.5)*'+f(2*LIV_BAND)+',w=max(fwidth(d),vec4(1e-5))*0.75;'   // острый край по полю расстояний
