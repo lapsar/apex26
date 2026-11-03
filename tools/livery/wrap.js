@@ -14,6 +14,7 @@ const res=await p.evaluate(shapes=>{const m=new THREE.Mesh(W17GEO('p').team,new 
       for(let k=0;k<n;k++){const z=a[0]+(c[0]-a[0])*k/n,v=a[1]+(c[1]-a[1])*k/n;all++;
         if(s.from==='side')rc.set(new THREE.Vector3(3,v,z),sx);else rc.set(new THREE.Vector3(v,3,z),dn);   // сбоку — луч поперёк, сверху — вниз
         const h=rc.intersectObject(m)[0];if(h)pts.push([+z.toFixed(4),+(s.from==='side'?Math.abs(h.point.x):h.point.y).toFixed(4)]);else miss++;}}
+    if(pts.length<3)continue;   // фигура целиком мимо кузова (v1.17.35: копыто малого быка на носу)
     const keep=new Uint8Array(pts.length);keep[0]=keep[pts.length-1]=1;   // упрощение ломаной (Дуглас — Пекер, 3 мм)
     (function rdp(i,j){let md=0,mi=-1;const [ax,ay]=pts[i],[bx,by]=pts[j],L=Math.hypot(bx-ax,by-ay)||1e-9;
       for(let k=i+1;k<j;k++){const d=Math.abs((bx-ax)*(ay-pts[k][1])-(ax-pts[k][0])*(by-ay))/L;if(d>md){md=d;mi=k;}}
