@@ -13,6 +13,8 @@
           "wrap": "up" (только сверху → сбоку, v1.17.34) — переносится лишь КРАЙ фигуры (точки не на оси, |x| > 2 см), а на виде
           сбоку поле закрывается вверх до крыши карты: белый верх кузова, где луч по оси падает в проём кокпита (Ferrari).
   base — цвет кузова под всем; layers — до 4 слоёв поверх (порядок = порядок наложения); palette — [цвет, металличность];
+  ol — кайма слоя (v1.17.35, бык Red Bull): {"c": слой, "w": ширина, м, "col": цвет из palette} — шейдер рисует её по полю
+        расстояний того же слоя (край, раздвинутый на w), под самим слоем; фигур и каналов не тратит.
   num — номер пилота: w — полутолщина штриха, o — контур (0 — заливка) в высотах цифры, i — наклон курсива (доля высоты,
         0 — прямые), nose/side — цвет, hn/hs — высота, м.
 Выход: <key>.livery.js — строка для LIVERY в index.html (заменить строку команды целиком), фигуры в миллиметрах;
@@ -82,8 +84,9 @@ def main():
   json.dump(allwrap,open(os.path.join(os.path.dirname(os.path.abspath(cfgp)),cfg['key']+'.towrap.json'),'w'))
   P=lambda n:"['%s',%s]"%(pal[n][0],pal[n][1])
   N=cfg.get('num');num=("num:{w:%s,o:%s,%snose:'%s',side:'%s',hn:%s,hs:%s},"%(N['w'],N.get('o',0),('i:%s,'%N['i']) if N.get('i') else '',N['nose'],N['side'],N['hn'],N['hs'])) if N else ''
-  js=("  '%s':{team:'%s',halo:'%s',base:%s,layers:[%s],%s\n    top:%s,\n    side:%s},   // %s\n"%(cfg['color'].upper(),cfg['team'],cfg['halo'],P(cfg['base']),
-      ','.join(P(n) for n in layers),num,res['top'],res['side'],cfg.get('src','')))
+  O=cfg.get('ol');ol=("ol:[%d,%s,'%s',%s],"%(layers.index(O['c'])+1,O['w'],pal[O['col']][0],pal[O['col']][1])) if O else ''
+  js=("  '%s':{team:'%s',halo:'%s',base:%s,layers:[%s],%s%s\n    top:%s,\n    side:%s},   // %s\n"%(cfg['color'].upper(),cfg['team'],cfg['halo'],P(cfg['base']),
+      ','.join(P(n) for n in layers),ol,num,res['top'],res['side'],cfg.get('src','')))
   open(os.path.join(out,cfg['key']+'.livery.js'),'w').write(js)
   print(cfg['key'],'знаков',len(js),'фигур сверху',len(cfg['top']['shapes']),'сбоку',len(cfg['side']['shapes']))
 main()
