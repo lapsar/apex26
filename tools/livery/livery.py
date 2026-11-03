@@ -10,6 +10,8 @@
           "wrap": true — фигура переносится и на другой вид ЧЕРЕЗ МОДЕЛЬ: wrap.js бросает луч на кузов (сверху — вниз,
           сбоку — поперёк) и берёт высоту (или |x|) точки — иначе на скате две карты рисуют фигуру в разных местах, и она рвётся.
           Порядок: livery.py → node tools/livery/wrap.js <key> → livery.py ещё раз (берёт <key>.wrap.json).
+          "wrap": "up" (только сверху → сбоку, v1.17.34) — переносится лишь КРАЙ фигуры (точки не на оси, |x| > 2 см), а на виде
+          сбоку поле закрывается вверх до крыши карты: белый верх кузова, где луч по оси падает в проём кокпита (Ferrari).
   base — цвет кузова под всем; layers — до 4 слоёв поверх (порядок = порядок наложения); palette — [цвет, металличность];
   num — номер пилота: w — полутолщина штриха, o — контур (0 — заливка) в высотах цифры, nose/side — цвет, hn/hs — высота, м.
 Выход: <key>.livery.js — строка для LIVERY в index.html (заменить строку команды целиком), фигуры в миллиметрах;
@@ -43,6 +45,7 @@ def main():
     if os.path.exists(wp):
         for s2 in [q for q in json.load(open(wp)) if q.get('to','side')==view]:
           L=layers.index(s2['c'])+1;mp=[tuple(q) for q in s2['p']]
+          if s2.get('up'):mp=mp+[(mp[-1][0],LIV_Y),(mp[0][0],LIV_Y)]   # край — снизу, до крыши карты — сверху
           col=tuple(int(pal[s2['c']][0][i:i+2],16) for i in (1,3,5));d.polygon([tx(p) for p in mp],fill=col)
           arr.append('['+','.join([str(L),'0']+[str(round(c*1000)) for p in mp for c in p])+']')
     shapes=[]
@@ -65,6 +68,9 @@ def main():
             a_=mp[max(i-1,0)];b_=mp[min(i+1,len(mp)-1)];dx,dy=b_[0]-a_[0],b_[1]-a_[1];n=math.hypot(dx,dy) or 1;nx,ny=-dy/n*w/2,dx/n*w/2
             Lf.append((p[0]+nx,p[1]+ny));Rt.append((p[0]-nx,p[1]-ny))
           wrap.append({'c':s['c'],'p':Lf+Rt[::-1],'from':view})
+        elif s.get('wrap')=='up':
+          i0=next(i for i,p in enumerate(mp) if p[1]>0.02);ch=mp[i0:]+mp[:i0];ch=[p for p in ch if p[1]>0.02]   # край без точек на оси (сглаживание даёт на оси до 1 см), по обходу
+          wrap.append({'c':s['c'],'p':ch,'from':view,'open':True,'up':True})
         else:wrap.append({'c':s['c'],'p':mp,'from':view})
       col=tuple(int(pal[s['c']][0][i:i+2],16) for i in (1,3,5))
       if line:d.line([tx(p) for p in mp],fill=col,width=max(1,int(round(w/ext*H*2))),joint='curve')
