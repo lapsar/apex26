@@ -235,7 +235,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.17.45</div>
+    <div class="verstamp">v1.17.46</div>
     <div class="verstamp">Болид — по модели «2026 Mercedes W17», Dave Love (sketchfab.com/Tyler_Dave), CC BY 4.0; упрощена и перекрашена</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
@@ -539,6 +539,8 @@ function go(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remo
 let renderer,scene,cam,clock,skyMesh,ENVSHADOW;
 let track=null;
 const MAXSPEED=88;                // m/s (~317 km/h); brake scales with it so braking zones keep their length
+const GEARS=7;                    // ступеней скорости у звука мотора и на экране руля (v1.17.46, вариант А владельца; у настоящего болида 2026 — 8 и задний ход)
+function gearOf(v){return Math.min(GEARS-1,Math.floor(v/(MAXSPEED/GEARS)));}   // 0…6 по скорости ≥ 0 (м/с): звук и руль читают одно и то же
 /* РАЗМЕРЫ БОЛИДА — одно место на всю игру (v1.17.24). Касание, стена, объезд, очередь, сход, разворот, дым и пробники читают
    размер машины отсюда; модель (buildCar) обязана им соответствовать (контракт — docs/notes/game.md). Производные округлены
    до миллиметра (r3): тогда число то же самое до последнего бита, что и прежняя цифра в коде, и гонка не сдвигается. */
@@ -1009,7 +1011,7 @@ const AUDIO={ctx:null,master:null,muted:false,eng:null,engS:null,engBuf:null,_en
     this.engS={s1,s2,lp,g,drv,det};},
   stopEngineSample(){if(this.engS){try{this.engS.s1.stop();}catch(e){}try{if(this.engS.s2)this.engS.s2.stop();}catch(e){}this.engS=null;}this._engWant=false;},
   engineSample(speed,throttle){if(!this.engS||!this.ctx)return;const t=this.ctx.currentTime;const top=(typeof MAXSPEED!=='undefined'?MAXSPEED:70);
-    const NG=7,band=top/NG;let gear=Math.min(NG-1,Math.floor(speed/band));let frac=(speed-gear*band)/band;
+    const NG=GEARS,band=top/NG;let gear=gearOf(speed);let frac=(speed-gear*band)/band;
     const rate=(0.55+gear*0.045)+frac*0.30;             // ref loop near red-line: mostly pitch DOWN; upshift = drop
     this.engS.s1.playbackRate.setTargetAtTime(rate,t,0.05);
     if(this.engS.s2)this.engS.s2.playbackRate.setTargetAtTime(rate*this.engS.det,t,0.05);
@@ -1031,7 +1033,7 @@ const AUDIO={ctx:null,master:null,muted:false,eng:null,engS:null,engBuf:null,_en
     this.eng={o1:o1.o,o2:o2.o,o3:o3.o,osub:osub.o,lp,out};},
   stopEngineSynth(){if(this.eng){try{this.eng.o1.stop();this.eng.o2.stop();this.eng.o3.stop();this.eng.osub.stop();}catch(e){}this.eng=null;}},
   engineSynth(speed,throttle){if(!this.eng||!this.ctx)return;const t=this.ctx.currentTime;const top=(typeof MAXSPEED!=='undefined'?MAXSPEED:70);
-    const NG=7,band=top/NG;let gear=Math.min(NG-1,Math.floor(speed/band));let frac=(speed-gear*band)/band;
+    const NG=GEARS,band=top/NG;let gear=gearOf(speed);let frac=(speed-gear*band)/band;
     const f=360+gear*80+frac*380;
     this.eng.o1.frequency.setTargetAtTime(f,t,0.04);
     this.eng.o2.frequency.setTargetAtTime(f*2,t,0.04);
@@ -9591,6 +9593,8 @@ const W17_LOWER=0.05;
    на z 0.29 был ошибкой: XC=0 оценён по нижней точке опоры гало, а не по оси крепления, — на 4–11 см); форма — не шар 0.29, а настоящая:
    0.25 в ширину, 0.26 в высоту, 0.31 в длину (верх 0.90 над асфальтом, как на фото; ширина в кадре онбоарда — как у настоящего). */
 const HELM_K=[0.125/0.145,0.13/0.145,0.155/0.145];
+const SW_SEG=[[0,7,12,3.4],[6.3,0.5,3.4,13],[6.3,-12.5,3.4,13],[0,-19,12,3.4],[-6.3,-12.5,3.4,13],[-6.3,0.5,3.4,13],[0,-6,12,3.4],[3.3,-12.5,3.4,14.4,-0.45]];   // мм на экране руля (x вправо глазами пилота): a b c d e f g и ножка «R»
+const SW_DIG={1:'bc',2:'abged',3:'abgcd',4:'fgbc',5:'afgcd',6:'afgecd',7:'abc',R:'abfgek'}, SW_SEGZ=9.71, SW_HIDE=5, SW_ON='#f2f4f6', SW_OFF='#05070b';   // SW_HIDE — мм: на столько погашенный сегмент уходит за стекло экрана
 const HELM_Y=0.78-W17_LOWER;   // м: центр шлема — 0.73, верх 0.86 (владелец 02.11.2026, «вариант 4 см»: как на крупном фото и онбоарде; фото с трассы — верх 0.90)
 function w17Lower(G){if(!W17_LOWER)return G;
   for(const k in G){const g=G[k],P=g.attributes.position,I=g.index.array,n=P.count,par=new Int32Array(n);
@@ -10097,14 +10101,67 @@ const buildCar=(function(){        // self-contained model block; only THREE and
     }   // !W17
 
     // ---- РУЛЕВОЕ КОЛЕСО (отдельная группа: игра крутит sw.rotation.z) ----
+    // v1.17.46 (фото владельца 05.11.2026: руль Mercedes и Aston Martin) — форма и общий вид руля 2026, без надписей: корпус карбоном
+    // с «плечами» и прорезями под пальцы, резиновые ручки, экран в рамке с огнями оборотов, цветные кнопки, три крутилки внизу,
+    // золотые колёсики, барабаны ENTRY и HI SPEED на ручках, лепестки сзади. Размер 0.28 × 0.15 м (как у настоящего), лицом к пилоту (−z
+    // группы). Два материала, как у прежнего: всё освещаемое — вершинным цветом, экран и огни — светом (MeshBasic); вызовов столько же.
     let sw=null;
     if(!S){
       sw=new THREE.Group();
-      add(sw, box(0.24,0.040,0.032), carbon,  0, 0.090, 0);
-      add(sw, box(0.15,0.040,0.032), carbon,  0,-0.090, 0);
-      for(const s of[-1,1]) add(sw, box(0.040,0.14,0.05), carbon, s*0.100, 0, 0);
-      add(sw, box(0.13,0.08,0.02), carbon2,   0, 0.005, 0.026);
-      sw.position.set(0,W17?0.60-W17_LOWER:0.74,0.80); sw.rotation.x=-0.62; g.add(sw);   // у W17 — на месте руля модели (её руль снят)
+      const swM=new THREE.MeshStandardMaterial({vertexColors:true,color:'#c4c4c4',metalness:0.25,roughness:0.55}), swL=new THREE.MeshBasicMaterial({vertexColors:true,color:'#6e6e6e'});   // тусклее (владелец: «чтобы не отвлекал»): кнопки ×0.77, экран и огни ×0.43
+      const tint=(geo,hex)=>{const c=new THREE.Color(hex),n=geo.attributes.position.count,a=new Float32Array(n*3);
+        for(let i=0;i<n;i++){a[i*3]=c.r;a[i*3+1]=c.g;a[i*3+2]=c.b;}geo.setAttribute('color',new THREE.BufferAttribute(a,3));return geo;};
+      const mm=0.001, part=(geo,hex,mat,x,y,z,rx,ry,rz)=>add(sw,tint(geo,hex),mat||swM,-x*mm,y*mm,z*mm,rx,ry,rz&&-rz);   // мм, x — вправо глазами пилота (у группы +x — влево)
+      const loop=(half,n)=>{const pts=half.concat(half.slice(1,-1).reverse().map(p=>[-p[0],p[1]]));   // левая половина → замкнутый гладкий контур
+        return new THREE.CatmullRomCurve3(pts.map(p=>new THREE.Vector3(p[0]*mm,p[1]*mm,0)),true,'centripetal').getSpacedPoints(n).slice(0,-1);};
+      const shape=pts=>{const s=new THREE.Shape();s.moveTo(pts[0].x,pts[0].y);for(let i=1;i<pts.length;i++)s.lineTo(pts[i].x,pts[i].y);return s;};
+      const curve=(pts,n)=>new THREE.CatmullRomCurve3(pts.map(p=>new THREE.Vector3(p[0]*mm,p[1]*mm,0)),true,'centripetal').getSpacedPoints(n).slice(0,-1);
+      const ext=(pts,d,bv)=>new THREE.ExtrudeGeometry(shape(pts),{depth:d*mm,bevelEnabled:bv>0,bevelThickness:bv*mm,bevelSize:bv*mm,bevelSegments:2,curveSegments:1});
+      const rrect=(w,h,r)=>{const s=new THREE.Shape(),x=w/2*mm,y=h/2*mm,q=r*mm;s.moveTo(-x+q,-y);s.lineTo(x-q,-y);s.quadraticCurveTo(x,-y,x,-y+q);
+        s.lineTo(x,y-q);s.quadraticCurveTo(x,y,x-q,y);s.lineTo(-x+q,y);s.quadraticCurveTo(-x,y,-x,y-q);s.lineTo(-x,-y+q);s.quadraticCurveTo(-x,-y,-x+q,-y);return s;};
+      const CARB='#1b1e23', RUB='#2a2d31';
+      // корпус: верх с «плечами», ручки свисают по бокам, между ручкой и серединой — прорезь под пальцы
+      part(ext(loop([[0,45],[-50,45],[-90,47],[-118,51],[-133,47],[-140,34],[-141,10],[-140,-30],[-136,-70],[-130,-90],[-120,-99],[-109,-96],
+        [-103,-84],[-101,-50],[-100,-15],[-98,2],[-91,7],[-85,1],[-83,-25],[-81,-58],[-75,-77],[-55,-89],[-25,-94],[0,-95]],120),24,3), CARB, null, 0,0,0);
+      for(const s of[-1,1]){   // резиновые ручки — толще корпуса
+        const gp=curve([[-139,12],[-140,-30],[-137,-72],[-131,-92],[-121,-100],[-110,-97],[-105,-85],[-104,-50],[-103,-15],[-105,10]].map(p=>[p[0]*s,p[1]]),40);
+        part(ext(gp,26,7), RUB, null, 0,0,-2);
+        part(new THREE.CylinderGeometry(8*mm,8*mm,16*mm,12), s<0?'#c4222b':'#2a78d0', null, s*113,20,-7, 0,0,s*0.55);   // барабаны ENTRY / HI SPEED
+        part(box(9*mm,17*mm,9*mm), '#c8902c', null, s*74,-5,-6);                                                          // золотые колёсики
+        part(box(6*mm,18*mm,10*mm), '#9aa0a8', null, s*90,-28,-4);                                                         // серебряные колёсики у прорези
+        part(ext([[40,-12],[128,-6],[132,34],[60,30]].map(p=>new THREE.Vector2(p[0]*s*mm,p[1]*mm)),3,0), CARB, null, 0,0,34);   // лепесток сзади
+      }
+      part(new THREE.ExtrudeGeometry(rrect(160,96,22),{depth:32*mm,bevelEnabled:true,bevelThickness:4*mm,bevelSize:4*mm,bevelSegments:2,curveSegments:3}),
+        '#16191d', null, 0,8,22);                                                                                       // корпус электроники сзади (закрывает и остатки руля модели)
+      part(new THREE.CylinderGeometry(22*mm,22*mm,60*mm,14), '#121418', null, 0,-6,84, Math.PI/2,0,0);                   // ступица и колонка
+      // экран: рамка, тёмное стекло, данные цветными полями (без цифр) и огни оборотов над ним
+      part(new THREE.ExtrudeGeometry(rrect(118,72,10),{depth:9*mm,bevelEnabled:false,curveSegments:3}), '#0d0f13', null, 0,-1,-9);
+      const lit=(w,h,hex,x,y,z)=>part(new THREE.PlaneGeometry(w*mm,h*mm), hex, swL, x,y,z||-9.4, 0,Math.PI,0);
+      lit(100,54,SW_OFF,0,-4);
+      for(let i=0;i<8;i++) lit(9.5,5,'#c8402e',-40+i*11.4,18,-9.6);                         // полоса ячеек вверху экрана
+      const row=(x,y,w,hex,h)=>lit(w,h||3.2,hex,x,y,-9.6);                                   // «строки» данных — полосками, без цифр
+      row(-31,8,26,'#2fc865',6); row(-35,-3,18,'#d9dde2'); row(-35,-10,18,'#e0503c',5); row(-35,-20,18,'#e0503c',5); row(-24,-27,10,'#9aa3ad');
+      row(31,8,22,'#f2cf5a',6); row(35,-3,18,'#d9dde2'); row(35,-10,18,'#e0503c',5); row(35,-20,18,'#e0503c',5); row(47,-6,2.5,'#2fc865',24);
+      // передача (v1.17.46, вариант А владельца): 7 сегментов и косая ножка «R»; каждый сегмент — на своей глубине (−9.71…−9.78 мм), по ней swGear
+      // находит его вершины после склейки; погашенный уходит за стекло на SW_HIDE (перекраска не годится: тёмный сегмент закрывал углы горящих) —
+      // без нового меша и вызова. Сначала горит «1» (у соперников так и остаётся).
+      SW_SEG.forEach(([x,y,w,h,rz],i)=>part(new THREE.PlaneGeometry(w*mm,h*mm), SW_ON, swL, x,y,-(SW_SEGZ+0.01*i)+(i===1||i===2?0:SW_HIDE), 0,Math.PI,rz||0));
+      for(let i=0;i<15;i++) lit(3.4,3.4,i<5?'#3dff72':i<10?'#ff3232':'#3c7cff',-42+i*6,30,-9.6);
+      for(const s of[-1,1]) for(let i=0;i<4;i++) part(new THREE.CircleGeometry(1.6*mm,6), '#4a5058', null, s*55,20-i*8,-9.2, 0,Math.PI,0);
+      // кнопки: цветные — сплошные, чёрные — со светлым ободком
+      const btn=(x,y,hex,ring)=>{const t=Math.PI/2;
+        if(ring) part(new THREE.CylinderGeometry(7*mm,7*mm,3*mm,14), '#6b7078', null, x,y,-3.5, t,0,0);
+        part(new THREE.CylinderGeometry(5.5*mm,5.5*mm,5*mm,14), hex, null, x,y,-5, t,0,0);};
+      btn(-104,33,'#f2c230'); btn(-86,29,'#4c3db4'); btn(-69,19,'#1fa58f'); btn(-66,-24,'#2a6fd6'); btn(-66,-44,'#d8332b'); btn(-68,-64,'#15171a',1);
+      btn(72,18,'#f2c230'); btn(88,29,'#4c3db4'); btn(105,31,'#f07a22'); btn(68,-24,'#15171a',1); btn(69,-44,'#e6e8ea'); btn(72,-64,'#15171a',1);
+      // три крутилки: кольцо шкалы с цветными делениями и зубчатая ручка с белой риской
+      [[-38,'#f4c81c','#c9a227'],[0,'#3d2fa3','#3b3fa8'],[38,'#22b3a0','#1b9c8c']].forEach(([x,kc,rc],k)=>{const y=-64;
+        part(new THREE.RingGeometry(12*mm,18.5*mm,20), rc, null, x,y,-3.3, 0,Math.PI,0);
+        for(let i=0;i<10;i++){const a=-2.4+i*0.53;part(box(2.2*mm,2.2*mm,1*mm), ['#ffffff','#7fc4ff','#ff6b6b','#ffe066'][(i+k)%4], null, x+Math.sin(a)*15.2,y+Math.cos(a)*15.2,-3.6);}
+        const tp=[];for(let i=0;i<24;i++){const a=i*Math.PI/12,r=i%2?9.6:11.2;tp.push(new THREE.Vector2(Math.cos(a)*r*mm,Math.sin(a)*r*mm));}
+        part(ext(tp,10,1), kc, null, x,y,-14);
+        part(box(1.8*mm,8*mm,1*mm), '#f4f6f8', null, x,y+4,-15.3);});
+      sw.position.set(0,W17?0.58:0.74,W17?0.722:0.80); sw.rotation.x=0.30; g.add(sw);   // у W17 — на конце рулевой колонки модели (0, 0.58, 0.74): остатки её руля (экран, огни) — внутри корпуса; верх от пилота, лицом к нему и вверх
     }
 
     // ---- ТЕНЬ: создаётся, только если игра предоставила общую текстуру ENVSHADOW ----
@@ -10448,6 +10505,13 @@ function makeState(name,num,color,skill,isPlayer){
 // place player from x,z,hdg ; place AI from u,lane
 function placePlayer(c){c.mesh.position.set(c.x,0,c.z);c.mesh.rotation.set(0,c.hdg+(c.yawLag||0),0);reliefSit(c);   // yawLag — доворот носа после стены, только картинка
   const fw=c.mesh.userData.frontWheels;if(fw)for(const w of fw)w.rotation.y=c.steerVis;steerSet(c);wheelSpin(c);}
+function swGear(c){const sw=c.mesh.userData.sw;if(!sw)return;const u=sw.userData,gr=c.speed<-0.1?'R':String(gearOf(Math.max(0,c.speed))+1);   // на месте и на решётке — «1»
+  if(u.gear===gr)return;u.gear=gr;
+  if(!u.seg){const m=sw.children.find(o=>o.isMesh&&o.material.isMeshBasicMaterial);if(!m)return;const P=m.geometry.attributes.position;u.seg=SW_SEG.map(()=>[]);u.segPos=P;
+    for(let i=0;i<P.count;i++){let q=-P.getZ(i)*1000;if(q<SW_SEGZ-SW_HIDE/2)q+=SW_HIDE;const k=(q-SW_SEGZ)/0.01,j=Math.round(k);
+      if(j>=0&&j<SW_SEG.length&&Math.abs(k-j)<0.3)u.seg[j].push(i);}}
+  const P=u.segPos,lit=SW_DIG[gr];
+  u.seg.forEach((vs,j)=>{const z=(-(SW_SEGZ+0.01*j)+(lit.indexOf('abcdefgk'[j])>=0?0:SW_HIDE))/1000;for(const i of vs)P.setZ(i,z);});P.needsUpdate=true;}
 function steerSet(c){const su=c.mesh.userData.steer;if(su)for(const u of su)u.value=c.steerVis;}   // передний угол W17 — тот же угол, что у колёс
 /* Вращение колёс (v1.17.24) — только картинка: угол от пройденного кузовом пути (не от физики), за кадр не больше
    WHEEL_SPIN_MAX — меньше половины шага спиц (72°), иначе на скорости колесо «крутится назад» (стробоскоп). */
@@ -10632,7 +10696,7 @@ function startRace(){document.getElementById('s-quali').classList.remove('active
   wallTouch=false;AUDIO.stopScrape();tlReset();
   // player on grid (same geometry as the painted boxes)
   const gs=gridSpot(gridPos);const back=gs.back,gi=gs.gi,gp=gs.pos;         // same continuous spot as the painted box and as the rivals
-  player.x=gp.x;player.z=gp.z;player.hdg=gs.hdg;player.yawLag=0;player.speed=0;player.steerAmt=0;player.steerVis=0;if(player.mesh.userData.sw)player.mesh.userData.sw.rotation.z=0;   // руль и колёса прямо: на фонарях физика стоит, иначе они замирали, как в последнем кадре квалы (Баку — в T1)
+  player.x=gp.x;player.z=gp.z;player.hdg=gs.hdg;player.yawLag=0;player.speed=0;player.steerAmt=0;player.steerVis=0;if(player.mesh.userData.sw)player.mesh.userData.sw.rotation.z=0;swGear(player);   // руль и колёса прямо: на фонарях физика стоит, иначе они замирали, как в последнем кадре квалы (Баку — в T1)
   player.lap=0;player.lapT=0;player.best=Infinity;player.last=0;
   player.started=false;player.hint=gi;player.prevIdx=gi;player.dist=-back;player.lapLock=0;player.spdAvg=0;
   player.arcPrev=track.S[gi]+((player.x-track.P[gi].x)*track.F[gi].x+(player.z-track.P[gi].z)*track.F[gi].z);
@@ -10778,6 +10842,7 @@ function update(dt){
      if(Math.abs(dh)>lim)dh=Math.sign(dh)*lim;player.hdg+=dh;}}
   player.steerVis+=((-player.steerAmt*0.35)-player.steerVis)*Math.min(1,dt*10);   // visual front-wheel angle: max ~20 deg, as on a real F1 car
   if(player.mesh.userData.sw)player.mesh.userData.sw.rotation.z=-player.steerVis*2.43;   // compensated so the cockpit wheel still sweeps the same as before
+  swGear(player);                                                                         // передача на экране руля — по скорости, как у звука (gearOf)
   // integrate position
   const fx=Math.sin(player.hdg),fz=Math.cos(player.hdg);
   player.x+=fx*player.speed*dt;player.z+=fz*player.speed*dt;
