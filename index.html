@@ -10104,7 +10104,7 @@ const buildCar=(function(){        // self-contained model block; only THREE and
     let sw=null;
     if(!S){
       sw=new THREE.Group();
-      const swM=new THREE.MeshStandardMaterial({vertexColors:true,metalness:0.25,roughness:0.55}), swL=new THREE.MeshBasicMaterial({vertexColors:true});
+      const swM=new THREE.MeshStandardMaterial({vertexColors:true,color:'#c4c4c4',metalness:0.25,roughness:0.55}), swL=new THREE.MeshBasicMaterial({vertexColors:true,color:'#6e6e6e'});   // тусклее (владелец: «чтобы не отвлекал»): кнопки ×0.77, экран и огни ×0.43
       const tint=(geo,hex)=>{const c=new THREE.Color(hex),n=geo.attributes.position.count,a=new Float32Array(n*3);
         for(let i=0;i<n;i++){a[i*3]=c.r;a[i*3+1]=c.g;a[i*3+2]=c.b;}geo.setAttribute('color',new THREE.BufferAttribute(a,3));return geo;};
       const mm=0.001, part=(geo,hex,mat,x,y,z,rx,ry,rz)=>add(sw,tint(geo,hex),mat||swM,-x*mm,y*mm,z*mm,rx,ry,rz&&-rz);   // мм, x — вправо глазами пилота (у группы +x — влево)
