@@ -539,6 +539,8 @@ function go(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remo
 let renderer,scene,cam,clock,skyMesh,ENVSHADOW;
 let track=null;
 const MAXSPEED=88;                // m/s (~317 km/h); brake scales with it so braking zones keep their length
+const GEARS=7;                    // ступеней скорости у звука мотора и на экране руля (v1.17.46, вариант А владельца; у настоящего болида 2026 — 8 и задний ход)
+function gearOf(v){return Math.min(GEARS-1,Math.floor(v/(MAXSPEED/GEARS)));}   // 0…6 по скорости ≥ 0 (м/с): звук и руль читают одно и то же
 /* РАЗМЕРЫ БОЛИДА — одно место на всю игру (v1.17.24). Касание, стена, объезд, очередь, сход, разворот, дым и пробники читают
    размер машины отсюда; модель (buildCar) обязана им соответствовать (контракт — docs/notes/game.md). Производные округлены
    до миллиметра (r3): тогда число то же самое до последнего бита, что и прежняя цифра в коде, и гонка не сдвигается. */
@@ -1009,7 +1011,7 @@ const AUDIO={ctx:null,master:null,muted:false,eng:null,engS:null,engBuf:null,_en
     this.engS={s1,s2,lp,g,drv,det};},
   stopEngineSample(){if(this.engS){try{this.engS.s1.stop();}catch(e){}try{if(this.engS.s2)this.engS.s2.stop();}catch(e){}this.engS=null;}this._engWant=false;},
   engineSample(speed,throttle){if(!this.engS||!this.ctx)return;const t=this.ctx.currentTime;const top=(typeof MAXSPEED!=='undefined'?MAXSPEED:70);
-    const NG=7,band=top/NG;let gear=Math.min(NG-1,Math.floor(speed/band));let frac=(speed-gear*band)/band;
+    const NG=GEARS,band=top/NG;let gear=gearOf(speed);let frac=(speed-gear*band)/band;
     const rate=(0.55+gear*0.045)+frac*0.30;             // ref loop near red-line: mostly pitch DOWN; upshift = drop
     this.engS.s1.playbackRate.setTargetAtTime(rate,t,0.05);
     if(this.engS.s2)this.engS.s2.playbackRate.setTargetAtTime(rate*this.engS.det,t,0.05);
@@ -1031,7 +1033,7 @@ const AUDIO={ctx:null,master:null,muted:false,eng:null,engS:null,engBuf:null,_en
     this.eng={o1:o1.o,o2:o2.o,o3:o3.o,osub:osub.o,lp,out};},
   stopEngineSynth(){if(this.eng){try{this.eng.o1.stop();this.eng.o2.stop();this.eng.o3.stop();this.eng.osub.stop();}catch(e){}this.eng=null;}},
   engineSynth(speed,throttle){if(!this.eng||!this.ctx)return;const t=this.ctx.currentTime;const top=(typeof MAXSPEED!=='undefined'?MAXSPEED:70);
-    const NG=7,band=top/NG;let gear=Math.min(NG-1,Math.floor(speed/band));let frac=(speed-gear*band)/band;
+    const NG=GEARS,band=top/NG;let gear=gearOf(speed);let frac=(speed-gear*band)/band;
     const f=360+gear*80+frac*380;
     this.eng.o1.frequency.setTargetAtTime(f,t,0.04);
     this.eng.o2.frequency.setTargetAtTime(f*2,t,0.04);
@@ -9591,6 +9593,8 @@ const W17_LOWER=0.05;
    на z 0.29 был ошибкой: XC=0 оценён по нижней точке опоры гало, а не по оси крепления, — на 4–11 см); форма — не шар 0.29, а настоящая:
    0.25 в ширину, 0.26 в высоту, 0.31 в длину (верх 0.90 над асфальтом, как на фото; ширина в кадре онбоарда — как у настоящего). */
 const HELM_K=[0.125/0.145,0.13/0.145,0.155/0.145];
+const SW_SEG=[[0,7,12,3.4],[6.3,0.5,3.4,13],[6.3,-12.5,3.4,13],[0,-19,12,3.4],[-6.3,-12.5,3.4,13],[-6.3,0.5,3.4,13],[0,-6,12,3.4],[3.3,-12.5,3.4,14.4,-0.45]];   // мм на экране руля (x вправо глазами пилота): a b c d e f g и ножка «R»
+const SW_DIG={1:'bc',2:'abged',3:'abgcd',4:'fgbc',5:'afgcd',6:'afgecd',7:'abc',R:'abfgek'}, SW_SEGZ=9.71, SW_HIDE=5, SW_ON='#f2f4f6', SW_OFF='#05070b';   // SW_HIDE — мм: на столько погашенный сегмент уходит за стекло экрана
 const HELM_Y=0.78-W17_LOWER;   // м: центр шлема — 0.73, верх 0.86 (владелец 02.11.2026, «вариант 4 см»: как на крупном фото и онбоарде; фото с трассы — верх 0.90)
 function w17Lower(G){if(!W17_LOWER)return G;
   for(const k in G){const g=G[k],P=g.attributes.position,I=g.index.array,n=P.count,par=new Int32Array(n);
@@ -10133,12 +10137,15 @@ const buildCar=(function(){        // self-contained model block; only THREE and
       // экран: рамка, тёмное стекло, данные цветными полями (без цифр) и огни оборотов над ним
       part(new THREE.ExtrudeGeometry(rrect(118,72,10),{depth:9*mm,bevelEnabled:false,curveSegments:3}), '#0d0f13', null, 0,-1,-9);
       const lit=(w,h,hex,x,y,z)=>part(new THREE.PlaneGeometry(w*mm,h*mm), hex, swL, x,y,z||-9.4, 0,Math.PI,0);
-      lit(100,54,'#05070b',0,-4);
+      lit(100,54,SW_OFF,0,-4);
       for(let i=0;i<8;i++) lit(9.5,5,'#c8402e',-40+i*11.4,18,-9.6);                         // полоса ячеек вверху экрана
       const row=(x,y,w,hex,h)=>lit(w,h||3.2,hex,x,y,-9.6);                                   // «строки» данных — полосками, без цифр
       row(-31,8,26,'#2fc865',6); row(-35,-3,18,'#d9dde2'); row(-35,-10,18,'#e0503c',5); row(-35,-20,18,'#e0503c',5); row(-24,-27,10,'#9aa3ad');
       row(31,8,22,'#f2cf5a',6); row(35,-3,18,'#d9dde2'); row(35,-10,18,'#e0503c',5); row(35,-20,18,'#e0503c',5); row(47,-6,2.5,'#2fc865',24);
-      row(-6.5,-6,4,'#f2f4f6',22); row(6.5,-6,4,'#f2f4f6',22); part(new THREE.PlaneGeometry(4*mm,25*mm),'#f2f4f6',swL,0,-6,-9.7,0,Math.PI,-0.50);   // передача «N»
+      // передача (v1.17.46, вариант А владельца): 7 сегментов и косая ножка «R»; каждый сегмент — на своей глубине (−9.71…−9.78 мм), по ней swGear
+      // находит его вершины после склейки; погашенный уходит за стекло на SW_HIDE (перекраска не годится: тёмный сегмент закрывал углы горящих) —
+      // без нового меша и вызова. Сначала горит «1» (у соперников так и остаётся).
+      SW_SEG.forEach(([x,y,w,h,rz],i)=>part(new THREE.PlaneGeometry(w*mm,h*mm), SW_ON, swL, x,y,-(SW_SEGZ+0.01*i)+(i===1||i===2?0:SW_HIDE), 0,Math.PI,rz||0));
       for(let i=0;i<15;i++) lit(3.4,3.4,i<5?'#3dff72':i<10?'#ff3232':'#3c7cff',-42+i*6,30,-9.6);
       for(const s of[-1,1]) for(let i=0;i<4;i++) part(new THREE.CircleGeometry(1.6*mm,6), '#4a5058', null, s*55,20-i*8,-9.2, 0,Math.PI,0);
       // кнопки: цветные — сплошные, чёрные — со светлым ободком
@@ -10498,6 +10505,13 @@ function makeState(name,num,color,skill,isPlayer){
 // place player from x,z,hdg ; place AI from u,lane
 function placePlayer(c){c.mesh.position.set(c.x,0,c.z);c.mesh.rotation.set(0,c.hdg+(c.yawLag||0),0);reliefSit(c);   // yawLag — доворот носа после стены, только картинка
   const fw=c.mesh.userData.frontWheels;if(fw)for(const w of fw)w.rotation.y=c.steerVis;steerSet(c);wheelSpin(c);}
+function swGear(c){const sw=c.mesh.userData.sw;if(!sw)return;const u=sw.userData,gr=c.speed<-0.1?'R':String(gearOf(Math.max(0,c.speed))+1);   // на месте и на решётке — «1»
+  if(u.gear===gr)return;u.gear=gr;
+  if(!u.seg){const m=sw.children.find(o=>o.isMesh&&o.material.isMeshBasicMaterial);if(!m)return;const P=m.geometry.attributes.position;u.seg=SW_SEG.map(()=>[]);u.segPos=P;
+    for(let i=0;i<P.count;i++){let q=-P.getZ(i)*1000;if(q<SW_SEGZ-SW_HIDE/2)q+=SW_HIDE;const k=(q-SW_SEGZ)/0.01,j=Math.round(k);
+      if(j>=0&&j<SW_SEG.length&&Math.abs(k-j)<0.3)u.seg[j].push(i);}}
+  const P=u.segPos,lit=SW_DIG[gr];
+  u.seg.forEach((vs,j)=>{const z=(-(SW_SEGZ+0.01*j)+(lit.indexOf('abcdefgk'[j])>=0?0:SW_HIDE))/1000;for(const i of vs)P.setZ(i,z);});P.needsUpdate=true;}
 function steerSet(c){const su=c.mesh.userData.steer;if(su)for(const u of su)u.value=c.steerVis;}   // передний угол W17 — тот же угол, что у колёс
 /* Вращение колёс (v1.17.24) — только картинка: угол от пройденного кузовом пути (не от физики), за кадр не больше
    WHEEL_SPIN_MAX — меньше половины шага спиц (72°), иначе на скорости колесо «крутится назад» (стробоскоп). */
@@ -10682,7 +10696,7 @@ function startRace(){document.getElementById('s-quali').classList.remove('active
   wallTouch=false;AUDIO.stopScrape();tlReset();
   // player on grid (same geometry as the painted boxes)
   const gs=gridSpot(gridPos);const back=gs.back,gi=gs.gi,gp=gs.pos;         // same continuous spot as the painted box and as the rivals
-  player.x=gp.x;player.z=gp.z;player.hdg=gs.hdg;player.yawLag=0;player.speed=0;player.steerAmt=0;player.steerVis=0;if(player.mesh.userData.sw)player.mesh.userData.sw.rotation.z=0;   // руль и колёса прямо: на фонарях физика стоит, иначе они замирали, как в последнем кадре квалы (Баку — в T1)
+  player.x=gp.x;player.z=gp.z;player.hdg=gs.hdg;player.yawLag=0;player.speed=0;player.steerAmt=0;player.steerVis=0;if(player.mesh.userData.sw)player.mesh.userData.sw.rotation.z=0;swGear(player);   // руль и колёса прямо: на фонарях физика стоит, иначе они замирали, как в последнем кадре квалы (Баку — в T1)
   player.lap=0;player.lapT=0;player.best=Infinity;player.last=0;
   player.started=false;player.hint=gi;player.prevIdx=gi;player.dist=-back;player.lapLock=0;player.spdAvg=0;
   player.arcPrev=track.S[gi]+((player.x-track.P[gi].x)*track.F[gi].x+(player.z-track.P[gi].z)*track.F[gi].z);
@@ -10828,6 +10842,7 @@ function update(dt){
      if(Math.abs(dh)>lim)dh=Math.sign(dh)*lim;player.hdg+=dh;}}
   player.steerVis+=((-player.steerAmt*0.35)-player.steerVis)*Math.min(1,dt*10);   // visual front-wheel angle: max ~20 deg, as on a real F1 car
   if(player.mesh.userData.sw)player.mesh.userData.sw.rotation.z=-player.steerVis*2.43;   // compensated so the cockpit wheel still sweeps the same as before
+  swGear(player);                                                                         // передача на экране руля — по скорости, как у звука (gearOf)
   // integrate position
   const fx=Math.sin(player.hdg),fz=Math.cos(player.hdg);
   player.x+=fx*player.speed*dt;player.z+=fz*player.speed*dt;
