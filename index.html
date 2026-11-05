@@ -10097,14 +10097,64 @@ const buildCar=(function(){        // self-contained model block; only THREE and
     }   // !W17
 
     // ---- РУЛЕВОЕ КОЛЕСО (отдельная группа: игра крутит sw.rotation.z) ----
+    // v1.17.46 (фото владельца 05.11.2026: руль Mercedes и Aston Martin) — форма и общий вид руля 2026, без надписей: корпус карбоном
+    // с «плечами» и прорезями под пальцы, резиновые ручки, экран в рамке с огнями оборотов, цветные кнопки, три крутилки внизу,
+    // золотые колёсики, барабаны ENTRY и HI SPEED на ручках, лепестки сзади. Размер 0.28 × 0.15 м (как у настоящего), лицом к пилоту (−z
+    // группы). Два материала, как у прежнего: всё освещаемое — вершинным цветом, экран и огни — светом (MeshBasic); вызовов столько же.
     let sw=null;
     if(!S){
       sw=new THREE.Group();
-      add(sw, box(0.24,0.040,0.032), carbon,  0, 0.090, 0);
-      add(sw, box(0.15,0.040,0.032), carbon,  0,-0.090, 0);
-      for(const s of[-1,1]) add(sw, box(0.040,0.14,0.05), carbon, s*0.100, 0, 0);
-      add(sw, box(0.13,0.08,0.02), carbon2,   0, 0.005, 0.026);
-      sw.position.set(0,W17?0.60-W17_LOWER:0.74,0.80); sw.rotation.x=-0.62; g.add(sw);   // у W17 — на месте руля модели (её руль снят)
+      const swM=new THREE.MeshStandardMaterial({vertexColors:true,metalness:0.25,roughness:0.55}), swL=new THREE.MeshBasicMaterial({vertexColors:true});
+      const tint=(geo,hex)=>{const c=new THREE.Color(hex),n=geo.attributes.position.count,a=new Float32Array(n*3);
+        for(let i=0;i<n;i++){a[i*3]=c.r;a[i*3+1]=c.g;a[i*3+2]=c.b;}geo.setAttribute('color',new THREE.BufferAttribute(a,3));return geo;};
+      const mm=0.001, part=(geo,hex,mat,x,y,z,rx,ry,rz)=>add(sw,tint(geo,hex),mat||swM,-x*mm,y*mm,z*mm,rx,ry,rz&&-rz);   // мм, x — вправо глазами пилота (у группы +x — влево)
+      const loop=(half,n)=>{const pts=half.concat(half.slice(1,-1).reverse().map(p=>[-p[0],p[1]]));   // левая половина → замкнутый гладкий контур
+        return new THREE.CatmullRomCurve3(pts.map(p=>new THREE.Vector3(p[0]*mm,p[1]*mm,0)),true,'centripetal').getSpacedPoints(n).slice(0,-1);};
+      const shape=pts=>{const s=new THREE.Shape();s.moveTo(pts[0].x,pts[0].y);for(let i=1;i<pts.length;i++)s.lineTo(pts[i].x,pts[i].y);return s;};
+      const curve=(pts,n)=>new THREE.CatmullRomCurve3(pts.map(p=>new THREE.Vector3(p[0]*mm,p[1]*mm,0)),true,'centripetal').getSpacedPoints(n).slice(0,-1);
+      const ext=(pts,d,bv)=>new THREE.ExtrudeGeometry(shape(pts),{depth:d*mm,bevelEnabled:bv>0,bevelThickness:bv*mm,bevelSize:bv*mm,bevelSegments:2,curveSegments:1});
+      const rrect=(w,h,r)=>{const s=new THREE.Shape(),x=w/2*mm,y=h/2*mm,q=r*mm;s.moveTo(-x+q,-y);s.lineTo(x-q,-y);s.quadraticCurveTo(x,-y,x,-y+q);
+        s.lineTo(x,y-q);s.quadraticCurveTo(x,y,x-q,y);s.lineTo(-x+q,y);s.quadraticCurveTo(-x,y,-x,y-q);s.lineTo(-x,-y+q);s.quadraticCurveTo(-x,-y,-x+q,-y);return s;};
+      const CARB='#1b1e23', RUB='#2a2d31';
+      // корпус: верх с «плечами», ручки свисают по бокам, между ручкой и серединой — прорезь под пальцы
+      part(ext(loop([[0,45],[-50,45],[-90,47],[-118,51],[-133,47],[-140,34],[-141,10],[-140,-30],[-136,-70],[-130,-90],[-120,-99],[-109,-96],
+        [-103,-84],[-101,-50],[-100,-15],[-98,2],[-91,7],[-85,1],[-83,-25],[-81,-58],[-75,-77],[-55,-89],[-25,-94],[0,-95]],120),24,3), CARB, null, 0,0,0);
+      for(const s of[-1,1]){   // резиновые ручки — толще корпуса
+        const gp=curve([[-139,12],[-140,-30],[-137,-72],[-131,-92],[-121,-100],[-110,-97],[-105,-85],[-104,-50],[-103,-15],[-105,10]].map(p=>[p[0]*s,p[1]]),40);
+        part(ext(gp,26,7), RUB, null, 0,0,-2);
+        part(new THREE.CylinderGeometry(8*mm,8*mm,16*mm,12), s<0?'#c4222b':'#2a78d0', null, s*113,20,-7, 0,0,s*0.55);   // барабаны ENTRY / HI SPEED
+        part(box(9*mm,17*mm,9*mm), '#c8902c', null, s*74,-5,-6);                                                          // золотые колёсики
+        part(box(6*mm,18*mm,10*mm), '#9aa0a8', null, s*90,-28,-4);                                                         // серебряные колёсики у прорези
+        part(ext([[40,-12],[128,-6],[132,34],[60,30]].map(p=>new THREE.Vector2(p[0]*s*mm,p[1]*mm)),3,0), CARB, null, 0,0,34);   // лепесток сзади
+      }
+      part(new THREE.ExtrudeGeometry(rrect(160,96,22),{depth:32*mm,bevelEnabled:true,bevelThickness:4*mm,bevelSize:4*mm,bevelSegments:2,curveSegments:3}),
+        '#16191d', null, 0,8,22);                                                                                       // корпус электроники сзади (закрывает и остатки руля модели)
+      part(new THREE.CylinderGeometry(22*mm,22*mm,60*mm,14), '#121418', null, 0,-6,84, Math.PI/2,0,0);                   // ступица и колонка
+      // экран: рамка, тёмное стекло, данные цветными полями (без цифр) и огни оборотов над ним
+      part(new THREE.ExtrudeGeometry(rrect(118,72,10),{depth:9*mm,bevelEnabled:false,curveSegments:3}), '#0d0f13', null, 0,-1,-9);
+      const lit=(w,h,hex,x,y,z)=>part(new THREE.PlaneGeometry(w*mm,h*mm), hex, swL, x,y,z||-9.4, 0,Math.PI,0);
+      lit(100,54,'#05070b',0,-4);
+      for(let i=0;i<8;i++) lit(9.5,5,'#c8402e',-40+i*11.4,18,-9.6);                         // полоса ячеек вверху экрана
+      const row=(x,y,w,hex,h)=>lit(w,h||3.2,hex,x,y,-9.6);                                   // «строки» данных — полосками, без цифр
+      row(-31,8,26,'#2fc865',6); row(-35,-3,18,'#d9dde2'); row(-35,-10,18,'#e0503c',5); row(-35,-20,18,'#e0503c',5); row(-24,-27,10,'#9aa3ad');
+      row(31,8,22,'#f2cf5a',6); row(35,-3,18,'#d9dde2'); row(35,-10,18,'#e0503c',5); row(35,-20,18,'#e0503c',5); row(47,-6,2.5,'#2fc865',24);
+      row(-6.5,-6,4,'#f2f4f6',22); row(6.5,-6,4,'#f2f4f6',22); part(new THREE.PlaneGeometry(4*mm,25*mm),'#f2f4f6',swL,0,-6,-9.7,0,Math.PI,-0.50);   // передача «N»
+      for(let i=0;i<15;i++) lit(3.4,3.4,i<5?'#3dff72':i<10?'#ff3232':'#3c7cff',-42+i*6,30,-9.6);
+      for(const s of[-1,1]) for(let i=0;i<4;i++) part(new THREE.CircleGeometry(1.6*mm,6), '#4a5058', null, s*55,20-i*8,-9.2, 0,Math.PI,0);
+      // кнопки: цветные — сплошные, чёрные — со светлым ободком
+      const btn=(x,y,hex,ring)=>{const t=Math.PI/2;
+        if(ring) part(new THREE.CylinderGeometry(7*mm,7*mm,3*mm,14), '#6b7078', null, x,y,-3.5, t,0,0);
+        part(new THREE.CylinderGeometry(5.5*mm,5.5*mm,5*mm,14), hex, null, x,y,-5, t,0,0);};
+      btn(-104,33,'#f2c230'); btn(-86,29,'#4c3db4'); btn(-69,19,'#1fa58f'); btn(-66,-24,'#2a6fd6'); btn(-66,-44,'#d8332b'); btn(-68,-64,'#15171a',1);
+      btn(72,18,'#f2c230'); btn(88,29,'#4c3db4'); btn(105,31,'#f07a22'); btn(68,-24,'#15171a',1); btn(69,-44,'#e6e8ea'); btn(72,-64,'#15171a',1);
+      // три крутилки: кольцо шкалы с цветными делениями и зубчатая ручка с белой риской
+      [[-38,'#f4c81c','#c9a227'],[0,'#3d2fa3','#3b3fa8'],[38,'#22b3a0','#1b9c8c']].forEach(([x,kc,rc],k)=>{const y=-64;
+        part(new THREE.RingGeometry(12*mm,18.5*mm,20), rc, null, x,y,-3.3, 0,Math.PI,0);
+        for(let i=0;i<10;i++){const a=-2.4+i*0.53;part(box(2.2*mm,2.2*mm,1*mm), ['#ffffff','#7fc4ff','#ff6b6b','#ffe066'][(i+k)%4], null, x+Math.sin(a)*15.2,y+Math.cos(a)*15.2,-3.6);}
+        const tp=[];for(let i=0;i<24;i++){const a=i*Math.PI/12,r=i%2?9.6:11.2;tp.push(new THREE.Vector2(Math.cos(a)*r*mm,Math.sin(a)*r*mm));}
+        part(ext(tp,10,1), kc, null, x,y,-14);
+        part(box(1.8*mm,8*mm,1*mm), '#f4f6f8', null, x,y+4,-15.3);});
+      sw.position.set(0,W17?0.58:0.74,W17?0.722:0.80); sw.rotation.x=0.30; g.add(sw);   // у W17 — на конце рулевой колонки модели (0, 0.58, 0.74): остатки её руля (экран, огни) — внутри корпуса; верх от пилота, лицом к нему и вверх
     }
 
     // ---- ТЕНЬ: создаётся, только если игра предоставила общую текстуру ENVSHADOW ----
