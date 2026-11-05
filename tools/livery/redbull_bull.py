@@ -4,9 +4,10 @@
 и сверху: голова у воздухозаборника, копыто задней ноги у плавника, низ передних ног, верх крупа). Спина обрезается по хребту
 капота W17 (выше — плавник, на фото он карбоновый). Выход — фигуры в пикселях «фото» сбоку (redbull/side_model.png:
 380 пикс/м, ступица переднего колеса 700, 560) для redbull.json.
-   python3 -I tools/livery/redbull_bull.py   -> печатает JSON фигур быка (основной на капоте и малый на носу)
+   python3 -I tools/livery/redbull_bull.py [redbull|racingbulls]   -> печатает JSON фигур быка (основной на капоте и малый на носу)
+v1.17.37: тот же бык для Racing Bulls — свои опорные точки и «фото» сбоку (racingbulls/side.jpg — настоящее фото, не ортоснимок).
 Вывод — фигуры с пометкой «бык…» в начале side.shapes в redbull.json (заменить их целиком); дальше обычный порядок livery.py → wrap.js → livery.py."""
-import json
+import json, sys
 
 def solve(A, b):   # Гаусс для 8×8
   n = len(A); M = [r[:] + [b[i]] for i, r in enumerate(A)]
@@ -58,15 +59,37 @@ MARKS = {
  'складка у крупа': ([(1478, 292), (1474, 320), (1470, 348)], 11),
  'складка у брюха': ([(1228, 334), (1218, 356), (1210, 376)], 10),
 }
-# опорные точки: close.jpg -> (z, y) болида
-ANCH = [((905, 105), (-0.33, 1.00)), ((1985, 520), (-1.28, 0.56)), ((1180, 532), (-0.60, 0.68)), ((1650, 272), (-1.03, 0.79))]
+# опорные точки: close.jpg -> (z, y) болида; у каждой команды свои (v1.17.37: Racing Bulls — тот же логотип, по своему фото сбоку)
+VARIANTS = {
+ 'redbull': dict(anch=[((905, 105), (-0.33, 1.00)), ((1985, 520), (-1.28, 0.56)), ((1180, 532), (-0.60, 0.68)), ((1650, 272), (-1.03, 0.79))],
+                 nose=(2.55, 0.515, 0.36, 0.72), view=(380, 700, 560), mark='white'),
+ # Racing Bulls (racingbulls/side.jpg, 427.4 пикс/м, ступица 617, 801): морда-горб у воздухозаборника (1475, 515), копыто задней (1782, 620),
+ # низ передних ног (1600, 612), круп (1695, 537) — бык выше и короче, чем у Red Bull, на самом верху капота; штрихи — жёлтые (на фото кайма жёлтая)
+ # Racing Bulls (v1.17.37): фото сбоку настоящее (427.4 пикс/м, ступица 617, 801). Бык на VCARB выше и короче (z −0.2…−0.93, спина 1.02 —
+ # выше хребта W17), по фото он на W17 срезался хребтом и не читался — поставлен как у Red Bull (тот же размер), на 10 см ближе к воздухозаборнику
+ # (на фото голова сразу за ним). Малый бык на носу — аффинным переносом close.jpg -> пиксели фото по 6 точкам (вдоль ската носа).
+ 'racingbulls': dict(anch=[((905, 105), (-0.23, 1.01)), ((1985, 520), (-1.18, 0.59)), ((1180, 532), (-0.50, 0.71)), ((1650, 272), (-0.93, 0.82))],
+                 nose_aff=[((803, 284), (345, 768)), ((1100, 86), (430, 727)), ((950, 185), (370, 748)), ((1150, 520), (400, 778)), ((1650, 272), (470, 738)), ((1954, 528), (495, 772))],
+                 view=(427.4, 617, 801), mark='yellow'),
+}
+KEY = sys.argv[1] if len(sys.argv) > 1 else 'redbull'
+V = VARIANTS[KEY]
+PPM, CX, CY = V['view']
 
-NOSE_Z, NOSE_Y, NOSE_LEN, NOSE_SQ = 2.55, 0.515, 0.36, 0.72   # морда малого быка, верх, длина, сжатие по высоте
+def affine(pairs):   # close.jpg -> пиксели фото сбоку, наименьшие квадраты (6 параметров), затем -> (z, y) болида
+  S = [[0.0] * 3 for _ in range(3)]; bu = [0.0] * 3; bv = [0.0] * 3
+  for (x, y), (u, v) in pairs:
+    r = (x, y, 1.0)
+    for i in range(3):
+      bu[i] += r[i] * u; bv[i] += r[i] * v
+      for j in range(3): S[i][j] += r[i] * r[j]
+  a = solve(S, bu); c = solve(S, bv)
+  return lambda x, y: (1.80 - (a[0] * x + a[1] * y + a[2] - CX) / PPM, 0.355 + (CY - (c[0] * x + c[1] * y + c[2])) / PPM)
 
-def px(z, y): return [round(700 + (1.80 - z) * 380, 1), round(560 - (y - 0.355) * 380, 1)]
+def px(z, y): return [round(CX + (1.80 - z) * PPM, 1), round(CY - (y - 0.355) * PPM, 1)]
 
 def main():
-  H = homog([a for a, _ in ANCH], [b for _, b in ANCH])
+  H = affine(V['aff']) if 'aff' in V else homog([a for a, _ in V['anch']], [b for _, b in V['anch']])
   def tr(pts, clip=True):
     q = []
     for x, y in pts:
@@ -79,12 +102,15 @@ def main():
     out.append({"c": "red", "note": "бык: " + name + " (redbull_bull.py)", "wrap": True, "p": [px(z, v) for z, v in tr(pts)]})
   for name, (pts, w) in MARKS.items():
     q = tr(pts); sc = abs(H(pts[0][0] + 10, pts[0][1])[0] - H(*pts[0])[0]) / 10   # метров на пиксель close.jpg у штриха
-    out.append({"c": "white", "note": "бык: " + name, "wrap": True, "line": [px(z, v) for z, v in q], "w": round(w * sc * 380, 1)})
+    out.append({"c": V['mark'], "note": "бык: " + name, "wrap": True, "line": [px(z, v) for z, v in q], "w": round(w * sc * PPM, 1)})
   # малый бык на борту носа (фото 3/4 спереди: у конца жёлтого кончика, голова к носу): та же обводка подобием, по высоте
   # сжат до борта носа W17 (y 0.40–0.51 у z 2.3); только части, без штрихов (мельче клетки карты)
-  s_ = NOSE_LEN / (1985 - 803)
+  if 'nose_aff' in V: Hn = affine(V['nose_aff'])   # Racing Bulls: по фото сбоку, вдоль ската носа
+  else:
+    NOSE_Z, NOSE_Y, NOSE_LEN, NOSE_SQ = V['nose']   # морда малого быка, верх, длина, сжатие по высоте
+    s_ = NOSE_LEN / (1985 - 803); Hn = lambda x, y: (NOSE_Z - (x - 803) * s_, NOSE_Y - (y - 86) * s_ * NOSE_SQ)
   for name, pts in PARTS.items():
-    q = [(NOSE_Z - (x - 803) * s_, NOSE_Y - (y - 86) * s_ * NOSE_SQ) for x, y in pts]
+    q = [Hn(x, y) for x, y in pts]
     out.append({"c": "red", "note": "малый бык на носу: " + name, "wrap": True, "p": [px(z, v) for z, v in q]})
   print(json.dumps(out, ensure_ascii=False))
 
