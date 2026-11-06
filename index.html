@@ -235,7 +235,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.17.47</div>
+    <div class="verstamp">v1.17.48</div>
     <div class="verstamp">Болид — по модели Dave Love (sketchfab.com/Tyler_Dave), CC BY 4.0; упрощена и перекрашена</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
@@ -11418,10 +11418,18 @@ function spinWorld(c,f,step){if(f.ox===undefined){const w=spinXZ(c);f.ox=w[0]-f.
   if(!q)return null;return {ds:(((q.u-c.u)%1+1.5)%1-0.5)*track.length,dl:q.lane-c.lane,psi:q.psi,s:s,mv:p[2]};}
 /* Сосед на пути разворота: вровень, впереди ближе SPIN_CROWD_A (тот, кто тормозит перед поворотом, тормозит и сильнее
    разворачивающегося — до 44 м/с² против 30: упор в него ставил болид на линии) или вплотную сзади (ближе SPIN_CROWD_T хода),
-   и не внутри поворота — снаружи или на той же линии. Внутри — болид уходит от него. Такой ошибке разворота нет, будет обычная. */
-function spinCrowd(c,side,ret){const iu=carIdx(c),F=track.F[iu],R=track.R[iu],back=ret?8:Math.max(8,c.speed*SPIN_CROWD_T);   // сходу задний не помеха: тот тормозит сильнее (50 против 20 м/с²)
+   и не внутри поворота — снаружи или на той же линии. Внутри — болид уходит от него. Такой ошибке разворота нет, будет обычная.
+   v1.17.48: и сосед впереди ПО ДОРОГЕ, снаружи по полосе дальше SPIN_CROWD, — на пути. В крутом повороте мерка по касательной в месте
+   срыва такого соседа видит «внутри»: Сильверстоун S 5423 (поворот 81°) — BOT в 18 м впереди «внутри на 2.5 м», а по полосе снаружи на 2.8 м;
+   разворот его догонял, упирался (FOLLOW_TAU), путь выходил на 8 м короче, и болид вставал на асфальте до 1.2 м до линии. Мерка по
+   касательной оставлена: сосед впереди на той же линии (по полосе −3.4…+0.9 м) разворот не держит — 28 разворотов в гонках v1.17.47
+   (3 трассы × 12 зёрен), ни одного упора, все за линией на 1.57 м и дальше. */
+function spinLat(o,i){const P=track.P[i],R=track.R[i];return (o.x-P.x)*R.x+(o.z-P.z)*R.z;}   // полоса болида по своей точке осевой (и у игрока)
+function spinCrowd(c,side,ret){const M=track.M,seg=track.length/M,iu=carIdx(c),F=track.F[iu],R=track.R[iu],lc=spinLat(c,iu),back=ret?8:Math.max(8,c.speed*SPIN_CROWD_T);   // сходу задний не помеха: тот тормозит сильнее (50 против 20 м/с²)
   for(const o of cars){if(o===c||o.retired)continue;const dx=o.x-c.x,dz=o.z-c.z,lon=dx*F.x+dz*F.z,lat=(dx*R.x+dz*R.z)*side;
-    if(lon>-back&&lon<SPIN_CROWD_A&&lat>-SPIN_CROWD)return true;}return false;}
+    if(lon>-back&&lon<SPIN_CROWD_A&&lat>-SPIN_CROWD)return true;
+    const io=carIdx(o),rl=(((io-iu)%M+M+M/2)%M-M/2)*seg;
+    if(rl>0&&rl<SPIN_CROWD_A&&(spinLat(o,io)-lc)*side>SPIN_CROWD)return true;}return false;}
 /* Выезд занят: впереди по пути разворота (до остановки + 50 м), с любой стороны, стоит или возвращается развернувшийся,
    сходит или стоит сошедший (v1.16.83: на тестовой сборке два развернувшихся встали в 6 м друг от друга — один не мог развернуться
    на месте, другой — объехать его, и оба простояли до финиша; в башне у заднего «+0.000» до конца гонки). */
