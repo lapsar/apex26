@@ -235,7 +235,7 @@
     <div><span class="chip cond">11 команд</span><span class="chip cond">22 пилота</span><span class="chip cond" id="titleTracks">Monza · Silverstone · Montreal</span></div>
     <div class="spacer"></div>
     <div class="foot">Лучше в горизонтальной ориентации. Управление: экранные ◄ ► + газ/тормоз, либо стрелки / WASD, «C» — камера.</div>
-    <div class="verstamp">v1.17.48</div>
+    <div class="verstamp">v1.17.49</div>
     <div class="verstamp">Болид — по модели Dave Love (sketchfab.com/Tyler_Dave), CC BY 4.0; упрощена и перекрашена</div>
     <div class="actionbar"><button class="btn primary" onclick="go('s-track')">Начать уик-энд</button></div>
   </section>
@@ -10499,7 +10499,7 @@ function makeState(name,num,color,skill,isPlayer){
   }
   return {mesh:meshObj,name:name.toUpperCase(),code:code3(name),num,color,skill,isPlayer:!!isPlayer,
     x:0,z:0,hdg:0,speed:0,u:0,lane:0,lap:0,dist:0,lapT:0,best:Infinity,last:0,started:false,prevIdx:0,hint:0,base:0,steerVis:0,steerAmt:0,yawLag:0,lapLock:0,revArm:0,revLeft:0,lapMark:0,
-    retired:false,retireAt:0,lapStart:undefined,arcPrev:0,settle:0,react:0,ovSide:1,ovLock:null,ovDir:1,laneJit:0,gridLane:0,free:0,pace:0,lanePrev:undefined,crab:0,
+    retired:false,retireAt:0,lapStart:undefined,arcPrev:0,settle:0,react:0,ovSide:1,ovLock:null,ovDir:1,goSide:0,laneJit:0,gridLane:0,free:0,pace:0,lanePrev:undefined,crab:0,
     paceAvg:0,spdAvg:0,duel:null,duelDir:1,duelT:0,neutFloor:null};}
 
 // place player from x,z,hdg ; place AI from u,lane
@@ -11141,7 +11141,7 @@ function update(dt){
       c.duel=c.ahd;c.duelT=DUEL_TIME;c.duelDir=freeSide(c,c.ahd.lane,entSide||c.ovSide,hw);}   // сторона — внутренняя для поворота впереди; freeSide оставлен сторожем: занятую внутреннюю он по-прежнему обходит снаружи
     else if(c.duel&&entSide&&Math.abs(c.lane-line)<1.0)c.duelDir=freeSide(c,c.duel.lane,entSide,hw);   // защёлка жива, а болид ещё не тронулся вбок — можно перецелиться на следующий поворот, не мечась на полпути
     const gLock=!!c.ovLock&&c.ovLock.isGhost&&c.ovLock!==c.ahd;              // объезжаем вставшего, а ближе — стоящий сосед: цель не перебивать (v1.16.88)
-    const goAr=!!c.ahd&&c.gp<20&&c.pace>c.ahd.speed+(c.goAr===c.ahd?PACE_HYST:1.0)&&(!na||slowAhd)&&(!afterApex||crawler||c.ovLock||c.duel===c.ahd)&&!gLock;c.goAr=goAr?c.ahd:null;   // запас PACE_HYST: объезд начат — бросается при +0.5, а не мигает на +1.0
+    const goPrev=c.goAr,goAr=!!c.ahd&&c.gp<20&&c.pace>c.ahd.speed+(c.goAr===c.ahd?PACE_HYST:1.0)&&(!na||slowAhd)&&(!afterApex||crawler||c.ovLock||c.duel===c.ahd)&&!gLock;c.goAr=goAr?c.ahd:null;   // запас PACE_HYST: объезд начат — бросается при +0.5, а не мигает на +1.0
     if(goAr){              // faster potential -> go around. Under yellow/VSC only a car that cannot hold the pace may be passed — that is the rule, and without it a queue would crawl behind a stopped car for ever (v1.15.26)
       let ov=c.ovSide, off=LANE_OV;
       if(crawler){                                                           // ahead much slower/stopped: take the open side (toward centre) and clear fully
@@ -11150,7 +11150,15 @@ function update(dt){
         off=(c.ahd.spanX!==undefined?Math.max(LANE_PASS,c.ahd.spanX+CAR_PASS):LANE_PASS)+(c.ahd.isGhost&&c.ovPadFor===c.ahd?c.ovPad:0);   // поперёк трассы игрок занимает ±3 м — 3.4 от его центра это въезд в него
         if(c.ahd.speed<6){c.ovLock=c.ahd;c.ovDir=ov;}}                       // latch ONLY onto a car that has genuinely stopped. "crawler" measures against MY pace at MY point on the track, so in every braking zone the car ahead — already in the corner — looks stopped; latching there forced the whole field onto one line two seconds after the lights and killed the start scramble (v1.15.26, found 08.2026)
       else if(c.duel===c.ahd)ov=c.duelDir;                                   // сторона выбрана при заходе — не менять её на полпути
-      want=c.ahd.lane+ov*off;}
+      /* Сторона объезда держится, пока объезжаем ТОГО ЖЕ переднего (v1.17.49, вариант А владельца; open-tasks/race-ai.md п.37).
+         Выше сторона считается каждый кадр из трёх источников: «передний почти стоит» (crawler — против МОЕГО темпа в МОЕЙ точке,
+         в зоне торможения мигает) → freeSide, дуэль → duelDir, иначе — жребий решётки ovSide. Они расходятся, и цель перескакивала
+         с одного бока переднего на другой на 3.8–5.4 м за кадр, бывало туда-обратно за 0.1 с: болид бросался через дорогу на
+         пределе 8 м/с. Запас PACE_HYST (v1.17.31) держит объезд дольше — таких скачков стало 157 → 253 (справка ai-swerve-audit,
+         7 трасс × 3 зерна); с правкой — 3. Объезд вставшего (ovLock) — со своими правилами стороны, его не трогаем; дуэль с тем же
+         передним берёт уже занятую сторону. Обгонов не меньше: aiover 1141 → 1246, charge +20 % 130.7 → 131.4 места. */
+      if(goPrev===c.ahd&&c.goSide&&c.ovLock!==c.ahd){ov=c.goSide;if(c.duel===c.ahd)c.duelDir=ov;}
+      c.goSide=ov;want=c.ahd.lane+ov*off;}
     else if(c.duel&&!c.ovLock)want=c.duel.lane+c.duelDir*LANE_OV;                // цель ушла из моей полосы — значит я уже сбоку; держим линию, пока не проехали
     /* Объезжая ВСТАВШЕГО игрока, коридор шире — до hw·0.75, как у ошибающегося (v1.16.21): болид
        поперёк узкой трассы (Хунгароринг, hw 6) занимает половину дороги, и в hw·0.62 объезд
