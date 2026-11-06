@@ -61,21 +61,21 @@ v_corner(R) = aiCornerV(R) * cornerFrac      // aiCornerV — закон рул�
 Якорь по ЛИДЕРУ:
 у `skill=0.98` множитель поворота ровно 1, поэтому таблицу-якорь по-прежнему двигает только
 максимум силы в поле, а не поле целиком. Сам рейтинг — данные, а не константа: он лежит
-в `TEAMS` (`index.html:248`) и правится свободно, пока максимум поля остаётся 0.98.
+в `TEAMS` (`index.html:318`) и правится свободно, пока максимум поля остаётся 0.98.
 
-**Состав и рейтинги поля (с v1.16.16, рейтинги владельца).** Номер — свой у пилота.
+**Состав и рейтинги поля (с v1.16.16, рейтинги владельца; 06.11.2026 — Hadjar 0.93 → 0.94, в Haas вместо Ocon №31 дебютант Rafael Camara №51 с той же силой 0.85; P11 и группы `quali` не сдвинулись).** Номер — свой у пилота.
 
 | Команда | Пилот 1 | Пилот 2 |
 |---|---|---|
 | McLaren | Norris №1 · 0.97 | Piastri №81 · 0.96 |
 | Ferrari | Leclerc №16 · 0.96 | Hamilton №44 · 0.96 |
 | Mercedes | Russell №63 · 0.96 | Antonelli №12 · **0.98** (максимум поля, якорь) |
-| Red Bull | Verstappen №3 · 0.97 | Hadjar №6 · 0.93 |
+| Red Bull | Verstappen №3 · 0.97 | Hadjar №6 · 0.94 |
 | Aston Martin | Alonso №14 · 0.84 | Stroll №18 · 0.83 |
 | Alpine | Gasly №10 · 0.88 | Colapinto №43 · 0.87 |
 | Williams | Albon №23 · 0.85 | Sainz №55 · 0.85 |
 | Racing Bulls | Lawson №30 · 0.89 | Lindblad №41 · 0.89 |
-| Haas | Ocon №31 · 0.85 | Bearman №87 · 0.85 |
+| Haas | Camara №51 · 0.85 | Bearman №87 · 0.85 |
 | Audi | Hulkenberg №27 · 0.86 | Bortoleto №5 · 0.86 |
 | Cadillac | Perez №11 · 0.81 | Bottas №77 · 0.81 |
 
